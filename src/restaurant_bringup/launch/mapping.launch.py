@@ -12,9 +12,11 @@ def generate_launch_description():
     nav = get_package_share_directory('nav2_bringup')
     return LaunchDescription([
         DeclareLaunchArgument('robot_sdf'),
+        DeclareLaunchArgument('gui', default_value='true'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(here,'launch','world.launch.py')),
-            launch_arguments={'robot_sdf': LaunchConfiguration('robot_sdf')}.items()),
+            launch_arguments={'robot_sdf': LaunchConfiguration('robot_sdf'),
+                              'gui': LaunchConfiguration('gui')}.items()),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(nav,'launch','slam_launch.py')),
             launch_arguments={'use_sim_time':'true','autostart':'true',

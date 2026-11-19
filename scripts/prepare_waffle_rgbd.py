@@ -19,6 +19,21 @@ def build(src: Path, dst: Path):
         raise RuntimeError('UPSTREAM_CAMERA_LINK_NOT_FOUND')
     if camera.find("./sensor[@name='restaurant_registered_rgbd']") is not None:
         raise RuntimeError('DUPLICATE_RGBD')
+    # Keep the official drive/TF/IMU and 10Hz LiDAR measurement unchanged.
+    # The Waffle Pi 30Hz RGB camera is redundant once registered RGB-D provides RGB.
+    legacy = robot.find("./link[@name='camera_rgb_frame']")
+    if legacy is None:
+        raise RuntimeError('EXPECTED_OFFICIAL_CAMERA_RGB_LINK')
+    cameras = legacy.findall("./sensor[@name='camera']")
+    if len(cameras) != 1 or cameras[0].get('type') != 'camera':
+        raise RuntimeError('EXPECTED_ONE_OFFICIAL_RGB_CAMERA')
+    legacy.remove(cameras[0])
+    lidar = robot.find("./link[@name='base_scan']/sensor[@name='hls_lfcd_lds']")
+    if lidar is None or lidar.get('type') != 'gpu_lidar':
+        raise RuntimeError('EXPECTED_OFFICIAL_GPU_LIDAR')
+    viz = lidar.find('visualize')
+    if viz is not None:
+        viz.text = 'false'  # Ray overlay is not the actual /scan.
     sensor=ET.SubElement(camera,'sensor',{'name':'restaurant_registered_rgbd','type':'rgbd_camera'})
     ET.SubElement(sensor,'pose').text='0 0 0 0 0 0'
     ET.SubElement(sensor,'always_on').text='true'
@@ -38,6 +53,11 @@ def build(src: Path, dst: Path):
     tree.write(dst,encoding='utf-8',xml_declaration=True)
     if len(ET.parse(dst).getroot().findall(".//sensor[@name='restaurant_registered_rgbd']"))!=1:
         raise RuntimeError('RGBD_OVERLAY_VALIDATION_FAILED')
+    generated=ET.parse(dst).getroot()
+    if generated.find(".//sensor[@name='camera']") is not None:
+        raise RuntimeError('REDUNDANT_RGB_SENSOR_STILL_PRESENT')
+    if generated.findtext(".//sensor[@name='hls_lfcd_lds']/visualize") != 'false':
+        raise RuntimeError('LIDAR_RAY_VISUALIZATION_STILL_ON')
     print('RESTAURANT_RGBD_OVERLAY_STATIC_OK',dst)
 
 

@@ -44,3 +44,5 @@
 - 2026-11-19 GPU-02-EXPORT: [원격 스크립트 이스케이프 결함·Blob SHA 일치 복구](reports/issues/2026-11-19_GPU-02_transport_escaping.md) — 배포 전 검출 및 수정 PASS.
 
 - 2026-11-19 EVD-01: [Gazebo 경량 ZIP/RTF 진단 경과](reports/tasks/2026-11-19_EVD-01_compact_evidence_bundle.md) / [사용가이드](EVIDENCE_BUNDLES.md): 정적·모의 5 PASS, 강사 자동 ZIP NOT_RUN.
+
+- 2026-11-19 P0: [S1 최적화/PC분리/경량 증거 통합](reports/tasks/2026-11-19_P0_S1_verified_baseline.md). PR#3 GREEN #44483609465, PR#2 최신 CI cancelled → 통합 HEAD L2 재검 필수.
