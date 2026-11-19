@@ -9,3 +9,8 @@
 - 코드 검증: `bash -n` PASS, 모의 GLX 성공·실패·유효하지 않은 인자 3개 경로 PASS.
 - 아직 확인하지 않은 항목: Gazebo Ogre2 D3D12 사용, 현장 RTF 개선, Scan/Depth 실제 데이터, S2 지도 생성.
 - 교육용 연결: [GPU-01 원인과 분리](../issues/2026-11-19_GPU-01_wslg_llvmpipe.md).
+## 배포 전 소스 무결성 검사
+
+- 원격 최초 생성 버전의 Git Blob SHA가 로컬 검수 파일과 달라 전송 과정의 `\${` 문자열 4개를 발견했습니다.
+- 4개 이스케이프 문자를 제거한 뒤 원격 Git Blob SHA가 로컬 `c5d73ea669582f489e257066a82d65dcd0608b2e`와 일치함을 확인했습니다.
+- 이는 실제 WSL2 실행 전에 검출·수정한 **코드 전송 결함**입니다. [GPU-02-EXPORT 보고서](../issues/2026-11-19_GPU-02_transport_escaping.md).

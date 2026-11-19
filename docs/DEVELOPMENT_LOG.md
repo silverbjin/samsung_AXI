@@ -40,3 +40,5 @@
 - 2026-11-19 HW-02: [기기 분리 진단](reports/tasks/2026-11-19_HW-02_samsungaxi_profile.md) 및 [GPU-01 llvmpipe](reports/issues/2026-11-19_GPU-01_wslg_llvmpipe.md): 기록 완료, D3D12 현장 개선 NOT_RUN.
 
 - 2026-11-19 GPU-02: [실기 D3D12 GLX 경로 확인·국소 실행기](reports/tasks/2026-11-19_GPU-02_glx_route_verified.md) / [GPU-01 원인 분리](reports/issues/2026-11-19_GPU-01_wslg_llvmpipe.md): GLX PASS, Gazebo 개선 NOT_RUN.
+
+- 2026-11-19 GPU-02-EXPORT: [원격 스크립트 이스케이프 결함·Blob SHA 일치 복구](reports/issues/2026-11-19_GPU-02_transport_escaping.md) — 배포 전 검출 및 수정 PASS.
