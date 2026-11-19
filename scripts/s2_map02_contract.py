@@ -136,3 +136,32 @@ def free_path_connected(grid,start_xy,goal_xy):
             if v not in seen and 0<=grid.data[v]<=25:
                 seen.add(v);todo.append(v)
     return False
+
+
+def front_sector_clearance(scan,sector=.40):
+    """Return closest front obstacle or range_max on documented +inf no-return.
+
+    Fail closed on NaNs, zero, stale/absent scan (caller's freshness check),
+    or too many invalid beams; do not invent clear rays.
+    """
+    finite=[];inf_clear=0;invalid=0;count=0
+    for i,d in enumerate(scan.ranges):
+        az=math.atan2(math.sin(scan.angle_min+i*scan.angle_increment),
+                      math.cos(scan.angle_min+i*scan.angle_increment))
+        if abs(az)>sector:continue
+        count+=1
+        if math.isfinite(d) and scan.range_min<=d<=scan.range_max:
+            finite.append(d)
+        elif math.isinf(d) and d>0:
+            inf_clear+=1
+        else:
+            invalid+=1
+    meta=dict(beams=count,finite=len(finite),positive_inf=inf_clear,invalid=invalid)
+    usable=len(finite)+inf_clear
+    if count<10 or usable/count<.80:
+        return 0.0,meta
+    if finite:
+        return min(finite),meta
+    if inf_clear>=10 and scan.range_max>.4:
+        return scan.range_max,meta
+    return 0.0,meta

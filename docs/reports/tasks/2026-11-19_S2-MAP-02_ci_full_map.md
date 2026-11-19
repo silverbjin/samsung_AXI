@@ -32,3 +32,7 @@
 ## Cycle 04 — CI 경로 추종에서 GT/Odom 차이 수정
 - 실제 모델 위치와 휠 Odom 추정 간 약 0.60m 차이를 직접 계측. **CI survey control에만** Gazebo 실 Pose 사용하고 원래 LiDAR/SLAM/Odom 데이터로 OccupancyGrid 생성.
 - 물리 안전 가드 동일, GT stale시 STOP/HOLD. 저장 지도/AMCL S3는 별도 인수. 실제 Run GREEN 전 S2-MAP-02 완료 주장 금지.
+
+## Cycle 05 — 전방 무반사(+inf) 처리 경계
+- Run #44550663776 L0/L1/S1/S2MAP01 PASS, 신규 GT 제어 후 첫 전방 LiDAR `FRONT_MIN_M=0, MIN_BEAM_INDEX=-1` 정지.
+- 양의 Infinity no-return vs NaN/0/실제 장애물을 구별하는 보수적 처리 후보 추가, 정지거리 0.40m 유지. 실 Gazebo GREEN 전 통합 성공 주장 금지.

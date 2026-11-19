@@ -42,3 +42,10 @@
 - 최소 수정: `s2_map02_gt_pose.py`로 실시간 `/world/restaurant/pose/info`의 실제 모델 Pose를 읽어, **CI 전용 고정 경로 추종**에서만 목표 좌표와 yaw 피드백 사용. 지도 검증 위치는 동시 관측된 Gazebo Pose·Odom·map→odom TF로 정합.
 - /scan, /odom, /tf, SLAM Toolbox 입력은 원본 그대로. Gazebo GT를 SLAM 입력/Map으로 발행하지 않음. LIDAR 0.40m STOP, 불신/지연 시 종료 유지.
 - Pytest 계약에 Gazette Pose_V 파싱 및 다른 모델 거부 회귀 추가. 실제 Gazebo GREEN 전까지 미해결.
+
+## Cycle 05 — 실제 LiDAR +inf 무반사와 센서 오류를 구분
+- [Run #44550663776](https://github.com/silverbjin/samsung_AXI/actions/runs/44550663776): GT 기반 제어 후 첫 경유점에서 `FRONT_MIN_M=0.0`, `MIN_BEAM_INDEX=-1`, SDF 최근접 kitchen_counter 약 0.736m, Gazebo 실제 모델과 Odom은 같은 좌표로 정합.
+- 원인 경계: 전방 ±0.40rad에서 유효 **유한** LaserScan 거리값이 하나도 없어 기존 CI 전용 `front_distance`가 0.0m 안전정지를 발행함. 이 로그만으로 모든 빔이 +inf인지 확정하지 않음.
+- 후보 최소 수정: ROS LaserScan의 정상 범위 밖 no-return **양의 Infinity**와 잘못된 NaN/0/음수 구분. 전방 빔 10개 이상 중 80% 이상이 거리 유한값 또는 양의 Infinity일 때만 처리하고, Infinity만 있을 때는 `range_max`를 clear distance로 해석. 유한 장애물값이 하나라도 있으면 최소거리로 안전 정지 판단.
+- NaN, 0, 불충분한 전방 빔 및 통신 지연은 계속 STOP. 기존 0.40m 정지 임계값 변경 없음. 다음 실제 Run에서 전방 빔 수·finite/+inf/invalid를 출력해 확인.
+- 선행 S1·S2-MAP-01 실제 Gazebo PASS는 유지. 실제 지도 생성 GREEN 전 S2-MAP-02는 HOLD.

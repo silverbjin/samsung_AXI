@@ -18,6 +18,7 @@ import time
 from s2_map02_contract import (
     START,SURVEY,TABLE3_APPROACH,coverage,from_world_to_odom,
     map_coordinates,free_path_connected,route_clearance,boxes_from_sdf,
+    front_sector_clearance,
 )
 from ci_s2_map_smoke import end_process,check_map_yaml
 from s2_map02_gt_pose import GazeboModelPose, world_to_map_point
@@ -111,13 +112,10 @@ def run(args):
             try:rclpy.spin_once(node,timeout_sec=.09)
             except Exception:break
     def front_distance(scan):
-        if scan is None:return math.inf
-        result=[]
-        for i,d in enumerate(scan.ranges):
-            a=wrap(scan.angle_min+i*scan.angle_increment)
-            if abs(a)<=.40 and math.isfinite(d) and d>0:
-                result.append(d)
-        return min(result,default=0.0)  # no front scan measurements means stop
+        if scan is None:return 0.0
+        clearance,metadata=front_sector_clearance(scan)
+        state['front_scan_statistics']=metadata
+        return clearance
     def drive(target_world,step):
         tx,ty=target_world  # Actual Gazebo World coordinates, CI survey only.
         deadline=time.monotonic()+140
@@ -173,6 +171,7 @@ def run(args):
                         ' MIN_BEAM_INDEX='+str(nearest[2])+
                         ' WORLD_ESTIMATE='+str((round(wx,3),round(wy,3)))+
                         ' SDF_NEAREST='+str((round(nearest_sdf[0],3),nearest_sdf[1]))+
+                        ' FRONT_SCAN_STATS='+str(state.get('front_scan_statistics'))+
                         ' GT='+str(tuple(round(q,3) for q in ground_truth.pose))+
                         ' '+gz_pose_evidence())
                 cmd.linear.x=min(.23,max(.10,.8*distance))

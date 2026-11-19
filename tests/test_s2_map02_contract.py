@@ -55,3 +55,21 @@ def test_s2_survey_uses_actual_gazebo_pose_but_preserves_odom_and_lidar():
     assert 'ground_truth.pose' in code and 'world_to_map_point(' in code
     assert "Odometry,'/odom'" in code and "LaserScan,'/scan'" in code
     assert "front<.40" in code
+
+
+def test_front_sector_positive_inf_means_no_detection_not_zero():
+    from types import SimpleNamespace
+    def scan(values):
+        return SimpleNamespace(ranges=values,angle_min=0.0,
+                               angle_increment=2*3.141592653589793/360,
+                               range_min=.12,range_max=3.5)
+    actual,stats=m.front_sector_clearance(scan([float('inf')]*360))
+    assert actual==3.5 and stats['positive_inf']>=40
+    blocked,stats=m.front_sector_clearance(scan([float('nan')]*360))
+    assert blocked==0.0 and stats['invalid']>=40
+    blocked,stats=m.front_sector_clearance(scan([0.0]*360))
+    assert blocked==0.0
+    bad=[float('inf')]*360
+    bad[0]=.37
+    actual,stats=m.front_sector_clearance(scan(bad))
+    assert abs(actual-.37)<.001 and stats['finite']>=1
