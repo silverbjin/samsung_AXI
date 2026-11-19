@@ -27,19 +27,28 @@ def run(args):
     from rclpy.qos import QoSProfile,DurabilityPolicy,ReliabilityPolicy,qos_profile_sensor_data
     from rclpy.action import ActionClient
     from nav2_msgs.action import NavigateToPose
+    from action_msgs.msg import GoalStatus
 
     repo=Path(__file__).resolve().parents[1]
     contract=validate_release(repo)
     if not args.robot_sdf.is_file() or not args.params.is_file() or not args.map.is_file():
         raise RuntimeError('S3_REQUIRED_ROBOT_SDF_PARAMS_OR_MAP_MISSING')
-    state={'clock':False,'scan':0,'odom':None,'map':None,'amcl_pose':None,
+    state={'clock':False,'scan':0,'scan_t':0.,'odom':None,'odom_t':0.,
+           'odom_track':[],'map':None,'amcl_pose':None,
            'amcl_cov':None,'map_to_odom':False,'odom_to_base':False}
     args.log.parent.mkdir(parents=True,exist_ok=True)
     args.evidence.parent.mkdir(parents=True,exist_ok=True)
     proc=node=None
     started=False
     def odom(m):
-        state['odom']=(float(m.pose.pose.position.x),float(m.pose.pose.position.y))
+        xy=(float(m.pose.pose.position.x),float(m.pose.pose.position.y))
+        state['odom']=xy;state['odom_t']=time.monotonic()
+        if not state['odom_track'] or math.dist(xy,state['odom_track'][-1])>.02:
+            state['odom_track'].append(xy)
+    def scan(m):
+        if len(m.ranges)>10:
+            state['scan']+=1
+            state['scan_t']=time.monotonic()
     def amcl(m):
         pose=m.pose.pose
         state['amcl_pose']=(pose.position.x,pose.position.y)
@@ -74,9 +83,7 @@ def run(args):
                                durability=DurabilityPolicy.TRANSIENT_LOCAL)
             node.create_subscription(Clock,'/clock',
                 lambda m:state.update(clock=(m.clock.sec>0)),qos_profile_sensor_data)
-            node.create_subscription(LaserScan,'/scan',
-                lambda m:state.update(scan=state['scan']+1) if len(m.ranges)>10 else None,
-                qos_profile_sensor_data)
+            node.create_subscription(LaserScan,'/scan',scan,qos_profile_sensor_data)
             node.create_subscription(Odometry,'/odom',odom,qos_profile_sensor_data)
             node.create_subscription(OccupancyGrid,'/map',
                 lambda m:state.update(map=m),map_qos)
@@ -135,6 +142,68 @@ def run(args):
                     'navigate_to_pose_server_ready':True,'goal_sent':False}
             args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
             print('RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL',flush=True)
+            if args.exercise_goals:
+                def goto(target,heading,label):
+                    if not (state['map_to_odom'] and state['odom_to_base'] and
+                            state['amcl_pose'] is not None and state['scan']>=3):
+                        raise RuntimeError('NAV_PREGOAL_NOT_READY_'+label)
+                    if time.monotonic()-state['scan_t']>8 or time.monotonic()-state['odom_t']>8:
+                        raise RuntimeError('NAV_PREGOAL_SENSOR_STALE_'+label)
+                    start=state['odom']
+                    scans_before=state['scan']
+                    before=len(state['odom_track'])
+                    msg=NavigateToPose.Goal()
+                    msg.pose.header.frame_id='map'
+                    msg.pose.header.stamp=node.get_clock().now().to_msg()
+                    msg.pose.pose.position.x=float(target[0])
+                    msg.pose.pose.position.y=float(target[1])
+                    msg.pose.pose.orientation.z=math.sin(heading/2)
+                    msg.pose.pose.orientation.w=math.cos(heading/2)
+                    sent=action.send_goal_async(msg)
+                    deadline=time.monotonic()+25
+                    while not sent.done() and time.monotonic()<deadline:
+                        spin_once(.20)
+                    if not sent.done():raise RuntimeError('NAV_ACTION_GOAL_RESPONSE_TIMEOUT_'+label)
+                    handle=sent.result()
+                    if not handle.accepted:raise RuntimeError('NAV_ACTION_GOAL_REJECTED_'+label)
+                    print('S3_NAV02_REAL_GOAL_ACCEPTED='+label,flush=True)
+                    completed=handle.get_result_async()
+                    deadline=time.monotonic()+280
+                    while not completed.done() and time.monotonic()<deadline:
+                        spin_once(.22)
+                        if time.monotonic()-state['scan_t']>10 or time.monotonic()-state['odom_t']>10:
+                            handle.cancel_goal_async()
+                            raise RuntimeError('NAV_SENSOR_STALE_DURING_GOAL_'+label)
+                    if not completed.done():
+                        handle.cancel_goal_async()
+                        raise RuntimeError('NAV_GOAL_TIMEOUT_'+label)
+                    response=completed.result()
+                    if response.status!=GoalStatus.STATUS_SUCCEEDED:
+                        raise RuntimeError('NAV_GOAL_NOT_SUCCEEDED_'+label+':'+str(response.status))
+                    for _ in range(5):spin_once(.20)
+                    traveled=max((math.dist(start,xy) for xy in state['odom_track'][before:]),default=0.)
+                    if traveled<1.0:
+                        raise RuntimeError('NAV_PHYSICAL_ODOM_INSUFFICIENT_'+label+':'+str(round(traveled,3)))
+                    error=math.dist(state['amcl_pose'],target)
+                    if error>.75:
+                        raise RuntimeError('NAV_AMCL_ARRIVAL_OUTSIDE_TOLERANCE_'+label+':'+str(round(error,3)))
+                    if state['scan']-scans_before<10:
+                        raise RuntimeError('NAV_SCAN_EVIDENCE_MISSING_'+label)
+                    evidence={'label':label,'goal_map_xy':target,'action_status':response.status,
+                              'physical_odom_max_displacement_m':round(traveled,3),
+                              'amcl_arrival_xy':state['amcl_pose'],
+                              'amcl_arrival_error_m':round(error,3),
+                              'scan_count_delta':state['scan']-scans_before}
+                    print('S3_NAV02_GOAL_SUCCEEDED='+label+' ODOM_M='+str(round(traveled,3))+
+                          ' AMCL_ERROR_M='+str(round(error,3)),flush=True)
+                    return evidence
+                legs=[goto(contract['table3_map_xy'],-math.pi/2,'TABLE_3'),
+                      goto(contract['pickup_map_xy'],0.,'PICKUP_RETURN')]
+                result['goal_sent']=True
+                result['real_nav_legs']=legs
+                result['delivery_return']=True
+                args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                print('RESTAURANT_S3_NAV02_REAL_GAZEBO_DELIVERY_RETURN_PASS',flush=True)
     except Exception as exc:
         print('RESTAURANT_S3_AMCL_L2_BLOCKED='+str(exc),file=sys.stderr,flush=True)
         raise
@@ -152,6 +221,7 @@ def run(args):
 
 def main():
     p=argparse.ArgumentParser()
+    p.add_argument('--exercise-goals',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--params',type=Path,required=True)
     p.add_argument('--map',type=Path,required=True)

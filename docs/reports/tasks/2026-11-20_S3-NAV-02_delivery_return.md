@@ -8,3 +8,9 @@
 - 검수: 지도 SHA/Free 연결, AMCL pose/TF, Nav2 액션 서버 준비를 먼저 확인한 다음에만 실제 Goal 시작; Goal status SUCCEEDED, AMCL 위치 오차, 실제 Odom 이동을 각 구간별 확인.
 - 정책: WSL2 지도 재생성·CI 성공 우회 금지, 새로운 Planner/SLAM/Safety Supervisor 금지, 기존 Nav2·Collision Monitor와 LiDAR 안전 경계 보존.
 - 시작 상태: S3-NAV-02 actual Goal NOT_RUN. 본 파일은 개발 시작 문서이며 결과에 따라 업데이트.
+
+## 구현 단계 1 — 공식 Nav2 Goal 추가(검증 전)
+- 기존 S3-AMCL-01 NO GOAL 동작은 기본값으로 보존하고, 별도 --exercise-goals 옵션에서만 실제 NavigateToPose Goal 전송.
+- 목표는 map table3=(5.25,0.38) 접근 → map pickup=(0,0) 복귀. 기존 World 좌표를 Nav2 Goal로 보내는 오류를 교정.
+- 각 Leg의 ROS Action SUCCEEDED, 실제 Odom 1m 이상 변화, AMCL 목표 위치 오차 0.75m 이내, Scan 증가, 센서 신선도 검사. 실패 시 Goal cancel+HOLD. Collision Monitor/SLAM 미변경.
+- 실제 Actions 검수 전 S3-NAV-02=NOT_VERIFIED.
