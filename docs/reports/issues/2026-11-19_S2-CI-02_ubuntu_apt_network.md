@@ -24,3 +24,12 @@
 
 ## 교육 포인트
 테스트 작업 흐름에서는 `L0 소스 계약 → L1 의존성 설치·빌드 → L2 Gazebo 실증`을 구분해야 합니다. 네트워크로 apt index를 읽지 못하는 실패를 SLAM 구현 결함이라고 오진하거나 테스트 스킵으로 덮지 않습니다.
+
+## 동일 오류 2회 확인 — 최소 수정 후보
+
+- 동일 Run #44520735057의 실패 L1/L2 Job만 재실행한 attempt 2에서도 `archive.ubuntu.com:80` 및 `security.ubuntu.com:80` 연결 타임아웃, APT index 다운로드 실패, `xvfb`·`xauth`·`mesa-utils` 미발견이 재현됐습니다.
+- **근본 장애 위치:** Ubuntu 24.04 `ros:jazzy-ros-base-noble` 컨테이너에서 Ubuntu 기본 APT `http://` 소스 네트워크 접속 실패. runner 네트워크 내부 원인은 특정할 수 없음.
+- **최소 수정 후보:** CI 임시 컨테이너 안의 `/etc/apt/sources.list.d/ubuntu.sources`(존재할 때만) 또는 `/etc/apt/sources.list`(존재할 때만)에서 Ubuntu archive/security 두 `http://` URI를 `https://`로 변경. 실패한 인덱스 다운로드를 무시하지 않도록 `APT::Update::Error-Mode=any`, 1회 재시도 지정.
+- ROS 패키지 종류·버전, World, SLAM Toolbox, Nav2, Map Saver, ROS_DOMAIN_ID, 테스트 임계값은 변경하지 않습니다.
+- 참고: https://ubuntu.com/project/docs/staging/package-archive/ · https://manpages.debian.org/unstable/apt/apt-get.8.en.html
+- **판정:** 기존 실제 S2 [GREEN #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236)는 보존, 새 HTTPS 개선 CI는 실행 후 별도 판단.

@@ -56,3 +56,5 @@
 - 2026-11-19 S2-CI-01 종결: [문제 해결 보고서](reports/issues/2026-11-19_S2-CI-01_nounset_source_contract.md) L0 nounset RED→최소 수정→Run #44488688236 GREEN.
 
 - 2026-11-19 S2-CI-02: [main 병합 후 APT HTTP 80 저장소 연결 타임아웃](reports/issues/2026-11-19_S2-CI-02_ubuntu_apt_network.md), Run #44520735057 L0 PASS / 런타임 설치 실패; 실패 Job만 1회 재검.
+
+- 2026-11-19 S2-CI-02 최소 수정 후보: 동일 apt HTTP 80 timeout attempt 2 재현, CI 임시 컨테이너의 Ubuntu APT URL만 HTTPS로 교정·fail-fast. [이슈](reports/issues/2026-11-19_S2-CI-02_ubuntu_apt_network.md).
