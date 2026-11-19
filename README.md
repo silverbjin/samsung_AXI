@@ -110,3 +110,9 @@ ros2 topic echo /restaurant/rgbd/points --once | head -n 16
 `docs/DEMO_GUIDE.md`의 M1~M8 체크리스트를 강사 **실제 WSL2에서 1회** 수행한 후에만 `DEMO_PASS` 판단이 가능합니다. 성공 시 태그를 강사가 생성하며, 본 패키지에 가짜 인수 태그를 포함하지 않았습니다.
 
 ROS/Gazebo/GUI가 없는 환경에서 확인한 것은 Python 문법, SDF XML 형식, 작은 상태 정책 테스트뿐입니다. 자세한 출처와 제한: `docs/REUSE_NOTES.md`, `docs/DEVELOPMENT_LOG.md`.
+
+## CI / GitHub 원격 관리
+
+정식 원격 저장소는 `https://github.com/silverbjin/samsung_AXI`입니다. 업로드 전에 `git remote -v`로 기존 remotes를 확인하고, **force push 없이** 현재 트리 전체를 초기 `main`에 올리세요. `.github/workflows/restaurant-ci.yml`이 최초 push에서 자동 실행됩니다. `docs/CI_PIPELINE.md`는 L0/L1/L2(NO_GOAL)와 최종 L3의 차이를 설명하고, `docs/CI_AUTONOMOUS_MASTER_PROMPT_KO.md`는 시니어 에이전트에게 전체 개발·검증·인계를 위임하기 위한 실행 프롬프트입니다.
+
+**주의:** L2는 현재 센서 no-goal 범위입니다. 저장 SLAM 지도와 Nav2 실제 이동이 검증되기 전에는 CI GREEN만으로 `DEMO_PASS`를 선언하지 않습니다.
