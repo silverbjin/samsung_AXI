@@ -25,3 +25,6 @@
 ## Cycle 02 — 안전 정지 원인 분리
 - [Run #44546324681](https://github.com/silverbjin/samsung_AXI/actions/runs/44546324681): waypoint1·2 통과, waypoint3 Odom(-1.126,3.924), yaw1.582, 전방 0.394m < 0.400m로 안전 정지.
 - 다음 사이클에서는 SDF 예상 거리/실제 최소 빔 각도/월드 좌표를 읽기 전용 계측. 정지 기준 완화 없음. [이슈](../issues/2026-11-19_S2-MAP02-CI01_lidar_stop.md).
+
+## Cycle 03 — 실제 물리 Pose와 Odom 불일치 원인 분리
+- Run #44547524892의 LiDAR 전방 0.375m와 Odom 기반 SDF 최근접 0.755m 불일치. Gazebo SceneBroadcaster 원본 모델 Pose를 **읽기 전용**으로 단일 계측한 뒤 수정 여부 판단. 보고서: [S2-MAP02-CI01](../issues/2026-11-19_S2-MAP02-CI01_lidar_stop.md).

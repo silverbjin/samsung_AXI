@@ -32,6 +32,27 @@ def short_log(p,dst):
     hints=[x[:450] for x in lines if any(k in x.lower() for k in ('error','warn','fail','exception','timeout','slam_toolbox'))]
     dst.write_text('FIRST_40_DIAGNOSTIC_LINES\n'+'\n'.join(hints[:40])+'\nLAST_70_LINES\n'+'\n'.join(lines[-70:])+'\n')
 
+def gz_pose_evidence():
+    """CI-only read-only Gazebo SceneBroadcaster pose snapshot; no state mutation."""
+    command=['gz','topic','-e','-t','/world/restaurant/pose/info']
+    p=None
+    try:
+        p=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                           text=True,start_new_session=True)
+        try:out,err=p.communicate(timeout=2.5)
+        except subprocess.TimeoutExpired:
+            p.kill();out,err=p.communicate()
+        for marker in ('name: "waffle_pi"','name: "waffle_pi::base_link"'):
+            at=out.find(marker)
+            if at>=0:
+                return 'GT_POSE_MSG='+repr(out[max(0,at-30):at+440].replace('\n',' '))[:500]
+        return 'GT_POSE_NOT_FOUND topic_len='+str(len(out))+' stderr='+repr(err[:100])
+    except Exception as e:
+        return 'GT_POSE_QUERY_FAILED='+str(e)
+    finally:
+        if p is not None and p.poll() is None:
+            p.kill();p.communicate()
+
 def run(args):
     import rclpy
     from rclpy.qos import QoSProfile,DurabilityPolicy,ReliabilityPolicy,qos_profile_sensor_data
@@ -147,7 +168,8 @@ def run(args):
                         ' MIN_BEAM_AZ_RAD='+str(round(nearest[1],3))+
                         ' MIN_BEAM_INDEX='+str(nearest[2])+
                         ' WORLD_ESTIMATE='+str((round(wx,3),round(wy,3)))+
-                        ' SDF_NEAREST='+str((round(nearest_sdf[0],3),nearest_sdf[1])))
+                        ' SDF_NEAREST='+str((round(nearest_sdf[0],3),nearest_sdf[1]))+
+                        ' '+gz_pose_evidence())
                 cmd.linear.x=min(.23,max(.10,.8*distance))
                 cmd.angular.z=max(-.48,min(.48,1.2*diff))
             pub.publish(cmd)

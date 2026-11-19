@@ -27,3 +27,12 @@
 - 다음 원인 분리: 실제 장애물까지의 SDF 예상 거리와 스캔 최소 빔 상대각, Odom 원점 기반 실제 World 좌표 추정치를 동일 오류에 기록. **정지 임계값 0.40m는 변경하지 않음.**
 - 동작 범위: CI 검수용 스크립트의 읽기 전용 장애 원인 계측만 추가, robot/SLAM/SDF/Map Saver 및 기존 PASS 변경 없음.
 - 실제 GREEN 전에는 `S2_MAP02=HOLD`.
+
+## Cycle 03 — LiDAR 빔과 SDF 예상 장애물 거리 불일치
+- [Run #44547524892](https://github.com/silverbjin/samsung_AXI/actions/runs/44547524892): 기존 L0/L1/S1 L2/S2-MAP-01 L2 모두 PASS, S2-MAP-02 경유점 3 안전 정지 반복.
+- `ODOM=(-1.126,3.943,1.582)`, world 추정=(-3.726,1.743), SDF 최근접 `table_4` 0.755m.
+- 실제 LiDAR 전방 최소 0.375m, beam index337, azimuth -0.388rad(오른쪽22.2도). 최소거리와 SDF 기하학 거리 차이 약 0.38m.
+- 추측 가능한 원인: 물리 본체 실제 Pose와 휠 Odom 차이, 센서 좌표 정합 오차, 추가 월드/로봇 충돌 지오메트리. 아직 확정할 수 없음.
+- 다음 단일 계측: Gazebo Harmonic SceneBroadcaster `/world/restaurant/pose/info`에서 `waffle_pi` 실제 모델 Pose를 읽기 전용으로 수집해 동일 시각 Odom 추정치와 비교.
+- 본체 Pose가 차이나면 CI 고정 탐색용 위치 피드백을 실제 모델 Pose 기반으로 바꾸는 최소 수정 검토(지도 센서/SLAM은 실제 데이터 유지). 차이가 없으면 스캔 프레임/장착 위치를 별도로 조사.
+- S2-MAP-02가 완료되지 않은 동안 S3 AMCL/Nav2는 NOT_RUN. 기존 S2-MAP-01 PASS 유지.
