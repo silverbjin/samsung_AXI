@@ -1,7 +1,7 @@
 name: SAMSUNGAXI S3 AMCL Real Map CI
 on:
   push:
-    branches: [s3/amcl-nav2-20261120]
+    branches: [s3/amcl-nav2-20261120, s3/nav-delivery-20261120]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,7 +26,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m compileall -q scripts src tests
-          python3 -m pytest -q tests/test_s3_map_contract.py tests/test_s3_amcl_contract.py
+          python3 -m pytest -q tests/test_s3_map_contract.py tests/test_s3_amcl_contract.py tests/test_s3_nav_contract.py
           python3 scripts/s3_map_contract.py "$PWD"
           echo 'RESTAURANT_S3_CI_L0_RELEASE_MAP_PASS'
   l1-l2-amcl:
@@ -115,6 +115,28 @@ jobs:
               --params "$PWD/generated/nav2_params.yaml" \
               --log "$PWD/logs/ci-s3-amcl.log" \
               --evidence "$PWD/generated/s3/amcl_preflight.json"
+      - name: S3-NAV-02 / actual NavigateToPose 1-to-3-to-1 and physical odom
+        if: github.ref == 'refs/heads/s3/nav-delivery-20261120'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          set +u
+          source install/setup.bash
+          set -u
+          export RESTAURANT_ROOT="$PWD"
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=20s 940s \
+            python3 scripts/ci_s3_amcl_smoke.py \
+              --exercise-goals \
+              --robot-sdf "$PWD/generated/waffle_pi_rgbd.sdf" \
+              --map "$PWD/maps/restaurant_map.yaml" \
+              --params "$PWD/generated/nav2_params.yaml" \
+              --log "$PWD/logs/ci-s3-nav.log" \
+              --evidence "$PWD/generated/s3/nav_delivery.json"
+          cp logs/ci-s3-summary.txt logs/ci-s3-nav-summary.txt
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -122,6 +144,8 @@ jobs:
           path: |
             generated/s3/amcl_preflight.json
             logs/ci-s3-summary.txt
+            generated/s3/nav_delivery.json
+            logs/ci-s3-nav-summary.txt
           if-no-files-found: error
           retention-days: 5
       - uses: actions/upload-artifact@v4

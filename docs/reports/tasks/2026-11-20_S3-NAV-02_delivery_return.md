@@ -14,3 +14,7 @@
 - 목표는 map table3=(5.25,0.38) 접근 → map pickup=(0,0) 복귀. 기존 World 좌표를 Nav2 Goal로 보내는 오류를 교정.
 - 각 Leg의 ROS Action SUCCEEDED, 실제 Odom 1m 이상 변화, AMCL 목표 위치 오차 0.75m 이내, Scan 증가, 센서 신선도 검사. 실패 시 Goal cancel+HOLD. Collision Monitor/SLAM 미변경.
 - 실제 Actions 검수 전 S3-NAV-02=NOT_VERIFIED.
+
+## S3 독립 CI 구축
+- 기존 검증된 S2 33.3m 지도 생성을 반복하지 않고 S3 전용 워크플로에서 L0 맵 SHA 계약, L1 공식 Jazzy 빌드, L2 저장 지도 AMCL 사전검사 후 NavigateToPose TABLE3→PICKUP_RETURN을 실주행.
+- 성공 로그 RESTAURANT_S3_NAV02_REAL_GAZEBO_DELIVERY_RETURN_PASS는 실제 Actions 출력이 확인되어야만 유효. 빌드/정적 문자열만으로 성공 주장 금지.

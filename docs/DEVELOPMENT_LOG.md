@@ -68,3 +68,5 @@
 - 2026-11-20 **S2-MAP-02 릴리스 최종 PASS**: PR #7 source main 39213564, PR #8 map-only main d4fd5f19, actual Gazebo 33.3m/12/12/Scan1842, YAML/PGM SHA256 + SaveMap reload. [보고서](reports/tasks/2026-11-19_S2-MAP-02_ci_full_map.md). WSL2 지도 재생성 금지, 다음 S3 AMCL/Nav2.
 
 - 2026-11-20 **S3-AMCL-01 PASS**: [Run #44561573820](https://github.com/silverbjin/samsung_AXI/actions/runs/44561573820) 저장 지도 201×180, AMCL pose/TF, Nav2 action READY/NO GOAL 검증. PR #9 main 2e0b1459. [보고서](reports/tasks/2026-11-20_S3-AMCL-01_real_map_preflight.md). 다음 S3 Goal/물리 주행은 별도.
+
+- 2026-11-20 S3-NAV-02 착수: 기존 S3-AMCL-01 L2 GREEN 재사용, 실제 map 좌표 pickup(0,0)/table3(5.25,0.38)로 Nav2 NavigateToPose Action 배달·복귀 시험. 2구간 action status·AMCL·물리 odom 증거 필요. [작업 보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md).
