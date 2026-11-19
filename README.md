@@ -1,6 +1,6 @@
 # Restaurant Robot MVP — 강사 독립 실습 기준선 (개발 후보)
 
-**인수 판정: `RESTAURANT_ROBOT_MVP=NOT_RUN`**. 이 저장소에는 독립 소스와 현장 실행기가 준비되어 있지만, 작성 환경에 ROS 2 Jazzy/Gazebo Harmonic 및 강사 WSL2 GUI가 없으므로 실제 시뮬레이터 주행은 **아직 검증되지 않았습니다**. `DEMO_PASS`로 간주하지 마세요.
+**인수 판정: `RESTAURANT_ROBOT_MVP=PARTIAL`**. 강사 WSL2 화면·로그로 S1 World/로봇 렌더링과 Spawn은 확인되었습니다(2026-11-19, RTF 61.95%). 단, S1 센서의 현장 메시지 수신과 S2 지도 저장·AMCL, S3 실제 배달·복귀 및 S4 안전 대응은 **아직 최종 인수하지 않았습니다**. `DEMO_PASS`로 간주하지 마세요.
 
 목표는 단 하나: **Waffle Pi가 레스토랑에서 픽업(1) → 테이블(3) → 픽업(1)을 실제 이동하고, 메뉴 정책과 장애물 대응을 확인한 후 개발 종료**. 도면 원본이 현재 첨부되지 않았으므로 SDF는 임시 10×9m 배치입니다. `docs/WORLD_LAYOUT.md` 참고.
 
