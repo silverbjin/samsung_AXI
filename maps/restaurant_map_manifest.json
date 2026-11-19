@@ -1,0 +1,10 @@
+{
+  "ci_run": "44551726313",
+  "files": {
+    "restaurant_map.pgm": "b20bebc872145fa674315757c61e5bb10444eb4c5067ac34d5948d679157e8d8",
+    "restaurant_map.yaml": "a7065fdb34fe8360be03b62b2439ff431e6e65d4fa256272845b304edeff9c95",
+    "restaurant_map_quality.json": "8e30f770a04d72a965cc0f353d7a9aa2cc9be60ead6bc2187c74e5a6b3b2b25e"
+  },
+  "source_workflow_sha": "c6271134c86484154b0df02772e03b981724e15a",
+  "world_sha256": "44923278beac3d721f2f9efe42f699103f7bb099eb40c38bf1f5f8299ef3fbdf"
+}

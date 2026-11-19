@@ -1,0 +1,121 @@
+{
+  "map": {
+    "free": 24811,
+    "gazebo_ground_truth_samples": 10984,
+    "height": 180,
+    "known": 26399,
+    "known_span_x_m": 10.000000149011612,
+    "known_span_y_m": 8.900000132620335,
+    "occupied": 1588,
+    "pickup_free_connected_to_table3": true,
+    "resolution": 0.05000000074505806,
+    "route_length_m": 33.3,
+    "route_waypoints": 12,
+    "sensor_scans": 1842,
+    "width": 201
+  },
+  "map_image_sha256": "b20bebc872145fa674315757c61e5bb10444eb4c5067ac34d5948d679157e8d8",
+  "map_yaml_sha256": "a7065fdb34fe8360be03b62b2439ff431e6e65d4fa256272845b304edeff9c95",
+  "not_guaranteed": "Nav2_AMCL_or_complete_coverage_of_every_corner",
+  "scope": "real_gazebo_survey_slam_toolbox_save_reload",
+  "sdf_sha256": "d3fb18dc76f930b4d19b04078b3976194cfc7e5dd2cd554d1702e0b2382afad5",
+  "waypoints": [
+    {
+      "error_m": 0.089,
+      "step": 1,
+      "world": [
+        -2.6,
+        -0.6
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 2,
+      "world": [
+        -3.75,
+        -0.6
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 3,
+      "world": [
+        -3.75,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.088,
+      "step": 4,
+      "world": [
+        3.85,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.088,
+      "step": 5,
+      "world": [
+        3.85,
+        1.2
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 6,
+      "world": [
+        1.3,
+        1.2
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 7,
+      "world": [
+        1.3,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 8,
+      "world": [
+        3.85,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 9,
+      "world": [
+        3.85,
+        -2.55
+      ]
+    },
+    {
+      "error_m": 0.088,
+      "step": 10,
+      "world": [
+        3.85,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 11,
+      "world": [
+        1.3,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 12,
+      "world": [
+        -2.6,
+        -2.12
+      ]
+    }
+  ],
+  "world_sha256": "44923278beac3d721f2f9efe42f699103f7bb099eb40c38bf1f5f8299ef3fbdf"
+}
