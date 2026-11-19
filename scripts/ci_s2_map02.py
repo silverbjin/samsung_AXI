@@ -94,7 +94,7 @@ def run(args):
             a=wrap(scan.angle_min+i*scan.angle_increment)
             if abs(a)<=.40 and math.isfinite(d) and d>0:
                 result.append(d)
-        return min(result,default=math.inf)
+        return min(result,default=0.0)  # no front scan measurements means stop
     def drive(target_world,step):
         tx,ty=from_world_to_odom(target_world,state['initial'])
         deadline=time.monotonic()+140
