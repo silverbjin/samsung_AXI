@@ -3,7 +3,7 @@
 # Does not edit .wslconfig, driver, /etc, ~/.bashrc, or any AXIA project.
 set -Eeuo pipefail
 
-MODE="\${1:-world}"
+MODE="${1:-world}"
 if [[ "$MODE" != world && "$MODE" != doctor ]]; then
   echo 'Usage: bash SAMSUNGAXI_D3D12_world_once.sh [doctor|world]' >&2
   exit 2
@@ -25,7 +25,7 @@ if ! PROBE="$(env -u LIBGL_ALWAYS_SOFTWARE \
 fi
 RENDERER="$(printf '%s\n' "$PROBE" | sed -n 's/^[[:space:]]*OpenGL renderer string:[[:space:]]*//p' | head -n 1)"
 ACCEL="$(printf '%s\n' "$PROBE" | sed -n 's/^[[:space:]]*Accelerated:[[:space:]]*//p' | head -n 1)"
-printf 'SAMSUNGAXI_GL_RENDERER=%s\nSAMSUNGAXI_GL_ACCELERATED=%s\n' "\${RENDERER:-unknown}" "\${ACCEL:-unknown}"
+printf 'SAMSUNGAXI_GL_RENDERER=%s\nSAMSUNGAXI_GL_ACCELERATED=%s\n' "${RENDERER:-unknown}" "${ACCEL:-unknown}"
 if [[ "$RENDERER" != *D3D12* || "$RENDERER" != *NVIDIA* || "$ACCEL" != yes ]]; then
   echo 'SAMSUNGAXI_D3D12_BLOCKED: expected accelerated D3D12 NVIDIA; NO GAZEBO STARTED' >&2
   exit 1
@@ -37,7 +37,7 @@ if [[ "$MODE" == doctor ]]; then
   exit 0
 fi
 
-ROOT="\${SAMSUNG_AXI_ROOT:-$HOME/samsung_AXI}"
+ROOT="${SAMSUNG_AXI_ROOT:-$HOME/samsung_AXI}"
 if [[ ! -f "$ROOT/scripts/restaurant_demo.sh" ]]; then
   echo "SAMSUNGAXI_D3D12_BLOCKED: missing existing runner: $ROOT/scripts/restaurant_demo.sh" >&2
   exit 2
