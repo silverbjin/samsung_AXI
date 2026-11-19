@@ -21,3 +21,9 @@
 - PR #5 → main 병합 SHA `344dacbd47760c32898dffdc6ad43ec21cb9f0c5`.
 - **판정:** `S2_MAP_PIPELINE_CI=PASS` / `S2_WHOLE_RESTAURANT_MAP=NOT_RUN` / `AMCL=NOT_RUN` / `S3_NAV=NOT_RUN`. CI 내 짧은 0.381m의 물리 이동을 매장 전체 탐색으로 승격하지 않음.
 - 다음으로 현장에서 동일 공식 SLAM Toolbox를 통해 실제 매장 영역을 충분히 탐색하고 `scripts/s2_save_map_candidate.sh`로 후보 저장 → RViz 확인 후 최종 지도 채택. 이 단계가 끝나야 S3 AMCL/Goal에 진입.
+
+## 병합 후 CI 재검의 외부 인프라 예외
+- `main` push Run #44520735057의 APT 인덱스 연결 실패는 L1/L2 시험 시작 전 인프라 단계에서 발생했고, 동일 Job 재실행에서도 재현.
+- 후속 HTTPS/미러 보정 후보 PR #6도 APT 다운로드 단계에서 실패하여 **미병합**, 교육용 원인/대응은 [S2-CI-02](../issues/2026-11-19_S2-CI-02_ubuntu_apt_network.md)에 기록.
+- 검증된 S2 핵심 4개 소스의 Blob SHA는 PR #5 GREEN 기준과 `main`에서 동일. 지도 파이프라인 구현 완료 판정은 [PR #5 GREEN](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236)에 한정.
+- 매장 전체 지도·AMCL·실제 1→3→1 주행은 아직 NOT_RUN.

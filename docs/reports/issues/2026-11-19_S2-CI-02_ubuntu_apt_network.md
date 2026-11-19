@@ -24,3 +24,16 @@
 
 ## 교육 포인트
 테스트 작업 흐름에서는 `L0 소스 계약 → L1 의존성 설치·빌드 → L2 Gazebo 실증`을 구분해야 합니다. 네트워크로 apt index를 읽지 못하는 실패를 SLAM 구현 결함이라고 오진하거나 테스트 스킵으로 덮지 않습니다.
+
+## 최종 PR #6 검증 결과 — 외부 APT egress HOLD
+
+- 수정 후보 브랜치: `fix/s2-ci-02-apt-https-20261119` / HEAD `518318bb75ee63f833517175bdca8d284cd0a2c3`.
+- HTTP 80 재현 외에도 [Run #44522520851](https://github.com/silverbjin/samsung_AXI/actions/runs/44522520851)에서는 L0의 GitHub-hosted `mirror+file:/etc/apt/apt-mirrors.txt`가 HTTP 503을 반환하고 패키지 다운로드가 실패했습니다.
+- 미러 경로를 공식 Ubuntu HTTPS로 우회한 [Run #44523700349](https://github.com/silverbjin/samsung_AXI/actions/runs/44523700349)와 [PR Run #44523710219](https://github.com/silverbjin/samsung_AXI/actions/runs/44523710219)도 Ubuntu `InRelease` **HTTPS 443**에서 `Resource temporarily unavailable` 및 연결 오류로 종료코드 100.
+- 두 Run 모두 **L0의 패키지 설치 이전에 실패**, L0 계약 테스트 및 L1/L2는 실행되지 않았습니다.
+- 정확한 외부 네트워크/프록시 장애 원인은 관측할 권한이 없어 확정할 수 없으며, 이 실패를 ROS/Gazebo/SLAM 소스 오류로 판정하지 않습니다.
+- **최종 조치:** 효과가 검증되지 않은 PR #6은 `main`에 병합하지 않고 종료. 메인 코드·테스트 합격 기준을 변경하지 않음. 네트워크가 회복된 뒤 필요할 때만 동일 소스 재검을 수행.
+- 원본 소스 동등성 확인: `main`의 `ci_s2_map_smoke.py`, `ci_gazebo_smoke.py`, `mapping.launch.py`, `s2_save_map_candidate.sh` Git Blob SHA가 실제 S2 L2 GREEN 커밋 `0ed197d...`과 **전부 일치**.
+- 기존의 [S2 실제 통합 GREEN #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236)과 지도 아티팩트는 유효하나, 해당 시점 `main` 재실행을 새 GREEN으로 주장하지 않습니다.
+
+**판정:** `S2_CODE_AND_ACTUAL_L2=VERIFIED_ON_PR_5`, `MAIN_POSTMERGE_CI=HOLD_EXTERNAL_APT`, `S2_FULL_ROOM_MAP_AND_AMCL=NOT_RUN`.
