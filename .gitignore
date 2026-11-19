@@ -1,0 +1,15 @@
+/build/
+/install/
+/log/
+/logs/
+/venv/
+/.pytest_cache/
+**/__pycache__/
+**/*.pyc
+/external/
+/generated/
+/maps/*.pgm
+/maps/*.yaml
+!maps/.gitkeep
+/evidence/
+/src/upstream/
