@@ -153,16 +153,13 @@ jobs:
               --robot-sdf "$PWD/generated/waffle_pi_rgbd.sdf" \
               --map-prefix "$PWD/generated/s2_full/restaurant_map" \
               --log "$PWD/logs/ci-s2-map02.log"
+          cp logs/ci-s2-map02-summary.txt generated/s2_full/ci-s2-map02-summary.txt
       - name: Upload S2-MAP-02 real map and quality evidence
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: restaurant-s2-map02-full-${{ github.run_id }}
-          path: |
-            generated/s2_full/restaurant_map.yaml
-            generated/s2_full/restaurant_map.pgm
-            generated/s2_full/map02_quality.json
-            logs/ci-s2-map02-summary.txt
+          path: generated/s2_full/
           if-no-files-found: error
           retention-days: 5
 

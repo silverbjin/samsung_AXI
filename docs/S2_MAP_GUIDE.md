@@ -4,7 +4,11 @@
 - 성공 문자열: RESTAURANT_S2_L2_REAL_GAZEBO_SLAM_SAVE_RELOAD_PASS_NO_NAV_GOAL
 - CI 짧은 이동은 **지도 파이프라인 검증**이지 전체 매장 지도 완성·AMCL·배달 시연 PASS가 아닙니다.
 
-## 강사 WSL2 최종 전체 매장 매핑 (CI 성공 후)
+## 과거 강사 WSL2 수동 매핑 예시 — **현 정책에서 수행 금지**
+
+S2-MAP-02 이후에는 이 절차를 반복하지 않습니다. 실제 지도 생성·품질 검증·출고는 CI 전용입니다. [S2-MAP-02 안내](S2_MAP02_GUIDE.md)
+
+## 이전 수동 운용 기록 (현재 사용 금지)
   cd ~/samsung_AXI
   GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA bash scripts/restaurant_demo.sh mapping
 기존 강사용 teleop으로 안전하게 통로를 관찰·탐색합니다. Gazebo 실행 중 다른 Ubuntu 터미널에서:

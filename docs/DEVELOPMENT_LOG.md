@@ -58,3 +58,5 @@
 - 2026-11-19 S2-CI-02: [main 병합 후 APT HTTP 80 저장소 연결 타임아웃](reports/issues/2026-11-19_S2-CI-02_ubuntu_apt_network.md), Run #44520735057 L0 PASS / 런타임 설치 실패; 실패 Job만 1회 재검.
 
 - 2026-11-19 S2-CI-02 최종 HOLD: HTTP 80 / GitHub mirror+file 503 / HTTPS 443 연결 실패 재현. [문제 보고서](reports/issues/2026-11-19_S2-CI-02_ubuntu_apt_network.md). PR #6은 미검증으로 main 미병합, PR #5 실제 Gazebo GREEN과 메인 핵심 소스 Blob 일치 보존.
+
+- 2026-11-19 S2-MAP-02: [CI 전체 지도 탐색·품질·아티팩트 출고](reports/tasks/2026-11-19_S2-MAP-02_ci_full_map.md) — 실제 HEAD L2 검증 전 후보; S2-MAP-01 PASS 고정.
