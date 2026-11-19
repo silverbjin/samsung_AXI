@@ -1,0 +1,5 @@
+# Publish the Nav2 controller's native SpeedLimit topic; no separate /cmd_vel publisher.
+NORMAL:
+  max_speed_mps: 0.23
+SOUP:
+  max_speed_mps: 0.11

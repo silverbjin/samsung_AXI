@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Create a local overlay from the *official* Waffle Pi SDF, never edit upstream.
+
+Pattern derived from AXIA D08's registered rgbd_camera attachment. The
+new restaurant topic/frame names are provisional until checked in live Gazebo.
+"""
+import argparse
+from pathlib import Path
+from xml.etree import ElementTree as ET
+
+
+def build(src: Path, dst: Path):
+    tree = ET.parse(src)
+    robot = tree.getroot().find('./model')
+    if robot is None or robot.get('name')!='turtlebot3_waffle_pi':
+        raise RuntimeError('EXPECTED_WAFFLE_PI_MODEL')
+    camera = robot.find("./link[@name='camera_link']")
+    if camera is None:
+        raise RuntimeError('UPSTREAM_CAMERA_LINK_NOT_FOUND')
+    if camera.find("./sensor[@name='restaurant_registered_rgbd']") is not None:
+        raise RuntimeError('DUPLICATE_RGBD')
+    sensor=ET.SubElement(camera,'sensor',{'name':'restaurant_registered_rgbd','type':'rgbd_camera'})
+    ET.SubElement(sensor,'pose').text='0 0 0 0 0 0'
+    ET.SubElement(sensor,'always_on').text='true'
+    ET.SubElement(sensor,'update_rate').text='5'
+    ET.SubElement(sensor,'topic').text='restaurant/rgbd'
+    ET.SubElement(sensor,'gz_frame_id').text='restaurant_rgbd_optical'
+    cfg=ET.SubElement(sensor,'camera')
+    ET.SubElement(cfg,'horizontal_fov').text='1.57'
+    img=ET.SubElement(cfg,'image')
+    ET.SubElement(img,'width').text='320'
+    ET.SubElement(img,'height').text='240'
+    ET.SubElement(img,'format').text='R8G8B8'
+    clip=ET.SubElement(cfg,'clip')
+    ET.SubElement(clip,'near').text='0.12'
+    ET.SubElement(clip,'far').text='6.0'
+    dst.parent.mkdir(parents=True,exist_ok=True)
+    tree.write(dst,encoding='utf-8',xml_declaration=True)
+    if len(ET.parse(dst).getroot().findall(".//sensor[@name='restaurant_registered_rgbd']"))!=1:
+        raise RuntimeError('RGBD_OVERLAY_VALIDATION_FAILED')
+    print('RESTAURANT_RGBD_OVERLAY_STATIC_OK',dst)
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True)
+    p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+    build(a.source,a.out)
+
+if __name__=='__main__': main()

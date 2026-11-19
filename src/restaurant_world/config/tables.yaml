@@ -1,0 +1,11 @@
+# Provisional coordinates. Drawn from a clean, custom 10m x 9m SDF;
+# they are NOT measured from the missing restaurant floor plan image.
+frame: map
+pickup:
+  x: -2.60
+  y: -2.20
+  yaw: 0.0
+table_3:
+  x: 2.65
+  y: -1.82
+  yaw: -1.57079632679
