@@ -26,3 +26,10 @@ L1+L2 Job만 공식 `ros:jazzy-ros-base-noble` 컨테이너로 실행하고 `set
 - WSL2 Owner GUI: **NOT_RUN**.
 
 정량 성능 검증이나 별도 Docker 이미지 빌드를 추가하지 않는다. 외부 컨테이너는 CI *실행 환경*만 바꾼다.
+
+## 재검 결과 (2026-11-19 KST)
+
+- 검증 CI: https://github.com/silverbjin/samsung_AXI/actions/runs/44447853175
+- 바뀐 CI 컨테이너 환경에서 `Install official ROS 2 / Gazebo Harmonic runtime` → L1 `colcon` → L2 실제 Gazebo 메시지 검증이 모두 **PASS**.
+- **문제 해결 판단:** setup-ros 장기 대기로 L1에 도달하지 못한 작업 병목이 CI 컨테이너 전환 후 해소되었음. 이전 장기 대기의 시스템 내부 원인은 로그가 수집되지 않아 **확정할 수 없음**. 가능성으로만 APT 미러 불안정을 남김.
+- 실제 배달·복귀와 WSLg GUI는 이번 해결 범위 밖이며 `NOT_RUN`.

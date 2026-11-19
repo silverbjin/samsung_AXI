@@ -38,3 +38,21 @@ L0/L1/L2가 정상 완료되기 전에 원샷을 공식 `main` 출고본으로 �
 ## CI 환경 이슈 추적
 
 PR L0가 PASS인 동안 L1의 setup-ros 초기화가 장시간 미완료되어, 공식 권장 ROS base container 전환을 **동일 검증 Job의 최소 환경 수정**으로 적용했다. 원인 확정 및 GREEN 증거는 [CI-02](../issues/2026-11-19_CI-02_setup_ros_bootstrap_stall.md)에서 별도 추적한다.
+
+## 배포 전 재검 결과와 최종 코드 판정 (2026-11-19 KST)
+
+- PR: https://github.com/silverbjin/samsung_AXI/pull/1
+- 검수된 PR HEAD: `9373a30926df922bfb7660138ae80e4208a100ee`
+- Actions: https://github.com/silverbjin/samsung_AXI/actions/runs/44447853175
+- L0 정적/계약: **PASS** (로컬 10 테스트 포함).
+- L1 실제 `colcon build`/모델·설정 생성: **PASS**, `RESTAURANT_CI_L1_BUILD_PASS`.
+- L2 실제 Gazebo NO_GOAL: **PASS**, `RESTAURANT_CI_L2_GAZEBO_SENSORS_PASS_NO_GOAL`.
+- 수신 근거: `/clock,/odom,/restaurant/rgbd/depth_image,/restaurant/rgbd/points,/scan,/tf`.
+- 공식 ROBOTIS PIN: `45633014a14e8f438495b532a723e4ad45cbbd31`.
+- 병합 커밋: `f211d043bd3e503015dd2babac6596e08db8ef86` (PR와 Git Tree `02a25e11d7d5f2ba04f6433525c0f499b1664bad` **일치**).
+- **출고 판정:** S1 World·센서 실행 후보는 `OWNER-01_CI_VERIFIED_FOR_WSL2_FINAL_CHECK`.
+- **미검증 경계:** WSLg GUI 렌더링, SLAM 지도 생성, AMCL, 실제 배달·복귀, 장애물 대응, 종료 후 PID 상태는 강사 WSL2 `NOT_RUN`이므로 `RESTAURANT_ROBOT_MVP=NOT_RUN` 유지.
+
+### 왜 여기서 멈추는가?
+
+이번 변경의 책임은 **강사 PC 실행 경로를 CI에서 검증된 코드로 재현하도록 준비하는 것**이다. headless Gazebo의 센서 PASS를 Nav2 배달 성공으로 승격하지 않는다. 성능 개선이나 추가 자동화 없이 강사 WSL2 GUI 1회의 실제 관찰로 이 작업을 마무리한다.
