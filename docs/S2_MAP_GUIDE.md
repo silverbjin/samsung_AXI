@@ -18,3 +18,31 @@
 ## 실패 분리
 scan 없음=브리지/물리센서, map 없음=slam_toolbox/TF, save 실패=Map Saver lifecycle, reload 실패=파일/Map Server lifecycle.
 실패 시 로그는 기존 EVD-01 압축 증거 사용, docs/reports/issues 문제 해결 보고서에 최초 실패 경계 기록.
+
+## 성공 검증과 증거 확보
+- [Actions #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236)에서 실제 Scan·Odom·Map·map→odom TF 관측, 0.381m 이동, 공식 SaveMap 및 별도 Map Server 재로딩을 완료했습니다.
+- Map ZIP `restaurant-s2-real-map-44488688236`는 CI 부분 지도와 축약 로그입니다. 전체 레스토랑 점유 지도 또는 배달용 최종 지도라고 주장하지 않습니다.
+- **WSL2에서는 RAM 16GB / NVIDIA RTX 3060 전용 D3D12 경로**를 사용합니다. 기존 Gazebo 세션을 종료하고 **첫 번째 Ubuntu 터미널**에서 아래 명령을 사용합니다.
+
+```bash
+cd ~/samsung_AXI
+export ROS_DOMAIN_ID=58 GZ_PARTITION=restaurant_mvp
+GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA \
+  bash scripts/restaurant_demo.sh mapping
+```
+
+두 번째 Ubuntu 터미널에서 `source /opt/ros/jazzy/setup.bash`, `source ~/samsung_AXI/install/setup.bash` 이후 `/scan`, `/map`·TF 확인, 안전한 수동 주행으로 필요한 영역을 충분히 관찰한 뒤 `bash ~/samsung_AXI/scripts/s2_save_map_candidate.sh`로 후보 지도를 저장하십시오. 생성 YAML·PGM과 RViz 지도 범위를 검토하기 전 `maps/restaurant_map.yaml`로 바로 덮어쓰지 마십시오.
+
+### 로그 압축 — 기존 EVD-01 재사용
+종료 후 `~/samsung_AXI/logs/mapping_*.log` 중 이번 세션의 로그를 선택해:
+
+```bash
+cd ~/samsung_AXI
+mkdir -p logs/evidence
+LATEST="$(ls -t logs/mapping_*.log | head -1)"
+python3 scripts/samsungaxi_evidence_bundle.py \
+  --root "$PWD" --session-log "$LATEST" --since-unix 0 \
+  --output "$PWD/logs/evidence/s2-map-$(date -u +%Y%m%dT%H%M%SZ).zip"
+```
+
+원본 Gazebo/ROS 로그는 삭제하지 않고 최대 300KB 단위 요약 ZIP을 생성합니다. *로그 압축 자체가 SLAM 인수 PASS를 뜻하지는 않습니다.*

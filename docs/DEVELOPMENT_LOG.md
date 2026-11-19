@@ -50,3 +50,7 @@
 - 2026-11-19 S2-MAP-01: [실제 SLAM Map Save/Reload 통합 실증](reports/tasks/2026-11-19_S2-MAP-01_real_slam_save_reload.md) — L0/L1/L2 새 CI 수행 전 NOT_RUN; 강사 전체 매장 지도 별도.
 
 - 2026-11-19 S2-CI-01: [L0 nounset source 개별 보호 실패 및 수정](reports/issues/2026-11-19_S2-CI-01_nounset_source_contract.md), 최초 #44488381423 L0 RED, 실제 L2 미진입.
+
+- 2026-11-19 P0 확정: PR #4 → main `c124d3d`, [L0/L1/실제 Gazebo L2 GREEN #44486003784](https://github.com/silverbjin/samsung_AXI/actions/runs/44486003784). S1 고정, S2는 별도.
+- 2026-11-19 S2-MAP-01 완료(파이프라인): PR #5 → main `344dacb`, [Run #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236) L0·L1·L2 실제 SLAM /map, Odom 0.381m, Map Saver YAML/PGM, Map Server 재로딩 PASS. [작업 보고서](reports/tasks/2026-11-19_S2-MAP-01_real_slam_save_reload.md). 전체 매장 지도·AMCL은 NOT_RUN.
+- 2026-11-19 S2-CI-01 종결: [문제 해결 보고서](reports/issues/2026-11-19_S2-CI-01_nounset_source_contract.md) L0 nounset RED→최소 수정→Run #44488688236 GREEN.

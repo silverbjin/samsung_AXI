@@ -150,3 +150,8 @@ ROS/Gazebo/GUI가 없는 환경에서 확인한 것은 Python 문법, SDF XML �
 
 ## S2-MAP-01 — 실제 Gazebo 지도 생성·저장·재로딩
 공식 SLAM Toolbox와 Nav2 Map Saver/Map Server를 재사용하는 L2 통합 검증. 짧은 물리 이동으로 생성한 지도의 저장·재로딩을 확인하며 전체 매장 탐색이나 AMCL 성공으로 혼동하지 않습니다. [S2 지도 가이드](docs/S2_MAP_GUIDE.md).
+
+## 2026-11-19 P0/S2 최신 검증
+- **P0 S1 main 확정**: PR #4 / GREEN #44486003784 / main `c124d3d`.
+- **S2 실제 지도 파이프라인 구현 완료**: PR #5 / [GREEN #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236) / main `344dacb`. 실제 Gazebo Scan→SLAM `/map`→0.381m `/odom`→SaveMap YAML/PGM→Map Server 재로딩 성공.
+- **S2 전체 레스토랑 지도와 AMCL/배달**: 아직 미인수. 짧은 CI 이동의 부분 지도를 주행 완성 지도로 사용하지 말 것. [S2 안내](docs/S2_MAP_GUIDE.md).

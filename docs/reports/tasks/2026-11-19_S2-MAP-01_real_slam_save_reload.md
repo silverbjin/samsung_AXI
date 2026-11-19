@@ -11,3 +11,13 @@
 ## 첫 CI 실패·수정 (S2-CI-01)
 - [Run #44488381423](https://github.com/silverbjin/samsung_AXI/actions/runs/44488381423): L0 24 PASS/1 FAIL, nounset source setup 위치 계약. 실제 Gazebo 테스트는 시작되지 않음.
 - `set +u`를 각 ROS `source` 주변에만 분리해 최소 수정. [이슈 보고서](../issues/2026-11-19_S2-CI-01_nounset_source_contract.md). 재검 전 GREEN 주장 금지.
+
+## 최종 공개 CI GREEN 및 main 출고 (2026-11-19 KST)
+- P0-S1 기준선: PR #4 → main `c124d3d83f323c56a0cc14497314a0e3e5af437d` / L0·L1·L2 GREEN [#44486003784](https://github.com/silverbjin/samsung_AXI/actions/runs/44486003784).
+- S2 최초 실패(계약): [Run #44488381423](https://github.com/silverbjin/samsung_AXI/actions/runs/44488381423) L0 1 FAIL, 실제 Gazebo 시작하지 않음. ROS setup의 nounset 복구 범위 한정 수정.
+- S2 최종 GREEN: [Run #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236), commit `0ed197d9bcfcff74868798d6afd7f18d5db21ecd`. L0·L1·L2 센서·실제 Gazebo SLAM·저장·재로딩 모두 success.
+- **실제 런 증거**: `S2_REAL_GAZEBO_SCAN_MAP_TF_RECEIVED`; `S2_REAL_ODOM_DISPLACEMENT_M=0.381`; `S2_OFFICIAL_SAVE_MAP_PASS=.../restaurant_map.yaml`; `RESTAURANT_S2_L2_REAL_GAZEBO_SLAM_SAVE_RELOAD_PASS_NO_NAV_GOAL`.
+- 성공 아티팩트: `restaurant-s2-real-map-44488688236`, ID `14510624983`, `restaurant_map.yaml` + `.pgm` + 축약 로그; 2026-11-24까지 5일 보관 예정. 장기 보관할 교육용 지도를 만든 것이 아니며 그 조건에서 생성한 CI **부분 지도**임.
+- PR #5 → main 병합 SHA `344dacbd47760c32898dffdc6ad43ec21cb9f0c5`.
+- **판정:** `S2_MAP_PIPELINE_CI=PASS` / `S2_WHOLE_RESTAURANT_MAP=NOT_RUN` / `AMCL=NOT_RUN` / `S3_NAV=NOT_RUN`. CI 내 짧은 0.381m의 물리 이동을 매장 전체 탐색으로 승격하지 않음.
+- 다음으로 현장에서 동일 공식 SLAM Toolbox를 통해 실제 매장 영역을 충분히 탐색하고 `scripts/s2_save_map_candidate.sh`로 후보 저장 → RViz 확인 후 최종 지도 채택. 이 단계가 끝나야 S3 AMCL/Goal에 진입.
