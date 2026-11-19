@@ -10,3 +10,8 @@
 - 이어질 검증: 공식 Nav2 Map Server→AMCL→map→odom 동적 TF→Nav2 NavigateToPose 액션 준비 확인. 1차는 NO GOAL, 그 후 배달·복귀는 별도 증거 게이트.
 - 현재 단계: 지도 프레임 계약 L0 후보. 실제 Gazebo AMCL은 NOT_RUN.
 - 교육 메모: Gazebo World frame과 ROS SLAM map frame을 동일시하면 지도는 있어도 AMCL 초기 위치와 Nav2 Goal이 잘못될 수 있으므로, 출고 지도 좌표·SHA·Free 연결을 먼저 확인해야 함.
+
+## 구현 단계 1 — 전용 S3 CI 사전검사
+- S3 전용 브랜치/워크플로로 L0·L1·L2를 검사하여 이미 성공한 S2 전체 33.3m 지도 생성을 재반복하지 않습니다.
+- Nav2 헤드리스 런치와 실제 Gazebo Map Server/AMCL/TF/Action 서버 준비 상태를 읽기 전용으로 확인하고 NO GOAL 정책을 준수합니다.
+- 현재 실제 Actions 통합 검증 결과 전까지 S3-AMCL=NOT_VERIFIED.
