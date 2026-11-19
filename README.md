@@ -1,6 +1,6 @@
 # Restaurant Robot MVP — 강사 독립 실습 기준선 (개발 후보)
 
-**인수 판정: `RESTAURANT_ROBOT_MVP=NOT_RUN`**. 이 저장소에는 독립 소스와 현장 실행기가 준비되어 있지만, 작성 환경에 ROS 2 Jazzy/Gazebo Harmonic 및 강사 WSL2 GUI가 없으므로 실제 시뮬레이터 주행은 **아직 검증되지 않았습니다**. `DEMO_PASS`로 간주하지 마세요.
+**인수 판정: `RESTAURANT_ROBOT_MVP=PARTIAL`**. 강사 WSL2에서 S1 Gazebo World·Waffle Pi 렌더링이 확인됐으며 D3D12 GPU 적용 후 화면 RTF 99.89%(이전 61.95%)가 관찰됐습니다. 이는 각 단일 시점의 화면값이며 S2 Map·AMCL·S3 주행·S4 안전 인수는 아직 남았습니다. `DEMO_PASS`로 간주하지 마세요.
 
 목표는 단 하나: **Waffle Pi가 레스토랑에서 픽업(1) → 테이블(3) → 픽업(1)을 실제 이동하고, 메뉴 정책과 장애물 대응을 확인한 후 개발 종료**. 도면 원본이 현재 첨부되지 않았으므로 SDF는 임시 10×9m 배치입니다. `docs/WORLD_LAYOUT.md` 참고.
 
@@ -142,3 +142,8 @@ ROS/Gazebo/GUI가 없는 환경에서 확인한 것은 Python 문법, SDF XML �
 ## 개발 경과·디버깅 보고서
 
 모든 작업이 끝날 때 `docs/reports/tasks/`에 경과 보고서를 남깁니다. 실제 오류가 발생했다면 `docs/reports/issues/`에 원인 분석·수정·동일 경계 재검을 기록합니다. 자세한 규칙과 훈련생 해설 양식은 [`AGENTS.md`](AGENTS.md), [`docs/REPORTING_POLICY.md`](docs/REPORTING_POLICY.md)를 확인하십시오.
+
+## P0 S1 기준선
+- SAMSUNGAXI PC i7-11700F / RAM 16GB / RTX3060 8GB 전용. 다른 AXIA 환경 가정 금지.
+- 생성 Waffle Pi SDF에서만 기본 RGB 30Hz 중복을 제거하고 RGB-D 5Hz와 LiDAR 10Hz는 유지.
+- D3D12 GPU 최적화 현장 RTF 99.89%는 단일 시점 확인값. [P0 경과 보고서](docs/reports/tasks/2026-11-19_P0_S1_verified_baseline.md).

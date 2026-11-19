@@ -42,6 +42,7 @@ def main():
                 '/scan': (LaserScan, lambda m: len(m.ranges) >= 10 and any(math.isfinite(r) for r in m.ranges)),
                 '/odom': (Odometry, lambda m: bool(m.header.frame_id and m.child_frame_id)),
                 '/tf': (TFMessage, lambda m: bool(m.transforms)),
+                '/restaurant/rgbd/image': (Image, lambda m: m.width > 0 and m.height > 0 and bool(m.data)),
                 '/restaurant/rgbd/depth_image': (Image, lambda m: m.width > 0 and m.height > 0 and bool(m.data)),
                 '/restaurant/rgbd/points': (PointCloud2, lambda m: m.width > 0 and m.height > 0 and bool(m.data)),
             }
