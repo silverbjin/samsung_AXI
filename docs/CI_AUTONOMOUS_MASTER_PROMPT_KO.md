@@ -5,7 +5,7 @@
 ## 고정 입력
 
 - 새 독립 원격 저장소: `https://github.com/silverbjin/samsung_AXI.git` (`silverbjin/samsung_AXI`). 원격 최초 조회에서는 `main`이 없는 empty repository였다. **작업 시작 시 최신 원격 상태를 재조회**하여 의도하지 않은 덮어쓰기 금지.
-- 기존 독립 소스: 대화 첨부 파일 `restaurant_robot_mvp_20261119.zip` 및 후속 CI 패치가 추가된 프로젝트 폴더. 기존 Git commit: `efe657d7133186905f6ba7ecab0e32f0beef3de6`.
+- 기존 독립 소스: 대화 첨부 파일 `restaurant_robot_mvp_20261119.zip` 및 후속 CI 패치가 추가된 프로젝트 폴더. 기존 초기 Git commit: `efe657d7133186905f6ba7ecab0e32f0beef3de6`; CI 구성 후보는 후속 커밋에 추가됨. 최신 로컬 HEAD는 실제 업로드 시 재조회할 것.
 - 최상위 요구사항 인계: `RESTAURANT_ROBOT_SIM_INDEPENDENT_MVP_SENIOR_AGENT_HANDOFF_20261119_KO.md` (v2.0). M1–M8과 RESTAURANT-DEMO-01을 변경하지 마라.
 - 공식 ROS/Gazebo/ROBOTIS 재사용 출처와 핀은 `docs/REUSE_NOTES.md`를 우선한다. AXIA 기존 3개 저장소 main은 읽기 전용이다.
 - 현장: Windows WSL2 Ubuntu 24.04 / ROS 2 Jazzy / Gazebo Harmonic / WSLg. 강사 PC에서는 **최종 통합 인수 1회만** 수행하도록 CI 준비를 최대한 끝낸다.

@@ -40,3 +40,7 @@ L2가 GPU headless 환경에서 실패하면 Gazebo 센서 실패 / 그래픽 �
 - Gazebo ROS 2 vendor packages: https://gazebosim.org/docs/harmonic/ros2_gz_vendor_pkgs/
 - `ros-tooling/setup-ros`: https://github.com/ros-tooling/setup-ros
 - Actions runner Ubuntu 24.04: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+
+### 일회성 원격 초기 게시 보조 스크립트
+
+이미 GitHub 인증이 있는 작업 환경에서 로컬 소스를 최초 올릴 때는 `./scripts/first_publish_samsung_axi.sh`를 사용할 수 있다. 이 도구는 원격이 비어 있거나 HEAD가 완전히 같은 경우에만 성공하며, 기존 main이 존재하고 다르면 **BLOCKED**로 멈춘다. 절대 `--force`를 쓰지 않는다. CI 자동 실행은 GitHub에서 실제 push가 이뤄진 뒤에만 시작된다.
