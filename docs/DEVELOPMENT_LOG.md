@@ -54,3 +54,5 @@
 - 2026-11-19 P0 확정: PR #4 → main `c124d3d`, [L0/L1/실제 Gazebo L2 GREEN #44486003784](https://github.com/silverbjin/samsung_AXI/actions/runs/44486003784). S1 고정, S2는 별도.
 - 2026-11-19 S2-MAP-01 완료(파이프라인): PR #5 → main `344dacb`, [Run #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236) L0·L1·L2 실제 SLAM /map, Odom 0.381m, Map Saver YAML/PGM, Map Server 재로딩 PASS. [작업 보고서](reports/tasks/2026-11-19_S2-MAP-01_real_slam_save_reload.md). 전체 매장 지도·AMCL은 NOT_RUN.
 - 2026-11-19 S2-CI-01 종결: [문제 해결 보고서](reports/issues/2026-11-19_S2-CI-01_nounset_source_contract.md) L0 nounset RED→최소 수정→Run #44488688236 GREEN.
+
+- 2026-11-19 S2-CI-02: [main 병합 후 APT HTTP 80 저장소 연결 타임아웃](reports/issues/2026-11-19_S2-CI-02_ubuntu_apt_network.md), Run #44520735057 L0 PASS / 런타임 설치 실패; 실패 Job만 1회 재검.
