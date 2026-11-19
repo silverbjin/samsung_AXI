@@ -2,7 +2,7 @@
 
 - 발생일: 2026-11-19 (KST)
 - 위치: 이 대화의 소스 파일 생성 컨테이너 (`/mnt/data/restaurant_robot_mvp`)
-- 상태: **HOLD** (로컬 컨테이너 네트워크 제약, GitHub 리포지토리 문제로 단정하지 않음)
+- 상태: **RESOLVED(원격 업로드 경로 복구)** / 로컬 DNS 자체는 미해결·환경 제한
 - 연관 작업 보고서: [DOC-01](../tasks/2026-11-19_DOC-01_reporting_policy_setup.md)
 - 최초 확인 로컬 HEAD: `70287b74e1d6cc73b37a03b849dc0b2414a2204b`
 
@@ -40,3 +40,12 @@ fatal: unable to access 'https://github.com/silverbjin/samsung_AXI.git/': Could 
 ## 5. 교육 포인트
 
 클라이언트의 DNS 실패는 저장소 권한·소스 코드 오류와 다릅니다. 첫 실패 지점에서 **네트워크 계층과 저장소/빌드 계층을 분리**하면 불필요한 ROS 패키지 수정이나 권한 변경을 피할 수 있습니다. 다음 환경에서 원격 HEAD 재조회 및 안전한 최초 게시가 검증되면 본 보고서에 결과를 추가하고 `RESOLVED`로 변경하십시오.
+
+## 6. 후속 해결 — 2026-11-19 원격 게시 확인
+
+- 동일 컨테이너에서 `git ls-remote`는 여전히 `Could not resolve host: github.com`으로 실패하므로 DNS 하위 원인을 확인하지 않았습니다.
+- GitHub 연결의 읽기/쓰기 권한 및 빈 원격을 검증한 뒤 `create_file → create_tree → create_commit → update_ref(force=false)` 경로로 로컬 이력 5개를 재구성했습니다.
+- 실제 원격 `main` HEAD: [`a11951cc3dbe9e18c8b154d8e8787a09dd6f7dc2`](https://github.com/silverbjin/samsung_AXI/commit/a11951cc3dbe9e18c8b154d8e8787a09dd6f7dc2).
+- 원격 Git Tree `e9f535d70227abb6ccc5079b78bc0ce6a2cef722`가 로컬 `git rev-parse HEAD^{tree}`와 일치하고 파일 50개가 확인됐습니다. **파일 업로드 장애는 해결됐습니다.**
+- CI 실행: [Run #44443691545](https://github.com/silverbjin/samsung_AXI/actions/runs/44443691545). 해당 Run의 검사 결론은 별도 확인합니다.
+- 해결 범위: **원격 게시 RESOLVED**, 컨테이너 DNS 자체 복구는 하지 않았으며 WSL2/ROS/Gazebo와 무관합니다.

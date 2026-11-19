@@ -28,3 +28,5 @@
 |---|---|---|---|
 | 2026-11-19 | DOC-01 | [공통 보고서 정책 도입](reports/tasks/2026-11-19_DOC-01_reporting_policy_setup.md) | 문서 정적 확인 / GitHub 원격 반영 NOT_RUN |
 | 2026-11-19 | INFRA-01 | [컨테이너 GitHub DNS 접근 실패](reports/issues/2026-11-19_INFRA-01_container_github_dns.md) | 로컬 Git 사용 가능 / 원격 Push HOLD |
+
+- 2026-11-19 · **PUBLISH-01 / 원격 GitHub 게시 완료**: [경과 보고서](reports/tasks/2026-11-19_PUBLISH-01_github_initial_import.md), [INFRA-01 해결 경로](reports/issues/2026-11-19_INFRA-01_container_github_dns.md). 원격 소스 50개·Tree SHA 일치, 최초 CI L0 PASS. L1/L2는 Actions Run #44443691545로 추적.
