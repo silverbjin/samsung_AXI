@@ -40,13 +40,21 @@ def test_single_twist_bridge_no_twiststamped():
 
 def test_overlay_rgbd_generation(tmp_path):
     src=tmp_path/'source.sdf'
-    src.write_text('<sdf version="1.8"><model name="turtlebot3_waffle_pi"><link name="camera_link"/></model></sdf>')
+    src.write_text('''<sdf version="1.8"><model name="turtlebot3_waffle_pi">
+        <link name="camera_link"/>
+        <link name="camera_rgb_frame"><sensor name="camera" type="camera"/></link>
+        <link name="base_scan"><sensor name="hls_lfcd_lds" type="gpu_lidar"><visualize>true</visualize><update_rate>10</update_rate></sensor></link>
+        </model></sdf>''')
     mod=module_from(ROOT/'scripts/prepare_waffle_rgbd.py','overlay_test')
     out=tmp_path/'overlay.sdf'
     mod.build(src,out)
     node=ET.parse(out).getroot().find('.//sensor')
     assert node is not None and node.get('type')=='rgbd_camera'
     assert node.findtext('gz_frame_id')=='restaurant_rgbd_optical'
+    root=ET.parse(out).getroot()
+    assert root.find(".//sensor[@name='camera']") is None
+    assert root.findtext(".//sensor[@name='hls_lfcd_lds']/visualize") == 'false'
+    assert root.findtext(".//sensor[@name='hls_lfcd_lds']/update_rate") == '10'
 
 def test_nav_params_only_local_pointcloud_added(tmp_path):
     base={

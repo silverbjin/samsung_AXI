@@ -44,8 +44,6 @@ def generate_launch_description():
         Node(package='ros_gz_bridge', executable='parameter_bridge',
              parameters=[{'config_file': os.path.join(here, 'config', 'bridge.yaml')}],
              output='screen'),
-        Node(package='ros_gz_image', executable='image_bridge',
-             arguments=['/camera/image_raw'], output='screen'),
         # S2 RGB-D optical TF. Harmless in S1 even if RGB-D sensor not generated yet.
         Node(package='tf2_ros', executable='static_transform_publisher',
              arguments=['--x', '0', '--y', '0', '--z', '0',

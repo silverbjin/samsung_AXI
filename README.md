@@ -142,3 +142,18 @@ ROS/Gazebo/GUI가 없는 환경에서 확인한 것은 Python 문법, SDF XML �
 ## 개발 경과·디버깅 보고서
 
 모든 작업이 끝날 때 `docs/reports/tasks/`에 경과 보고서를 남깁니다. 실제 오류가 발생했다면 `docs/reports/issues/`에 원인 분석·수정·동일 경계 재검을 기록합니다. 자세한 규칙과 훈련생 해설 양식은 [`AGENTS.md`](AGENTS.md), [`docs/REPORTING_POLICY.md`](docs/REPORTING_POLICY.md)를 확인하십시오.
+
+## 2026-11-19 S1PERF-01 — WSL2 RTF 진단 후 S2 매핑 준비
+
+S1 현장 Gazebo World/로봇 GUI 렌더링 확인 (사진 RTF 61.95%). 렌더링은 정상이나 Scan/Depth 현장 실제 메시지와 S2 지도 저장은 추가 검증 필요.
+공식 RGB-only 30Hz 카메라를 *생성된 Waffle Pi SDF 사본에서만* 제외하고 등록 RGB-D 5Hz의 RGB/Depth/Points를 사용합니다. LiDAR **광선 시각화만** 비활성화, 10Hz Scan과 Nav2/CM 설정은 유지합니다.
+
+WSL2 자원·GPU **읽기 전용** 진단 (Gazebo 작동 중 두 번째 Ubuntu 터미널):
+```bash
+cd ~/samsung_AXI
+bash scripts/wsl2_perf_doctor.sh
+# 선택: NVIDIA 장착 시 렌더러 비교 (Gazebo 실행 중 설정을 바꾸지 않음)
+RESTAURANT_COMPARE_NVIDIA=1 bash scripts/wsl2_perf_doctor.sh
+```
+가이드: [WSL2 성능·GPU 진단](docs/WSL2_PERFORMANCE.md).
+S2 첫 실행: `bash scripts/restaurant_demo.sh mapping` — **NO_GOAL**. 실제 주행 가능한 지도 저장·AMCL 검증 전에는 DEMO_PASS 아님.

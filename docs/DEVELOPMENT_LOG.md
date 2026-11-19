@@ -36,3 +36,6 @@
 - 2026-11-19 OWNER-01: pinned GitHub WSL2 one-shot + uniform RGB-D world path. Static 10 PASS, PR CI and WSL2 NOT_RUN: [task report](reports/tasks/2026-11-19_OWNER-01_wsl2_one_shot_predeployment.md).
 - 2026-11-19 CI-02: setup-ros bootstrap long-running; isolated CI container candidate, root cause tentative, retest pending: [issue report](reports/issues/2026-11-19_CI-02_setup_ros_bootstrap_stall.md).
 - 2026-11-19 OWNER-01 released: PR #1 → main `f211d04` after L0/L1/L2 NO_GOAL GREEN Run #44447853175; WSL2 L3 NOT_RUN: [report](reports/tasks/2026-11-19_OWNER-01_wsl2_one_shot_predeployment.md).
+
+| 2026-11-19 | S1PERF-01 | [RTF 진단·최소 렌더링 중복 제거·S2 준비](reports/tasks/2026-11-19_S1PERF-01_wsl2_rtf_s2_readiness.md) | 정적 검사 PASS; 현장 개선 RTF/지도 NOT_RUN |
+| 2026-11-19 | PERF-01 | [WSL2 RTF 0.50~0.60 병목 진단](reports/issues/2026-11-19_PERF-01_wsl2_rtf.md) | OPEN: GPU·메모리·센서 기여도 미확정 |
