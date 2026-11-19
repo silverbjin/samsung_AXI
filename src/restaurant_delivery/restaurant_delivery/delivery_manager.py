@@ -48,9 +48,9 @@ class SensorEvidence:
 
 
 def run(menu, auto_return=False):
-    world_share=Path(get_package_share_directory('restaurant_world'))
     delivery_share=Path(get_package_share_directory('restaurant_delivery'))
-    layout=yaml.safe_load((world_share/'config/tables.yaml').read_text())
+    # Actual S2 SLAM map coordinates, NOT restaurant World SDF coordinates.
+    layout=yaml.safe_load((delivery_share/'config/s3_map_waypoints.yaml').read_text())
     policies=yaml.safe_load((delivery_share/'config/menu.yaml').read_text())
     policy=read_policy(policies,menu)
     if layout.get('frame')!='map':raise RuntimeError('MAP_FRAME_REQUIRED')
