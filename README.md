@@ -147,3 +147,6 @@ ROS/Gazebo/GUI가 없는 환경에서 확인한 것은 Python 문법, SDF XML �
 - SAMSUNGAXI PC i7-11700F / RAM 16GB / RTX3060 8GB 전용. 다른 AXIA 환경 가정 금지.
 - 생성 Waffle Pi SDF에서만 기본 RGB 30Hz 중복을 제거하고 RGB-D 5Hz와 LiDAR 10Hz는 유지.
 - D3D12 GPU 최적화 현장 RTF 99.89%는 단일 시점 확인값. [P0 경과 보고서](docs/reports/tasks/2026-11-19_P0_S1_verified_baseline.md).
+
+## S2-MAP-01 — 실제 Gazebo 지도 생성·저장·재로딩
+공식 SLAM Toolbox와 Nav2 Map Saver/Map Server를 재사용하는 L2 통합 검증. 짧은 물리 이동으로 생성한 지도의 저장·재로딩을 확인하며 전체 매장 탐색이나 AMCL 성공으로 혼동하지 않습니다. [S2 지도 가이드](docs/S2_MAP_GUIDE.md).

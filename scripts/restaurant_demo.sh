@@ -89,6 +89,7 @@ need_pkg nav2_simple_commander
 if [[ "$MODE" == mapping ]]; then
   echo 'RESTAURANT_S2_MAPPING_STARTED_MAP_NOT_SAVED_YET'
   ros2 launch restaurant_bringup mapping.launch.py robot_sdf:="$ROBOT_SDF" 2>&1 | tee -a "$RUNLOG"
+  exit "${PIPESTATUS[0]}"
 fi
 MAP="$ROOT/maps/restaurant_map.yaml"
 [[ -s "$MAP" ]] || { echo "BLOCKED: $MAP missing. Run mapping and save a real map first."; exit 2; }
