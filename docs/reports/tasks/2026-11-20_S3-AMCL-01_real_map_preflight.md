@@ -27,3 +27,10 @@
 - 공식 Nav2 Jazzy `nav2_bringup/launch/bringup_launch.py`가 `IfCondition(PythonExpression(['not ', slam, ' and ', use_localization]))`로 bool을 PythonExpression에 넣는 사실 확인. 기존 `navigation.launch.py`는 `slam:'false'`, `use_composition:'false'` 등 소문자 전달로 NameError 가능.
 - 최소 수정: 해당 launch_arguments bool 문자열만 Python의 `False`/`True`로 교정. World/SLAM/Map/AMCL/ROS 물리 패키지 수정 없음.
 - 재검 전 S3 AMCL L2=NOT_VERIFIED, S2 MAP02 main PASS 유지.
+
+## Final AMCL-01 GREEN (2026-11-20 KST)
+- [Actions #44561573820](https://github.com/silverbjin/samsung_AXI/actions/runs/44561573820) L0 released-map PGM/SHA/frame PASS, L1 Jazzy official Nav2 build PASS, L2 actual Gazebo Map Server+AMCL+TF+NavigateToPose action server readiness **PASS/NO GOAL**.
+- Evidence artifact `samsungaxi-s3-amcl-verified-44561573820`: map PGM sha256 b20bebc872145fa674315757c61e5bb10444eb4c5067ac34d5948d679157e8d8, 201×180 cells, scan_count=11, amcl_pose_xy=(0.0068173,0.0366831), covariance diagonal=(0.132142,0.146656,0.082378), map→odom and odom→base TF true, Nav2 NavigateToPose server true, goal_sent=false.
+- Result marker `RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL` verified in actual log.
+- PR #9 source merged main SHA `2e0b145983b621a3061cca5085fa5b88c87332f7`.
+- **S3_AMCL_01=PASS**, S3 actual NavigateToPose+physical Odom delivery and return remain NOT_RUN; local WSL2 only final GUI acceptance after CI.

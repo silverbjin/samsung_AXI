@@ -18,3 +18,7 @@
 
 ## 교육 포인트
 - ROS 2 Launch의 IfCondition과 PythonExpression은 불리언 문자열 처리 방식이 다를 수 있습니다. 프로세스가 뜨기도 전에 실패하면 센서/TF 대신 Launch 단계의 첫 예외부터 분석해야 합니다.
+
+## RESOLVED — actual Gazebo regression GREEN
+- [Run #44561573820](https://github.com/silverbjin/samsung_AXI/actions/runs/44561573820) official Nav2 lifecycle starts, released Map Server publishes actual saved map, AMCL publishes finite covariance and map→odom TF, Nav2 action server ready, NO GOAL.
+- Code merged via PR #9, main 2e0b145983b621a3061cca5085fa5b88c87332f7. Launch bool error confined to launch_arguments; official ROS Nav2/SLAM not modified.

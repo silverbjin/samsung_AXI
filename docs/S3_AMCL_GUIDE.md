@@ -21,3 +21,8 @@ WSL2에서 수동 지도 생성은 수행하지 않습니다.
 성공 메시지: RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL
 
 강사 WSL2는 CI GREEN을 확인한 동일 소스/지도를 가져와 GUI에서 최종 인수만 수행합니다.
+
+## 2026-11-20 실증 판정
+- PR #9 S3-AMCL-01 main 병합 PASS.
+- [실제 CI GREEN #44561573820](https://github.com/silverbjin/samsung_AXI/actions/runs/44561573820): Map 201×180/PGM SHA256, AMCL x=0.0068,y=0.0367, map→odom 및 odom→base, NavigateToPose server 준비, Goal 없음.
+- 다음은 S3 실제 Nav2 Goal/복귀 CI 인수이며 그 전에는 물리 배달을 성공으로 보고하지 않습니다.

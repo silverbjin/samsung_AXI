@@ -66,3 +66,5 @@
 - 2026-11-20 S2-MAP02-CI02: [Gazebo 전체 지도 L2 GREEN, Git 출고 차단](reports/issues/2026-11-20_S2-MAP02-CI02_map_gitignore.md). 최종 YAML/PGM 두 파일만 Git 추적 예외로 추가, 재검 전 출고 HOLD.
 
 - 2026-11-20 **S2-MAP-02 릴리스 최종 PASS**: PR #7 source main 39213564, PR #8 map-only main d4fd5f19, actual Gazebo 33.3m/12/12/Scan1842, YAML/PGM SHA256 + SaveMap reload. [보고서](reports/tasks/2026-11-19_S2-MAP-02_ci_full_map.md). WSL2 지도 재생성 금지, 다음 S3 AMCL/Nav2.
+
+- 2026-11-20 **S3-AMCL-01 PASS**: [Run #44561573820](https://github.com/silverbjin/samsung_AXI/actions/runs/44561573820) 저장 지도 201×180, AMCL pose/TF, Nav2 action READY/NO GOAL 검증. PR #9 main 2e0b1459. [보고서](reports/tasks/2026-11-20_S3-AMCL-01_real_map_preflight.md). 다음 S3 Goal/물리 주행은 별도.
