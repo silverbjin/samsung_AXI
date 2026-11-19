@@ -155,3 +155,6 @@ ROS/Gazebo/GUI가 없는 환경에서 확인한 것은 Python 문법, SDF XML �
 - **P0 S1 main 확정**: PR #4 / GREEN #44486003784 / main `c124d3d`.
 - **S2 실제 지도 파이프라인 구현 완료**: PR #5 / [GREEN #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236) / main `344dacb`. 실제 Gazebo Scan→SLAM `/map`→0.381m `/odom`→SaveMap YAML/PGM→Map Server 재로딩 성공.
 - **S2 전체 레스토랑 지도와 AMCL/배달**: 아직 미인수. 짧은 CI 이동의 부분 지도를 주행 완성 지도로 사용하지 말 것. [S2 안내](docs/S2_MAP_GUIDE.md).
+
+## CI 기반 전체 지도 (S2-MAP-02)
+[레스토랑 전체 지도 CI 생성/품질 확인/출고](docs/S2_MAP02_GUIDE.md)를 사용합니다. 검수된 `maps/restaurant_map.yaml` 및 `.pgm`은 CI에서 만들어 지도 후보 브랜치를 통해 승격하며, 강사 WSL2에서 재생성하지 않습니다.
