@@ -26,7 +26,9 @@ trap 'exit 130' INT TERM
 
 [[ -r /opt/ros/jazzy/setup.bash ]] || { echo 'BLOCKED: /opt/ros/jazzy/setup.bash missing'; exit 2; }
 # shellcheck disable=SC1091
+set +u
 source /opt/ros/jazzy/setup.bash
+set -u
 command -v colcon >/dev/null || { echo 'BLOCKED: install python3-colcon-common-extensions'; exit 2; }
 command -v git >/dev/null || { echo 'BLOCKED: git missing'; exit 2; }
 [[ "${WSL_DISTRO_NAME:-}" != '' ]] || echo 'INFO: WSL_DISTRO_NAME absent; GUI must be confirmed manually.'
@@ -53,7 +55,9 @@ fi
   colcon build --symlink-install --packages-up-to restaurant_world restaurant_bringup restaurant_delivery ${EXTRA_COLCON_ARGS:-} >"$RUNLOG" 2>&1
 ) || { tail -n 40 "$RUNLOG"; echo "RESTAURANT_BUILD_BLOCKED_LOG=$RUNLOG"; exit 1; }
 # shellcheck disable=SC1091
+set +u
 source "$ROOT/install/setup.bash"
+set -u
 for pkg in restaurant_world restaurant_bringup restaurant_delivery turtlebot3_gazebo; do need_pkg "$pkg"; done
 ROBOTIS_SHARE="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo"
 OFFICIAL_SDF="$ROBOTIS_SHARE/models/turtlebot3_waffle_pi/model.sdf"

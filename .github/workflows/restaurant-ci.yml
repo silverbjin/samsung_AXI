@@ -61,7 +61,9 @@ jobs:
             ros-jazzy-ros-base ros-jazzy-ros-gz ros-jazzy-ros-gz-image \
             ros-jazzy-nav2-bringup ros-jazzy-navigation2 ros-jazzy-slam-toolbox \
             ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
           ros2 pkg prefix ros_gz_sim
           ros2 pkg prefix nav2_bringup
           gz sim --version
@@ -84,10 +86,14 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
           colcon build --event-handlers console_direct+ \
             --packages-up-to restaurant_world restaurant_bringup restaurant_delivery
+          set +u
           source install/setup.bash
+          set -u
           for pkg in turtlebot3_gazebo restaurant_world restaurant_bringup restaurant_delivery; do
             ros2 pkg prefix "$pkg"
           done
@@ -101,8 +107,12 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
+          set +u
           source install/setup.bash
+          set -u
           mkdir -p logs
           xvfb-run -a -s '-screen 0 1280x720x24' \
             timeout --signal=INT --kill-after=10s 240s \
