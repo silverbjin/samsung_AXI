@@ -125,6 +125,8 @@ jobs:
           set -Eeuo pipefail
           set +u
           source /opt/ros/jazzy/setup.bash
+          set -u
+          set +u
           source install/setup.bash
           set -u
           mkdir -p logs generated/s2_maps

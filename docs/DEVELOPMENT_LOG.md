@@ -48,3 +48,5 @@
 - 2026-11-19 P0: [S1 최적화/PC분리/경량 증거 통합](reports/tasks/2026-11-19_P0_S1_verified_baseline.md). PR#3 GREEN #44483609465, PR#2 최신 CI cancelled → 통합 HEAD L2 재검 필수.
 
 - 2026-11-19 S2-MAP-01: [실제 SLAM Map Save/Reload 통합 실증](reports/tasks/2026-11-19_S2-MAP-01_real_slam_save_reload.md) — L0/L1/L2 새 CI 수행 전 NOT_RUN; 강사 전체 매장 지도 별도.
+
+- 2026-11-19 S2-CI-01: [L0 nounset source 개별 보호 실패 및 수정](reports/issues/2026-11-19_S2-CI-01_nounset_source_contract.md), 최초 #44488381423 L0 RED, 실제 L2 미진입.
