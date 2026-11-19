@@ -33,3 +33,9 @@
 - ROS 패키지 종류·버전, World, SLAM Toolbox, Nav2, Map Saver, ROS_DOMAIN_ID, 테스트 임계값은 변경하지 않습니다.
 - 참고: https://ubuntu.com/project/docs/staging/package-archive/ · https://manpages.debian.org/unstable/apt/apt-get.8.en.html
 - **판정:** 기존 실제 S2 [GREEN #44488688236](https://github.com/silverbjin/samsung_AXI/actions/runs/44488688236)는 보존, 새 HTTPS 개선 CI는 실행 후 별도 판단.
+
+## CI 재검 중 L0도 APT 초기화 단계 장기 대기
+- 새 PR #6의 처음 Run에서 `Install static test prerequisites`가 장시간 진행 중임을 확인했습니다. L0의 `sudo apt-get update -qq` 역시 Ubuntu HTTP 저장소를 사용함.
+- 아직 L0 종료코드/서버 첫 오류는 확정되지 않았으므로 이 현상만으로 동일 원인 확정은 금지.
+- 단, 이미 재현된 APT HTTP 80 실패와 동일한 접속 의존성을 제거하기 위해 **GitHub 임시 호스트 runner의 Ubuntu 24.04 deb822 소스만** HTTPS로 전환. 정적 테스트 코드·ROS/Gazebo/SLAM 기능 변경 없음.
+- L0와 L1 모두 `Acquire::Retries=1`, `APT::Update::Error-Mode=any` 적용 후 검수.

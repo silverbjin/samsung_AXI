@@ -20,3 +20,11 @@ def test_ros_and_gazebo_stages_unchanged():
     assert 'python3 scripts/ci_s2_map_smoke.py' in w
     assert 'RESTAURANT_CI_L1_BUILD_PASS' in w
     assert 'ci_gazebo_smoke.py' in w
+
+def test_l0_apt_https_host():
+    w=(ROOT/'.github/workflows/restaurant-ci.yml').read_text()
+    host=w.split('name: Install static test prerequisites',1)[1].split('name: Validate tracked source',1)[0]
+    assert 'sudo sed -i' in host
+    assert 'https://archive.ubuntu.com/ubuntu' in host
+    assert 'APT::Update::Error-Mode=any' in host
+    assert 'ros-jazzy-' not in host
