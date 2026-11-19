@@ -42,6 +42,15 @@
 - 120ms/FPS/RTF 정량 KPI, 3회/10회/15회 반복 인수, 다중 PC, Docker 이미지 제품화, 과도한 TDD/CI 증식.
 - Github Actions Job 성공만으로 `RESTAURANT_ROBOT_MVP=DEMO_PASS` 판정.
 
+
+## 필수 공통 문서화 계약 (모든 작업 단계)
+
+작업 단위가 마무리될 때마다 `AGENTS.md` 및 `docs/REPORTING_POLICY.md`를 준수한다.
+- `docs/reports/tasks/YYYY-MM-DD_<단계>_<제목>.md`에 **작업 경과 보고서**를 코드/설정과 같은 PR 또는 커밋에 남긴다. 목적·필요성·선택 이유·변경 파일·실행 명령·기대 vs 실제 관찰·증거 URL·미검증·다음 작업을 기록한다.
+- 실패·버그·CI RED·WSL2 현장 문제가 발생하면 `docs/reports/issues/YYYY-MM-DD_<ID>_<제목>.md`에 **문제 해결 보고서**도 작성한다. 현상→재현→첫 실패 로그→가설과 근거→원인→최소 조치→동일 경계 재검→판정을 기록한다. 미해결은 `OPEN/HOLD`로 남기고, 해결한 것으로 승격하지 않는다.
+- 각 보고서에 훈련생이 이해할 수 있도록 **왜 이 절차가 필요했는지**를 해설한다. 보고서가 테스트를 추가하거나 반복 검수를 강제해서는 안 된다.
+- `docs/DEVELOPMENT_LOG.md`에는 날짜·작업 ID·보고서 링크·상태만 색인한다. 새 Run 링크가 나중에 나오는 경우 후속 커밋에서 결과를 갱신한다.
+
 ## 매 사이클 보고 형식
 
 `현재 단계 | 원격 HEAD/PR/Run URL | 재사용 자산 | 변경 파일 | 첫 실패와 최소 수정 | 확인된 PASS 범위 | HOLD/NOT_RUN | 다음 자동 조치`.

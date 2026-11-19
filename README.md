@@ -116,3 +116,8 @@ ROS/Gazebo/GUI가 없는 환경에서 확인한 것은 Python 문법, SDF XML �
 정식 원격 저장소는 `https://github.com/silverbjin/samsung_AXI`입니다. 업로드 전에 `git remote -v`로 기존 remotes를 확인하고, **force push 없이** 현재 트리 전체를 초기 `main`에 올리세요. `.github/workflows/restaurant-ci.yml`이 최초 push에서 자동 실행됩니다. `docs/CI_PIPELINE.md`는 L0/L1/L2(NO_GOAL)와 최종 L3의 차이를 설명하고, `docs/CI_AUTONOMOUS_MASTER_PROMPT_KO.md`는 시니어 에이전트에게 전체 개발·검증·인계를 위임하기 위한 실행 프롬프트입니다.
 
 **주의:** L2는 현재 센서 no-goal 범위입니다. 저장 SLAM 지도와 Nav2 실제 이동이 검증되기 전에는 CI GREEN만으로 `DEMO_PASS`를 선언하지 않습니다.
+
+
+## 개발 경과·디버깅 보고서
+
+모든 작업이 끝날 때 `docs/reports/tasks/`에 경과 보고서를 남깁니다. 실제 오류가 발생했다면 `docs/reports/issues/`에 원인 분석·수정·동일 경계 재검을 기록합니다. 자세한 규칙과 훈련생 해설 양식은 [`AGENTS.md`](AGENTS.md), [`docs/REPORTING_POLICY.md`](docs/REPORTING_POLICY.md)를 확인하십시오.
