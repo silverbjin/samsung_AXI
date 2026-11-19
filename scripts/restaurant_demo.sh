@@ -45,11 +45,25 @@ if [[ "$MODE" == doctor ]]; then
 fi
 case "$MODE" in world|mapping|navigation|demo) ;; *) echo 'Usage: restaurant_demo.sh world|mapping|navigation|demo [NORMAL|SOUP]'; exit 2;; esac
 for pkg in ros_gz_sim ros_gz_bridge ros_gz_image; do need_pkg "$pkg"; done
-if ! ros2 pkg prefix turtlebot3_gazebo >/dev/null 2>&1 && [[ ! -d "$ROOT/src/upstream/turtlebot3_simulations/.git" ]]; then
-  echo 'INFO: cloning official ROBOTIS Jazzy simulation into isolated src/upstream/ (not AXIA)'
+# CI and Owner use the same pinned ROBOTIS Jazzy source, not a floating branch HEAD.
+UPSTREAM="$ROOT/src/upstream/turtlebot3_simulations"
+ROBOTIS_PIN='45633014a14e8f438495b532a723e4ad45cbbd31'
+if [[ ! -d "$UPSTREAM/.git" ]]; then
+  echo 'INFO: cloning reviewed ROBOTIS Jazzy simulation into isolated src/upstream/'
   mkdir -p "$ROOT/src/upstream"
-  git clone -q --depth 1 -b jazzy https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git "$ROOT/src/upstream/turtlebot3_simulations"
+  git clone -q --depth 1 -b jazzy https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git "$UPSTREAM"
 fi
+[[ "$(git -C "$UPSTREAM" remote get-url origin)" == 'https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git' ]] || {
+  echo "BLOCKED: unexpected upstream repository origin=$UPSTREAM"; exit 2;
+}
+[[ -z "$(git -C "$UPSTREAM" status --porcelain --untracked-files=normal)" ]] || {
+  echo "BLOCKED: local upstream has modifications=$UPSTREAM"; exit 2;
+}
+if [[ "$(git -C "$UPSTREAM" rev-parse HEAD)" != "$ROBOTIS_PIN" ]]; then
+  git -C "$UPSTREAM" fetch -q --depth 1 origin "$ROBOTIS_PIN"
+  git -C "$UPSTREAM" checkout -q --detach "$ROBOTIS_PIN"
+fi
+echo "RESTAURANT_ROBOTIS_PIN=$ROBOTIS_PIN"
 (
   cd "$ROOT"
   colcon build --symlink-install --packages-up-to restaurant_world restaurant_bringup restaurant_delivery ${EXTRA_COLCON_ARGS:-} >"$RUNLOG" 2>&1
@@ -61,18 +75,20 @@ set -u
 for pkg in restaurant_world restaurant_bringup restaurant_delivery turtlebot3_gazebo; do need_pkg "$pkg"; done
 ROBOTIS_SHARE="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo"
 OFFICIAL_SDF="$ROBOTIS_SHARE/models/turtlebot3_waffle_pi/model.sdf"
+# Use the SAME generated RGB-D sensor in every mode, including the first GUI world demo.
+python3 "$ROOT/scripts/prepare_waffle_rgbd.py" --source "$OFFICIAL_SDF" --out "$ROOT/generated/waffle_pi_rgbd.sdf" | tee -a "$RUNLOG"
+ROBOT_SDF="$ROOT/generated/waffle_pi_rgbd.sdf"
 if [[ "$MODE" == world ]]; then
   echo 'RESTAURANT_S1_STARTED_NOT_YET_GUI_VERIFIED'
-  exec ros2 launch restaurant_bringup world.launch.py 2>&1 | tee -a "$RUNLOG"
+  ros2 launch restaurant_bringup world.launch.py robot_sdf:="$ROBOT_SDF" 2>&1 | tee -a "$RUNLOG"
+  exit "${PIPESTATUS[0]}"
 fi
 need_pkg nav2_bringup
 need_pkg slam_toolbox
 need_pkg nav2_simple_commander
-python3 "$ROOT/scripts/prepare_waffle_rgbd.py" --source "$OFFICIAL_SDF" --out "$ROOT/generated/waffle_pi_rgbd.sdf" | tee -a "$RUNLOG"
-ROBOT_SDF="$ROOT/generated/waffle_pi_rgbd.sdf"
 if [[ "$MODE" == mapping ]]; then
   echo 'RESTAURANT_S2_MAPPING_STARTED_MAP_NOT_SAVED_YET'
-  exec ros2 launch restaurant_bringup mapping.launch.py robot_sdf:="$ROBOT_SDF" 2>&1 | tee -a "$RUNLOG"
+  ros2 launch restaurant_bringup mapping.launch.py robot_sdf:="$ROBOT_SDF" 2>&1 | tee -a "$RUNLOG"
 fi
 MAP="$ROOT/maps/restaurant_map.yaml"
 [[ -s "$MAP" ]] || { echo "BLOCKED: $MAP missing. Run mapping and save a real map first."; exit 2; }
@@ -80,7 +96,7 @@ NAV_SRC="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.y
 python3 "$ROOT/scripts/prepare_nav2_params.py" --source "$NAV_SRC" --out "$ROOT/generated/nav2_params.yaml" | tee -a "$RUNLOG"
 if [[ "$MODE" == navigation ]]; then
   echo 'RESTAURANT_S3_NAV_READY_CHECK_OWN_ROBOT_BEFORE_GOAL'
-  exec ros2 launch restaurant_bringup navigation.launch.py robot_sdf:="$ROBOT_SDF" map:="$MAP" params_file:="$ROOT/generated/nav2_params.yaml" 2>&1 | tee -a "$RUNLOG"
+  ros2 launch restaurant_bringup navigation.launch.py robot_sdf:="$ROBOT_SDF" map:="$MAP" params_file:="$ROOT/generated/nav2_params.yaml" 2>&1 | tee -a "$RUNLOG"
 fi
 [[ "$MENU" == NORMAL || "$MENU" == SOUP ]] || { echo 'MENU must be NORMAL or SOUP'; exit 2; }
 echo 'RESTAURANT_DEMO_STARTING: inspect empty Gazebo / real sensor before accepting goals.'

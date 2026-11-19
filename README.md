@@ -4,6 +4,27 @@
 
 목표는 단 하나: **Waffle Pi가 레스토랑에서 픽업(1) → 테이블(3) → 픽업(1)을 실제 이동하고, 메뉴 정책과 장애물 대응을 확인한 후 개발 종료**. 도면 원본이 현재 첨부되지 않았으므로 SDF는 임시 10×9m 배치입니다. `docs/WORLD_LAYOUT.md` 참고.
 
+## 강사 WSL2 원격 원샷 (출고 전 CI 검증 대상으로 추가됨)
+
+강사 Ubuntu 24.04 WSL2/WSLg 터미널에서 **검증 완료된 원격 커밋 SHA**를 지정해 실행합니다. ROS 2 Jazzy가 먼저 설치되어 있어야 하며, 누락된 개별 apt 의존성만 `sudo`로 보완합니다.
+
+```bash
+# SHA에는 GitHub Actions L0+L1+L2가 통과한 samsung_AXI 커밋의 40자 SHA 입력
+SHA="<GREEN_COMMIT_40CHAR>"
+SCRIPT="$(mktemp --suffix=.sh)"
+trap 'rm -f "$SCRIPT"' EXIT
+curl -fL --retry 3 --connect-timeout 10 \
+  "https://raw.githubusercontent.com/silverbjin/samsung_AXI/${SHA}/scripts/owner_wsl2_once.sh" \
+  -o "$SCRIPT"
+bash -n "$SCRIPT" && bash "$SCRIPT" world --ref "$SHA"
+```
+
+기본 `world`는 Gazebo 물리 World + Waffle Pi + 등록 RGB-D + LiDAR만 시작하고 **Goal을 보내지 않습니다**. 첫 실행에서 모델이 실제 보이고 `/scan`·`/odom`·Depth가 유효한지 확인하십시오. 로그: `$HOME/samsung_AXI/logs/owner_world_*.log`와 해당 `world_*.log`.
+
+같은 진입점에서 `mapping`, `navigation`, `demo NORMAL`, `demo SOUP`, `doctor` 모드를 사용할 수 있지만 실제 map이 만들어지기 전 `demo`는 차단됩니다. `Ctrl+C`는 스크립트가 소유한 데모 종료에 사용합니다. 원격 코드·환경 불일치 때 강제 덮어쓰기나 글로벌 `pkill`을 수행하지 않습니다.
+
+**상태:** 위 원샷은 CI 및 WSL2 실제 검수 완료 전까지 후보입니다. Actions 검증 없이 `DEMO_PASS`를 주장하지 않습니다. 개발·검수 과정: [`OWNER-01`](docs/reports/tasks/2026-11-19_OWNER-01_wsl2_one_shot_predeployment.md).
+
 ## 1. Windows WSL2 Ubuntu 24.04 — 준비
 
 ```bash
