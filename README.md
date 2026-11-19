@@ -157,3 +157,7 @@ RESTAURANT_COMPARE_NVIDIA=1 bash scripts/wsl2_perf_doctor.sh
 ```
 가이드: [WSL2 성능·GPU 진단](docs/WSL2_PERFORMANCE.md).
 S2 첫 실행: `bash scripts/restaurant_demo.sh mapping` — **NO_GOAL**. 실제 주행 가능한 지도 저장·AMCL 검증 전에는 DEMO_PASS 아님.
+
+## SAMSUNGAXI 전용 하드웨어 진단 (다른 PC 사양 유입 금지)
+
+이 프로젝트의 강사 PC 사양은 타 AXIA/교육용 PC와 다릅니다. 먼저 `bash scripts/samsungaxi_hw_probe.sh`를 실행해 **Windows 물리 CPU·RAM·GPU와 WSL2 실제 가용 자원 및 렌더러**를 읽기 전용으로 수집합니다. 이 결과를 확인하기 전에는 `.wslconfig` 메모리값, GPU 선택, CPU 코어 수를 임의로 정하지 않습니다. 상세 실행·해석: [docs/HARDWARE_PROFILE_SAMSUNGAXI.md](docs/HARDWARE_PROFILE_SAMSUNGAXI.md). S1 이전 RTF 61.95%는 현장 관찰값이고 본 진단만으로 RTF 개선 PASS를 선언할 수 없습니다.

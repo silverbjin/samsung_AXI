@@ -16,16 +16,17 @@ RESTAURANT_COMPARE_NVIDIA=1 bash scripts/wsl2_perf_doctor.sh  # NVIDIA 장착 �
 - `free -h`의 `available`이 여유 있으면 메모리 상한만 늘려도 RTF가 개선된다고 말할 수 없음.
 - 엔터프라이즈 보호/다중 WSL 인스턴스가 있을 수 있으므로 `.wslconfig` 원본 덮어쓰기·`wsl --shutdown` 자동 실행 금지.
 
-## RAM 32 GB인 Windows 호스트 권장 검토
-Microsoft WSL2 기본 VM 메모리 제한은 Windows RAM의 50%(별도 설정 없으면 약 16 GB). WSL에서 실제 제한과 메모리 사용량부터 확인한 뒤 필요할 때만 Windows PowerShell에서 **백업 후** `$env:USERPROFILE\.wslconfig`를 편집.
+## SAMSUNGAXI PC의 RAM/CPU/GPU — 실측 전에는 권장값 지정 금지
 
-```ini
-[wsl2]
-memory=20GB
-swap=8GB
-guiApplications=true
+**중요:** 이전 기록에 나온 32GB Windows RAM, WSL2 20GB 권장값은 다른 프로젝트 PC의 정보이며 **SAMSUNGAXI 전용 PC의 사양이 아닙니다**. 이 PC의 물리 RAM/CPU/GPU를 먼저 진단한 후에만 최적화합니다.
+
+```bash
+cd ~/samsung_AXI
+bash scripts/samsungaxi_hw_probe.sh
+# 필요할 때만:
+bash scripts/samsungaxi_hw_probe.sh --compare-gpu
 ```
-*이미 존재하는 파일의 다른 항목은 보존*. 적용하려면 모든 WSL 세션 종료 후 **Windows PowerShell**의 `wsl --shutdown` (실행 중 프로세스 전부 종료됨), 이후 WSL Ubuntu 재시작. CPU `processors`는 현장 CPU 코어 수·부하 확인 전 설정하지 않음.
+Windows 호스트 CPU/RAM/GPU와 WSL2 실제 가용 CPU/메모리, WSLg GPU 경로를 텍스트 및 JSON으로 출력합니다. [SAMSUNGAXI 하드웨어 프로파일 가이드](HARDWARE_PROFILE_SAMSUNGAXI.md)를 따르세요. 진단기는 시스템 설정을 바꾸지 않으며 다른 프로젝트 프로파일을 참조하지 않습니다.
 
 ## GPU 선택 확인 (옵션)
 WSLg Mesa D3D12는 `MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA`를 사용하여 특정 어댑터를 선택할 수 있음. 실제 `glxinfo -B` 출력에 D3D12(NVIDIA)가 보인 경우에만 **새 터미널/새 Gazebo 세션에 한정**해 비교:

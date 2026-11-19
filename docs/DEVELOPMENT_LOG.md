@@ -39,3 +39,5 @@
 
 | 2026-11-19 | S1PERF-01 | [RTF 진단·최소 렌더링 중복 제거·S2 준비](reports/tasks/2026-11-19_S1PERF-01_wsl2_rtf_s2_readiness.md) | 정적 검사 PASS; 현장 개선 RTF/지도 NOT_RUN |
 | 2026-11-19 | PERF-01 | [WSL2 RTF 0.50~0.60 병목 진단](reports/issues/2026-11-19_PERF-01_wsl2_rtf.md) | OPEN: GPU·메모리·센서 기여도 미확정 |
+
+| 2026-11-19 | HW-01 | [SAMSUNGAXI PC 독립 CPU·RAM·GPU 진단](reports/tasks/2026-11-19_HW-01_samsungaxi_pc_profile_probe.md) | Bash/pytest 3개 PASS; 실제 SAMSUNGAXI PC 사양·RTF 최적화 NOT_RUN |
