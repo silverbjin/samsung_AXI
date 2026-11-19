@@ -47,3 +47,13 @@ def test_mocked_host_and_gpu_parsing(tmp_path):
     assert d['windows_host']['RAMBytes'] == 34359738368
     assert d['wsl2']['gpu']['opengl_default_probe']['renderer']=='D3D12 (Test GPU)'
     assert 'WINDOWS_RAM=32.00 GiB' in (out/'samsungaxi_hardware.txt').read_text()
+def test_downloaded_to_tmp_defaults_to_samsungaxi_workspace(tmp_path):
+    """Curl to /tmp should never try writing /logs or another project tree."""
+    import shutil
+    download = tmp_path / 'temporary_download.sh'
+    shutil.copy2(SCRIPT, download)
+    env=os.environ.copy(); env['HOME']=str(tmp_path)
+    p=subprocess.run(['bash',str(download)],env=env,text=True,capture_output=True,timeout=30)
+    assert p.returncode==0,(p.stdout,p.stderr)
+    report_dir=tmp_path/'samsung_AXI'/'logs'/'hardware'
+    assert list(report_dir.glob('*/samsungaxi_hardware.json'))

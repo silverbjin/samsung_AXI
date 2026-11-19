@@ -14,7 +14,13 @@ Read-only: does not install drivers, change .wslconfig, set GPU/CPU limits, or s
 Reports contain CPU/GPU model, RAM size and drivers; review before sharing publicly.
 USAGE
 }
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_PARENT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+# A pinned script fetched to /tmp must still save results inside SAMSUNGAXI.
+if [[ -f "$SCRIPT_PARENT/src/restaurant_world/package.xml" || -d "$SCRIPT_PARENT/.git" ]]; then
+  ROOT="$SCRIPT_PARENT"
+else
+  ROOT="${SAMSUNG_AXI_WORKSPACE:-$HOME/samsung_AXI}"
+fi
 OUTPUT_DIR="$ROOT/logs/hardware/$(date -u +%Y%m%dT%H%M%SZ)"
 COMPARE_GPU=0
 GAZEBO_STATS=0
