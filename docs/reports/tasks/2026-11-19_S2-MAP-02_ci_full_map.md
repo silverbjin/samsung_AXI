@@ -36,3 +36,9 @@
 ## Cycle 05 — 전방 무반사(+inf) 처리 경계
 - Run #44550663776 L0/L1/S1/S2MAP01 PASS, 신규 GT 제어 후 첫 전방 LiDAR `FRONT_MIN_M=0, MIN_BEAM_INDEX=-1` 정지.
 - 양의 Infinity no-return vs NaN/0/실제 장애물을 구별하는 보수적 처리 후보 추가, 정지거리 0.40m 유지. 실 Gazebo GREEN 전 통합 성공 주장 금지.
+
+## Cycle 06 — 실 지도 CI GREEN, 후보 브랜치 Git 단독 RED
+- [PR Run #44551738811](https://github.com/silverbjin/samsung_AXI/actions/runs/44551738811) L0 34 PASS, L1 Build PASS, S1 L2 PASS, S2-MAP-01 L2 PASS, S2-MAP-02 실제 Gazebo 완주/품질/저장/재로딩 PASS.
+- 결과: 33.3m, 12/12 waypoints, 1850 Scan, free 24796, occupied 1352, known 26148, observed extent 약 9.95×8.85m, pickup-to-table3 free-connected true, resolution 0.05m.
+- [Push Run #44551726313](https://github.com/silverbjin/samsung_AXI/actions/runs/44551726313)에서도 실증·Artifact/해시 검증 성공했으나 지도 후보 게시 Git add가 .gitignore로 차단.
+- 최소 수정·재검: [S2-MAP02-CI02 보고서](../issues/2026-11-20_S2-MAP02-CI02_map_gitignore.md). 후보 지도 main 병합 전까지 RELEASE=HOLD, S3=NOT_RUN.

@@ -42,3 +42,8 @@ LiDAR로 생성한 ROS OccupancyGrid를 공식 SLAM Toolbox에서 받아 YAML+PG
 참고: Nav2 Jazzy 공식 Map Saver 및 SLAM Toolbox 문서
 https://api.nav2.org/nav2-jazzy/html/md_nav2_map_server_README.html
 https://ros-navigation.github.io/mkdocs.nav2.org/lyrical/tutorials/general_tutorials/navigation2_with_slam/navigation2_with_slam/
+
+## 실 지도 검증 기준선 및 Git 출고
+- PR Actions #44551738811 및 Push Run #44551726313: 실제 33.3m Gazebo SLAM 전체 지도, 품질, SaveMap, reload PASS.
+- Git 게시만 실패: 기존 .gitignore가 map YAML/PGM을 차단. 수정과 재검 보고서는 [S2-MAP02-CI02](reports/issues/2026-11-20_S2-MAP02-CI02_map_gitignore.md).
+- 지도 생성 성공과 main 배포는 별도 검증 단계이며, 강사 WSL2에서 수동으로 다시 매핑하지 않습니다.

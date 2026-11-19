@@ -239,6 +239,11 @@ jobs:
           set -Eeuo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Refuse release if the two exact final maps are still ignored.
+          if git check-ignore -q maps/restaurant_map.yaml || git check-ignore -q maps/restaurant_map.pgm; then
+            echo 'S2_MAP02_RELEASE_FILES_STILL_IGNORED' >&2
+            exit 2
+          fi
           git add maps/restaurant_map.yaml maps/restaurant_map.pgm \
                   maps/restaurant_map_quality.json maps/restaurant_map_manifest.json
           git commit -m "artifacts(S2-MAP-02): real Gazebo SLAM map candidate [skip ci]"

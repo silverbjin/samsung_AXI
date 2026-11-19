@@ -10,6 +10,9 @@
 /generated/
 /maps/*.pgm
 /maps/*.yaml
+# Approved CI-produced final release files may be tracked.
+!/maps/restaurant_map.pgm
+!/maps/restaurant_map.yaml
 !maps/.gitkeep
 /evidence/
 /src/upstream/
