@@ -42,3 +42,12 @@
 - 결과: 33.3m, 12/12 waypoints, 1850 Scan, free 24796, occupied 1352, known 26148, observed extent 약 9.95×8.85m, pickup-to-table3 free-connected true, resolution 0.05m.
 - [Push Run #44551726313](https://github.com/silverbjin/samsung_AXI/actions/runs/44551726313)에서도 실증·Artifact/해시 검증 성공했으나 지도 후보 게시 Git add가 .gitignore로 차단.
 - 최소 수정·재검: [S2-MAP02-CI02 보고서](../issues/2026-11-20_S2-MAP02-CI02_map_gitignore.md). 후보 지도 main 병합 전까지 RELEASE=HOLD, S3=NOT_RUN.
+
+## Final — 2026-11-20 KST / reviewed map in main
+- S2-MAP-01 retains previous actual Gazebo SLAM SaveMap+Reload PASS.
+- S2-MAP-02 real full-room map CI GREEN: PR #7, [Run #44555403408](https://github.com/silverbjin/samsung_AXI/actions/runs/44555403408) and prior [Run #44551738811](https://github.com/silverbjin/samsung_AXI/actions/runs/44551738811). Source merged main `39213564bb108e59d11796171afd521b191bdd66`.
+- Exact source map: [Push Run #44551726313](https://github.com/silverbjin/samsung_AXI/actions/runs/44551726313) verified robot 33.3m, 12/12 waypoints, 1842 scans, known 26399, free 24811, occupied 1588, observed 10.00×8.90m, free connectivity pickup-to-table3, actual SaveMap & reload PASS.
+- Publication-only fix: [Run #44557054303](https://github.com/silverbjin/samsung_AXI/actions/runs/44557054303) read original same-source artifact, revalidated world SHA, YAML/PGM SHA256 and quality without repeating map generation. Map-only candidate PR #8 merged into main `d4fd5f19095d807e5ecee0d6e21a855733557b79`.
+- Released files: `maps/restaurant_map.yaml`, `maps/restaurant_map.pgm`, `maps/restaurant_map_quality.json`, `maps/restaurant_map_manifest.json`.
+- SHA256 map YAML `a7065fdb34fe8360be03b62b2439ff431e6e65d4fa256272845b304edeff9c95`; PGM `b20bebc872145fa674315757c61e5bb10444eb4c5067ac34d5948d679157e8d8`.
+- **S2_MAP02_CI_REAL_MAP_RELEASE=PASS**. No WSL2 mapping is required. S3 AMCL/Nav2 has not yet been accepted; saved map provides the S3 input.

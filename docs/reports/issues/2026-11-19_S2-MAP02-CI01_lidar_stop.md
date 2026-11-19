@@ -49,3 +49,7 @@
 - 후보 최소 수정: ROS LaserScan의 정상 범위 밖 no-return **양의 Infinity**와 잘못된 NaN/0/음수 구분. 전방 빔 10개 이상 중 80% 이상이 거리 유한값 또는 양의 Infinity일 때만 처리하고, Infinity만 있을 때는 `range_max`를 clear distance로 해석. 유한 장애물값이 하나라도 있으면 최소거리로 안전 정지 판단.
 - NaN, 0, 불충분한 전방 빔 및 통신 지연은 계속 STOP. 기존 0.40m 정지 임계값 변경 없음. 다음 실제 Run에서 전방 빔 수·finite/+inf/invalid를 출력해 확인.
 - 선행 S1·S2-MAP-01 실제 Gazebo PASS는 유지. 실제 지도 생성 GREEN 전 S2-MAP-02는 HOLD.
+
+## RESOLVED (2026-11-20 KST)
+- Real Gazebo 33.3m route and 12/12 waypoints / quality / SaveMap / reload PASS: Run #44551738811, #44551726313. Odom-based CI waypoint coordinates were replaced only in CI route follower by Gazebo actual model pose, and no-return +inf LaserScan distinguished from invalid NaN/0. Front 0.40m STOP preserved.
+- Linked final map: maps/restaurant_map.yaml and .pgm in main via PR #8. Incident closed without changing official SLAM Toolbox or World geometry.

@@ -19,3 +19,8 @@
 
 ## 교육용 메시지
 지도 생성 PASS와 Git 아티팩트 게시 PASS는 독립된 게이트입니다. 원인 경계를 구분하여 Gitignore 정책만 수정해야 하며, 이미 성공한 SLAM 기능을 다시 개발하면 안 됩니다.
+
+## RESOLVED (2026-11-20 KST)
+- Following Gitignore exact allowlist, one-time artifact promotion CI [Run #44557054303](https://github.com/silverbjin/samsung_AXI/actions/runs/44557054303) checked GREEN source commit ancestry, original World checksum, map YAML/PGM SHA256 and routing quality, then pushed maps/s2-map02-44551726313.
+- Candidate diff reviewed as exactly four map files, temporary release workflow excluded. PR #8 merged main commit d4fd5f19095d807e5ecee0d6e21a855733557b79.
+- No full SLAM re-run required just to fix git add. Issue closed.

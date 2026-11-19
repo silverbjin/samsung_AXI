@@ -47,3 +47,9 @@ https://ros-navigation.github.io/mkdocs.nav2.org/lyrical/tutorials/general_tutor
 - PR Actions #44551738811 및 Push Run #44551726313: 실제 33.3m Gazebo SLAM 전체 지도, 품질, SaveMap, reload PASS.
 - Git 게시만 실패: 기존 .gitignore가 map YAML/PGM을 차단. 수정과 재검 보고서는 [S2-MAP02-CI02](reports/issues/2026-11-20_S2-MAP02-CI02_map_gitignore.md).
 - 지도 생성 성공과 main 배포는 별도 검증 단계이며, 강사 WSL2에서 수동으로 다시 매핑하지 않습니다.
+
+## 최종 지도 출고 PASS (2026-11-20)
+- PR #7: 전체 지도 생성 코드를 main에 병합; PR #8: 검증된 YAML/PGM/품질 JSON/manifest를 main에 병합.
+- 해시 근거: https://github.com/silverbjin/samsung_AXI/blob/main/maps/restaurant_map_manifest.json
+- 검수 근거: https://github.com/silverbjin/samsung_AXI/actions/runs/44557054303
+- WSL2 재매핑은 수행하지 않습니다. S3는 이 지도 파일을 그대로 로드해 AMCL/Nav2를 CI에서 검증합니다.
