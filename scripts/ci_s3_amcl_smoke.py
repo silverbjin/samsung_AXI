@@ -28,6 +28,8 @@ def run(args):
     from rclpy.action import ActionClient
     from nav2_msgs.action import NavigateToPose
     from action_msgs.msg import GoalStatus
+    from lifecycle_msgs.srv import GetState
+    from lifecycle_msgs.msg import State
 
     repo=Path(__file__).resolve().parents[1]
     contract=validate_release(repo)
@@ -143,6 +145,30 @@ def run(args):
             args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
             print('RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL',flush=True)
             if args.exercise_goals:
+                # Action discovery alone is NOT evidence of Nav2 Lifecycle readiness.
+                # With slow first-time Gazebo startup the action server exists while
+                # bt_navigator, planner, controller or collision_monitor are inactive.
+                managed=('bt_navigator','planner_server','controller_server',
+                         'collision_monitor','behavior_server')
+                lc={name:node.create_client(GetState,'/'+name+'/get_state') for name in managed}
+                active={name:False for name in managed}
+                deadline=time.monotonic()+150.0
+                while time.monotonic()<deadline and not all(active.values()):
+                    spin_once(.18)
+                    for name,client in lc.items():
+                        if active[name] or not client.service_is_ready():
+                            continue
+                        future=client.call_async(GetState.Request())
+                        limit=time.monotonic()+1.3
+                        while not future.done() and time.monotonic()<limit:
+                            spin_once(.12)
+                        if future.done() and not future.exception():
+                            active[name]=(future.result().current_state.id==State.PRIMARY_STATE_ACTIVE)
+                    if time.monotonic()-state['scan_t']>10:
+                        raise RuntimeError('S3_NAV_PREGOAL_SCAN_STALE')
+                if not all(active.values()):
+                    raise RuntimeError('S3_NAV_LIFECYCLE_NOT_ALL_ACTIVE:'+json.dumps(active))
+                print('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL='+','.join(managed),flush=True)
                 def goto(target,heading,label):
                     if not (state['map_to_odom'] and state['odom_to_base'] and
                             state['amcl_pose'] is not None and state['scan']>=3):

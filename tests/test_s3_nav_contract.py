@@ -29,3 +29,12 @@ def test_nav_action_is_opt_in_and_requires_real_move_evidence():
     assert 'GoalStatus.STATUS_SUCCEEDED' in source
     assert 'RESTAURANT_S3_NAV02_REAL_GAZEBO_DELIVERY_RETURN_PASS' in source
     assert 'NAV_PHYSICAL_ODOM_INSUFFICIENT' in source
+
+
+def test_nav2_goal_rejected_before_lifecycle_active_is_prevented():
+    text=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
+    assert "State.PRIMARY_STATE_ACTIVE" in text
+    assert "'bt_navigator','planner_server','controller_server'" in text
+    assert "'collision_monitor','behavior_server'" in text
+    assert 'S3_NAV_LIFECYCLE_NOT_ALL_ACTIVE' in text
+    assert text.index('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL') < text.index('action.send_goal_async(msg)')

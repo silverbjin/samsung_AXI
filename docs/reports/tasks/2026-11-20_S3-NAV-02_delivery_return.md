@@ -18,3 +18,10 @@
 ## S3 독립 CI 구축
 - 기존 검증된 S2 33.3m 지도 생성을 반복하지 않고 S3 전용 워크플로에서 L0 맵 SHA 계약, L1 공식 Jazzy 빌드, L2 저장 지도 AMCL 사전검사 후 NavigateToPose TABLE3→PICKUP_RETURN을 실주행.
 - 성공 로그 RESTAURANT_S3_NAV02_REAL_GAZEBO_DELIVERY_RETURN_PASS는 실제 Actions 출력이 확인되어야만 유효. 빌드/정적 문자열만으로 성공 주장 금지.
+
+## Cycle 01 — S3 NavigateToPose 첫 Goal 거절 (RED)
+- [Actions #44563771148](https://github.com/silverbjin/samsung_AXI/actions/runs/44563771148): L0 지도/좌표·L1 Jazzy build·L2 기존 AMCL NO GOAL 모두 GREEN, 추가 S3-NAV-02 첫 TABLE_3 Goal `NAV_ACTION_GOAL_REJECTED_TABLE_3`.
+- 최초 실패 경계: Goal이 서버에서 거절됐으며 로봇 물리 주행은 아직 시작되지 않음. `ci-s3-summary.txt`에는 lifecycle_manager_navigation이 planner_server 구성 작업을 진행 중이었고 bt_navigator/Collision Monitor 등이 아직 Waiting on external lifecycle transitions로 기록됨.
+- 근본 원인: NavigateToPose **서버 discovery**는 완료되었지만 Nav2 실제 Lifecycle **ACTIVE**를 기다리지 않아 첫 Goal을 너무 일찍 제출함. Action 서버 존재와 Lifecycle 활성화는 다른 인수 게이트.
+- 최소 수정: S3-NAV-02 `--exercise-goals` 활성 시에만 bt_navigator/planner_server/controller_server/collision_monitor/behavior_server의 공식 `GetState` 서비스 결과 ACTIVE(3) 확인 후 Goal 허가. 150초 범위 내 활성화 안 되면 HOLD (Goal 미전송).
+- AMCL NO-GOAL 검증 기준·원본 지도·SLAM·0.40m 안전 조건·Goal 도착 판정은 변경하지 않음. 재검 전 NAV-02=NOT_VERIFIED.
