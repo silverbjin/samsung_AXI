@@ -38,3 +38,5 @@
 - 2026-11-19 OWNER-01 released: PR #1 → main `f211d04` after L0/L1/L2 NO_GOAL GREEN Run #44447853175; WSL2 L3 NOT_RUN: [report](reports/tasks/2026-11-19_OWNER-01_wsl2_one_shot_predeployment.md).
 
 - 2026-11-19 HW-02: [기기 분리 진단](reports/tasks/2026-11-19_HW-02_samsungaxi_profile.md) 및 [GPU-01 llvmpipe](reports/issues/2026-11-19_GPU-01_wslg_llvmpipe.md): 기록 완료, D3D12 현장 개선 NOT_RUN.
+
+- 2026-11-19 GPU-02: [실기 D3D12 GLX 경로 확인·국소 실행기](reports/tasks/2026-11-19_GPU-02_glx_route_verified.md) / [GPU-01 원인 분리](reports/issues/2026-11-19_GPU-01_wslg_llvmpipe.md): GLX PASS, Gazebo 개선 NOT_RUN.

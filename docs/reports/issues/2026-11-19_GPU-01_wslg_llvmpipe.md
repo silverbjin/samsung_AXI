@@ -1,6 +1,6 @@
 # GPU-01 — SAMSUNGAXI 전용 WSLg GPU 경로 장애 진단
 - 작성: 2026-11-19 KST
-- 상태: **OPEN**. D3D12 실기 검증 및 Gazebo RTF 개선 결과는 NOT_RUN
+- 상태: **PARTIAL** — D3D12 GLX NVIDIA 가속 실기 PASS, Gazebo Ogre2/RTF 실측 NOT_RUN
 - 범위: 이 프로젝트 PC 한 대만. 다른 AXIA 프로젝트 하드웨어 수치 사용 금지.
 
 ## 최초 관찰
@@ -24,3 +24,15 @@ S1 렌더링 PASS(사용자 제공), WSLg GLX GPU 가속 실패 확인, 실기 d
 - https://github.com/microsoft/wslg/issues/1332
 - https://github.com/microsoft/wslg/wiki/GPU-selection-in-WSLg
 - https://learn.microsoft.com/en-us/windows/wsl/wsl-config
+
+## 후속 GLX 실측 결과 (2026-11-19)
+
+강사 업로드 summary.txt: 기본 `llvmpipe / Accelerated: no / EXIT=0`, `GALLIUM_DRIVER=d3d12`는 `D3D12 (NVIDIA GeForce RTX 3060) / Accelerated: yes / EXIT=0`, `GALLIUM_DRIVER=d3d12`와 NVIDIA 선택 변수 결합도 동일 PASS.
+
+**확정한 경계:** WSLg GLX 렌더러의 D3D12 GPU 가속 가능성은 실제 확인됨. Gazebo Ogre2 및 RTF 개선·Scan/Depth 수신은 아직 검증하지 않았으며 GPU-01을 전체 RESOLVED로 승격하지 않음.
+
+**최소 조치:** `scripts/samsungaxi_d3d12_world_once.sh`를 추가해 국소 환경변수에서만 GLX preflight 후 기존 S1 `restaurant_demo.sh world`를 실행. 하드웨어 가속이 없으면 Gazebo 시작 전 BLOCKED. 시스템 환경 설정/드라이버/서로 다른 AXIA 저장소 수정 없음.
+
+**재현·검수:** Bash `-n` 및 모의 glxinfo 성공, llvmpipe 실패, 잘못된 인자 총 3개 경로 확인. 실제 Gazebo 렌더러·RTF NOT_RUN.
+
+**후속:** 기존 Gazebo 종료 Ctrl+C → 이 스크립트의 `world`에서 1회 GUI 실행 → 동일한 카메라/장면 상태에서 RTF와 GPU 렌더러 로그 확인 → ROS `/scan`, `/odom`, `/restaurant/rgbd/depth_image` 실메시지 확인. 전역 MESA 설정과 메모리 변경은 보류.
