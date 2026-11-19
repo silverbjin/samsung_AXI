@@ -41,7 +41,7 @@ cd ~/samsung_AXI
 mkdir -p logs/evidence
 LATEST="$(ls -t logs/mapping_*.log | head -1)"
 python3 scripts/samsungaxi_evidence_bundle.py \
-  --root "$PWD" --session-log "$LATEST" --since-unix 0 \
+  --root "$PWD" --session-log "$LATEST" --since-unix "$(stat -c %Y "$LATEST")" \
   --output "$PWD/logs/evidence/s2-map-$(date -u +%Y%m%dT%H%M%SZ).zip"
 ```
 
