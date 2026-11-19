@@ -15,7 +15,8 @@ def test_release_map_sha_world_and_pickup_table3_connected():
 
 def test_world_coords_are_not_map_goal_coords():
     assert mod.world_to_map(mod.WORLD_PICKUP)==mod.MAP_PICKUP
-    assert mod.world_to_map(mod.WORLD_TABLE3)==mod.MAP_TABLE3
+    got=mod.world_to_map(mod.WORLD_TABLE3)
+    assert all(abs(a-b)<1e-9 for a,b in zip(got,mod.MAP_TABLE3))
     assert mod.WORLD_PICKUP!=mod.MAP_PICKUP
 
 def test_binary_pgm_parser_rejects_corrupt_file(tmp_path):

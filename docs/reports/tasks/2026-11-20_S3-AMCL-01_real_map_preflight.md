@@ -15,3 +15,8 @@
 - S3 전용 브랜치/워크플로로 L0·L1·L2를 검사하여 이미 성공한 S2 전체 33.3m 지도 생성을 재반복하지 않습니다.
 - Nav2 헤드리스 런치와 실제 Gazebo Map Server/AMCL/TF/Action 서버 준비 상태를 읽기 전용으로 확인하고 NO GOAL 정책을 준수합니다.
 - 현재 실제 Actions 통합 검증 결과 전까지 S3-AMCL=NOT_VERIFIED.
+
+## Cycle 01 — L0 RED→GREEN 후보
+- RED: [Run #44560051088](https://github.com/silverbjin/samsung_AXI/actions/runs/44560051088), pytest 1 FAIL / 4 PASS. 실패 원인은 table3 좌표 y=0.3800000000000001과 0.38의 Python 부동소수점 정확 비교. 지도 SHA·PGM 연결·출고 조건 검사는 성공.
+- 최소 수정: 해당 좌표 단정문 하나만 1e-9 오차 비교로 수정. World→map 변환, MAP YAML·PGM·manifest 및 Nav2 변경 없음.
+- 실제 L0 재검 GREEN과 L2 AMCL 증거 전에는 S3=NOT_VERIFIED.
