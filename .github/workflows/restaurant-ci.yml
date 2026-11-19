@@ -31,7 +31,7 @@ jobs:
           python3 -m compileall -q scripts src tests
           bash -n scripts/*.sh
           xmllint --noout src/restaurant_world/worlds/restaurant.sdf
-          python3 -m pytest -q tests/test_static_contract.py tests/test_ros_setup_nounset.py tests/test_owner_wsl2_once.py tests/test_evidence_bundle.py tests/test_perf_profile.py tests/test_samsungaxi_hw_probe.py tests/test_s2_map_contract.py tests/test_s2_map02_contract.py
+          python3 -m pytest -q tests/test_static_contract.py tests/test_ros_setup_nounset.py tests/test_owner_wsl2_once.py tests/test_evidence_bundle.py tests/test_perf_profile.py tests/test_samsungaxi_hw_probe.py tests/test_s2_map_contract.py tests/test_s2_map02_contract.py tests/test_s2_map02_gt_pose.py
           echo 'RESTAURANT_CI_L0_STATIC_PASS'
 
   l1-l2-simulation:

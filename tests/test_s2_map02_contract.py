@@ -47,3 +47,11 @@ def test_no_mapping_or_nav_success_from_contract_only():
     assert "'/map_saver/save_map'" in code
     assert 'nav2_map_server' in code
     assert 'while' in code
+
+
+def test_s2_survey_uses_actual_gazebo_pose_but_preserves_odom_and_lidar():
+    code=(ROOT/'scripts/ci_s2_map02.py').read_text()
+    assert 'GazeboModelPose' in code and 'ground_truth.fresh()' in code
+    assert 'ground_truth.pose' in code and 'world_to_map_point(' in code
+    assert "Odometry,'/odom'" in code and "LaserScan,'/scan'" in code
+    assert "front<.40" in code

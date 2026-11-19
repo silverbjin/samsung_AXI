@@ -28,3 +28,7 @@
 
 ## Cycle 03 — 실제 물리 Pose와 Odom 불일치 원인 분리
 - Run #44547524892의 LiDAR 전방 0.375m와 Odom 기반 SDF 최근접 0.755m 불일치. Gazebo SceneBroadcaster 원본 모델 Pose를 **읽기 전용**으로 단일 계측한 뒤 수정 여부 판단. 보고서: [S2-MAP02-CI01](../issues/2026-11-19_S2-MAP02-CI01_lidar_stop.md).
+
+## Cycle 04 — CI 경로 추종에서 GT/Odom 차이 수정
+- 실제 모델 위치와 휠 Odom 추정 간 약 0.60m 차이를 직접 계측. **CI survey control에만** Gazebo 실 Pose 사용하고 원래 LiDAR/SLAM/Odom 데이터로 OccupancyGrid 생성.
+- 물리 안전 가드 동일, GT stale시 STOP/HOLD. 저장 지도/AMCL S3는 별도 인수. 실제 Run GREEN 전 S2-MAP-02 완료 주장 금지.

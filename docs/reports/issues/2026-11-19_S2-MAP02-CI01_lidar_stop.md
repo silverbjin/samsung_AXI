@@ -36,3 +36,9 @@
 - 다음 단일 계측: Gazebo Harmonic SceneBroadcaster `/world/restaurant/pose/info`에서 `waffle_pi` 실제 모델 Pose를 읽기 전용으로 수집해 동일 시각 Odom 추정치와 비교.
 - 본체 Pose가 차이나면 CI 고정 탐색용 위치 피드백을 실제 모델 Pose 기반으로 바꾸는 최소 수정 검토(지도 센서/SLAM은 실제 데이터 유지). 차이가 없으면 스캔 프레임/장착 위치를 별도로 조사.
 - S2-MAP-02가 완료되지 않은 동안 S3 AMCL/Nav2는 NOT_RUN. 기존 S2-MAP-01 PASS 유지.
+
+## Cycle 04 — 실측 World Pose 기반 CI 탐색 피드백으로 수정
+- [Run #44548621304](https://github.com/silverbjin/samsung_AXI/actions/runs/44548621304) RED: Gazebo 실제 Pose `(-3.186499,1.855990)` vs wheel Odom 기반 World 추정 `(-3.725,1.595)`, 약 0.60m 오차. 해당 위치에서 LiDAR 0.389m 안전 정지는 정상.
+- 최소 수정: `s2_map02_gt_pose.py`로 실시간 `/world/restaurant/pose/info`의 실제 모델 Pose를 읽어, **CI 전용 고정 경로 추종**에서만 목표 좌표와 yaw 피드백 사용. 지도 검증 위치는 동시 관측된 Gazebo Pose·Odom·map→odom TF로 정합.
+- /scan, /odom, /tf, SLAM Toolbox 입력은 원본 그대로. Gazebo GT를 SLAM 입력/Map으로 발행하지 않음. LIDAR 0.40m STOP, 불신/지연 시 종료 유지.
+- Pytest 계약에 Gazette Pose_V 파싱 및 다른 모델 거부 회귀 추가. 실제 Gazebo GREEN 전까지 미해결.

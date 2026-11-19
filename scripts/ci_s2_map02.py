@@ -20,6 +20,7 @@ from s2_map02_contract import (
     map_coordinates,free_path_connected,route_clearance,boxes_from_sdf,
 )
 from ci_s2_map_smoke import end_process,check_map_yaml
+from s2_map02_gt_pose import GazeboModelPose, world_to_map_point
 
 def angle(q):
     return math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
@@ -77,6 +78,7 @@ def run(args):
            'initial':None,'odom':None,'odom_t':0.,
            'map':None,'map_count':0,'tf':None,'reloaded':None}
     launched=reload_proc=node=pub=None
+    ground_truth=GazeboModelPose()
     started=False
     finished=[]
     def odom_cb(m):
@@ -117,19 +119,23 @@ def run(args):
                 result.append(d)
         return min(result,default=0.0)  # no front scan measurements means stop
     def drive(target_world,step):
-        tx,ty=from_world_to_odom(target_world,state['initial'])
+        tx,ty=target_world  # Actual Gazebo World coordinates, CI survey only.
         deadline=time.monotonic()+140
         best=math.inf;progress_t=time.monotonic()
         while time.monotonic()<deadline:
             spin_once(.09)
-            if not state['odom']:continue
-            x,y,yaw=state['odom']
+            if not state['odom'] or not ground_truth.fresh():
+                if not ground_truth.fresh() and ground_truth.samples:
+                    raise RuntimeError('GAZEBO_GT_POSE_STALE_OR_LOST')
+                continue
+            x,y,yaw=ground_truth.pose
             distance=math.hypot(tx-x,ty-y)
             if distance<.09:
                 stop();finished.append(dict(step=step,world=list(target_world),error_m=round(distance,3)))
                 print('S2_MAP02_WAYPOINT_PASS='+str(step)+' ERROR_M='+str(round(distance,3)),flush=True)
                 return
-            if time.monotonic()-state['scan_t']>7 or time.monotonic()-state['odom_t']>7:
+            if (time.monotonic()-state['scan_t']>7 or time.monotonic()-state['odom_t']>7
+                    or not ground_truth.fresh()):
                 raise RuntimeError('SCAN_OR_ODOM_STALE_'+str(step))
             if distance < best-.045:best=distance;progress_t=time.monotonic()
             if time.monotonic()-progress_t>22:
@@ -149,9 +155,7 @@ def run(args):
                             az=wrap(scan.angle_min+index*scan.angle_increment)
                             if abs(az)<.40:beams.append((value,az,index))
                     nearest=min(beams,default=(0.,math.nan,-1))
-                    init=state['initial']
-                    dx=x-init[0];dy=y-init[1];c=math.cos(init[2]);ss=math.sin(init[2])
-                    wx=START[0]+c*dx+ss*dy;wy=START[1]-ss*dx+c*dy
+                    wx,wy=x,y  # Actual physical Gazebo model Pose, not wheel-odom estimate.
                     obstacles=[]
                     for name,cx,cy,hx,hy,radius in boxes_from_sdf(world):
                         if radius: gap=math.hypot(wx-cx,wy-cy)-radius
@@ -169,6 +173,7 @@ def run(args):
                         ' MIN_BEAM_INDEX='+str(nearest[2])+
                         ' WORLD_ESTIMATE='+str((round(wx,3),round(wy,3)))+
                         ' SDF_NEAREST='+str((round(nearest_sdf[0],3),nearest_sdf[1]))+
+                        ' GT='+str(tuple(round(q,3) for q in ground_truth.pose))+
                         ' '+gz_pose_evidence())
                 cmd.linear.x=min(.23,max(.10,.8*distance))
                 cmd.angular.z=max(-.48,min(.48,1.2*diff))
@@ -186,6 +191,7 @@ def run(args):
                 ['ros2','launch','restaurant_bringup','mapping.launch.py',
                  'gui:=false','robot_sdf:='+str(args.robot_sdf.resolve())],
                 stdout=out,stderr=subprocess.STDOUT,start_new_session=True,env=os.environ.copy())
+            ground_truth.start()  # reads SceneBroadcaster; no ROS SLAM pose injection
             rclpy.init(args=None);started=True
             node=rclpy.create_node('samsungaxi_s2_map02_ci_survey')
             qos=QoSProfile(depth=1,reliability=ReliabilityPolicy.RELIABLE,
@@ -198,7 +204,11 @@ def run(args):
             node.create_subscription(OccupancyGrid,'/restaurant/map02_reloaded',lambda m:state.update(reloaded=m),qos)
             pub=node.create_publisher(Twist,'/cmd_vel',10)
             wait_for(lambda:state['clock'] and state['scan_count']>=3 and state['map'] is not None
-                     and state['tf'] is not None and state['initial'] is not None,200,'SENSOR_SLAM_MAP_TF')
+                     and state['tf'] is not None and state['initial'] is not None
+                     and ground_truth.fresh() and ground_truth.samples>=2,200,'SENSOR_SLAM_MAP_TF_GT')
+            print('S2_MAP02_INITIAL_REAL_GAZEBO_POSE='+str(ground_truth.pose),flush=True)
+            if math.dist(ground_truth.pose[:2],START)>.35:
+                raise RuntimeError('GAZEBO_SPAWN_DISPLACED_FROM_PICKUP:'+str(ground_truth.pose))
             print('S2_MAP02_ACTUAL_GAZEBO_SURVEY_STARTED',flush=True)
             try:
                 for i,target in enumerate(SURVEY[1:],1):drive(target,i)
@@ -207,12 +217,14 @@ def run(args):
             before=state['map_count']
             wait_for(lambda:state['map_count']>=before+2,35,'SLAM_FINAL_UPDATE')
             metrics=coverage(state['map'])
-            pickup=map_coordinates(from_world_to_odom(START,state['initial']),state['tf'])
-            target=map_coordinates(from_world_to_odom(TABLE3_APPROACH,state['initial']),state['tf'])
+            if not ground_truth.fresh():raise RuntimeError('GT_POSE_MISSING_AT_MAP_QA')
+            pickup=world_to_map_point(START,ground_truth.pose,state['odom'],state['tf'])
+            target=world_to_map_point(TABLE3_APPROACH,ground_truth.pose,state['odom'],state['tf'])
             if not free_path_connected(state['map'],pickup,target):
                 raise RuntimeError('PICKUP_TO_TABLE3_FREE_SPACE_DISCONNECTED_OR_UNKNOWN')
             metrics.update(route_waypoints=len(finished),route_length_m=round(sum(math.dist(a,b) for a,b in zip(SURVEY,SURVEY[1:])),3),
-                           pickup_free_connected_to_table3=True,sensor_scans=state['scan_count'])
+                           pickup_free_connected_to_table3=True,sensor_scans=state['scan_count'],
+                           gazebo_ground_truth_samples=ground_truth.samples)
             print('S2_MAP02_COVERAGE='+json.dumps(metrics,sort_keys=True),flush=True)
             save=node.create_client(SaveMap,'/map_saver/save_map')
             req=SaveMap.Request()
@@ -247,6 +259,7 @@ def run(args):
         raise
     finally:
         stop()
+        ground_truth.close()
         end_process(reload_proc);end_process(launched)
         if node is not None:node.destroy_node()
         if started and rclpy.ok():rclpy.shutdown()
