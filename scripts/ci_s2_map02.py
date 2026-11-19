@@ -17,7 +17,7 @@ import time
 
 from s2_map02_contract import (
     START,SURVEY,TABLE3_APPROACH,coverage,from_world_to_odom,
-    map_coordinates,free_path_connected,route_clearance,
+    map_coordinates,free_path_connected,route_clearance,boxes_from_sdf,
 )
 from ci_s2_map_smoke import end_process,check_map_yaml
 
@@ -122,13 +122,32 @@ def run(args):
                 front=front_distance(state['scan'])
                 if front<.40:
                     scan=state['scan']
+                    beams=[]
+                    for index,value in enumerate(scan.ranges):
+                        if math.isfinite(value) and value>0:
+                            az=wrap(scan.angle_min+index*scan.angle_increment)
+                            if abs(az)<.40:beams.append((value,az,index))
+                    nearest=min(beams,default=(0.,math.nan,-1))
+                    init=state['initial']
+                    dx=x-init[0];dy=y-init[1];c=math.cos(init[2]);ss=math.sin(init[2])
+                    wx=START[0]+c*dx+ss*dy;wy=START[1]-ss*dx+c*dy
+                    obstacles=[]
+                    for name,cx,cy,hx,hy,radius in boxes_from_sdf(world):
+                        if radius: gap=math.hypot(wx-cx,wy-cy)-radius
+                        else: gap=math.hypot(max(abs(wx-cx)-hx,0.),max(abs(wy-cy)-hy,0.))
+                        obstacles.append((gap,name))
+                    nearest_sdf=min(obstacles,default=(math.inf,'none'))
                     raise RuntimeError('LIDAR_FORWARD_CLEARANCE_BLOCKED_'+str(step)+
                         ' ODOM='+str(tuple(round(v,3) for v in (x,y,yaw)))+
                         ' TARGET='+str((round(tx,3),round(ty,3)))+
                         ' REMAINING_M='+str(round(distance,3))+
                         ' FRONT_MIN_M='+str(round(front,3))+
                         ' SCAN_ANGLE_MIN='+str(round(scan.angle_min,3))+
-                        ' SCAN_ANGLE_INCREMENT='+str(round(scan.angle_increment,5)))
+                        ' SCAN_ANGLE_INCREMENT='+str(round(scan.angle_increment,5))+
+                        ' MIN_BEAM_AZ_RAD='+str(round(nearest[1],3))+
+                        ' MIN_BEAM_INDEX='+str(nearest[2])+
+                        ' WORLD_ESTIMATE='+str((round(wx,3),round(wy,3)))+
+                        ' SDF_NEAREST='+str((round(nearest_sdf[0],3),nearest_sdf[1])))
                 cmd.linear.x=min(.23,max(.10,.8*distance))
                 cmd.angular.z=max(-.48,min(.48,1.2*diff))
             pub.publish(cmd)

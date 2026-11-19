@@ -19,3 +19,11 @@
 
 ## 교육용 교훈
 충돌 가능성이 보이면 안전 가드를 삭제하거나 임계값을 낮춰 GREEN을 만들어서는 안 됩니다. 로봇 위치·가구 배치·목표 허용오차·센서 실제 데이터를 결합하여 안전한 경로를 보완한 뒤 실제 Gazebo에서 다시 검증해야 합니다.
+
+## Cycle 02 — 안전 정지 2회 반복 / 실제 Odom·Range 확인
+- RED: [Run #44546324681](https://github.com/silverbjin/samsung_AXI/actions/runs/44546324681), L0/L1/S1 L2/S2-MAP-01 L2 PASS; 새 탐색 waypoint1·2 PASS, waypoint3 LiDAR 0.40m 가드 안전 정지.
+- 오류 실측: `ODOM=(-1.126,3.924,1.582)`, `TARGET=(-1.15,6.11)`, 남은 거리 2.186m, `FRONT_MIN_M=0.394`, Scan 각도 0..6.28rad, 각도 증가 0.01749.
+- SDF 기하학상 waypoint3 경로를 더 넓힌 뒤에도 동일 정지. 따라서 단순한 테이블 근접/목표 허용오차 가설은 충분하지 않음.
+- 다음 원인 분리: 실제 장애물까지의 SDF 예상 거리와 스캔 최소 빔 상대각, Odom 원점 기반 실제 World 좌표 추정치를 동일 오류에 기록. **정지 임계값 0.40m는 변경하지 않음.**
+- 동작 범위: CI 검수용 스크립트의 읽기 전용 장애 원인 계측만 추가, robot/SLAM/SDF/Map Saver 및 기존 PASS 변경 없음.
+- 실제 GREEN 전에는 `S2_MAP02=HOLD`.
