@@ -5,7 +5,8 @@ def test_s3_launch_respects_headless_mode_and_pinned_map():
     text=(ROOT/'src/restaurant_bringup/launch/navigation.launch.py').read_text()
     assert "DeclareLaunchArgument('gui',default_value='true')" in text
     assert "condition=IfCondition(LaunchConfiguration('gui'))" in text
-    assert "'slam':'false'" in text
+    assert "'slam':'False'" in text
+    assert "'use_composition':'False'" in text
     assert "LaunchConfiguration('map')" in text
 
 def test_s3_actual_amcl_tfs_without_goal():

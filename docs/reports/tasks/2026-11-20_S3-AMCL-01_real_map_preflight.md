@@ -20,3 +20,10 @@
 - RED: [Run #44560051088](https://github.com/silverbjin/samsung_AXI/actions/runs/44560051088), pytest 1 FAIL / 4 PASS. 실패 원인은 table3 좌표 y=0.3800000000000001과 0.38의 Python 부동소수점 정확 비교. 지도 SHA·PGM 연결·출고 조건 검사는 성공.
 - 최소 수정: 해당 좌표 단정문 하나만 1e-9 오차 비교로 수정. World→map 변환, MAP YAML·PGM·manifest 및 Nav2 변경 없음.
 - 실제 L0 재검 GREEN과 L2 AMCL 증거 전에는 S3=NOT_VERIFIED.
+
+## Cycle 02 — S3 L2 RED: Nav2 PythonExpression lowercase false
+- [Run #44560469349](https://github.com/silverbjin/samsung_AXI/actions/runs/44560469349): L0 saved-map/PGM/manifest SHA PASS, L1 Jazzy Nav2 build PASS, 실제 Gazebo S3 Launch 시작 직후 Exit 1.
+- 축약 원본 `ci-s3-summary.txt` 증거: `[ERROR] [launch]: Caught exception in launch ... name 'false' is not defined`.
+- 공식 Nav2 Jazzy `nav2_bringup/launch/bringup_launch.py`가 `IfCondition(PythonExpression(['not ', slam, ' and ', use_localization]))`로 bool을 PythonExpression에 넣는 사실 확인. 기존 `navigation.launch.py`는 `slam:'false'`, `use_composition:'false'` 등 소문자 전달로 NameError 가능.
+- 최소 수정: 해당 launch_arguments bool 문자열만 Python의 `False`/`True`로 교정. World/SLAM/Map/AMCL/ROS 물리 패키지 수정 없음.
+- 재검 전 S3 AMCL L2=NOT_VERIFIED, S2 MAP02 main PASS 유지.

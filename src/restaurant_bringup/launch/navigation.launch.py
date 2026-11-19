@@ -25,10 +25,10 @@ def generate_launch_description():
                               'gui':LaunchConfiguration('gui')}.items()),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(nav,'launch','bringup_launch.py')),
-            launch_arguments={'slam':'false','map':LaunchConfiguration('map'),
+            launch_arguments={'slam':'False','map':LaunchConfiguration('map'),
                               'params_file':LaunchConfiguration('params_file'),
-                              'use_sim_time':'true','autostart':'true',
-                              'use_composition':'false','use_respawn':'false'}.items()),
+                              'use_sim_time':'True','autostart':'True',
+                              'use_composition':'False','use_respawn':'False'}.items()),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(nav,'launch','rviz_launch.py')),
             condition=IfCondition(LaunchConfiguration('gui')),
