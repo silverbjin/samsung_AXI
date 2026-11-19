@@ -25,6 +25,7 @@ def test_l0_apt_https_host():
     w=(ROOT/'.github/workflows/restaurant-ci.yml').read_text()
     host=w.split('name: Install static test prerequisites',1)[1].split('name: Validate tracked source',1)[0]
     assert 'sudo sed -i' in host
+    assert 'mirror+file:/etc/apt/apt-mirrors.txt' in host
     assert 'https://archive.ubuntu.com/ubuntu' in host
     assert 'APT::Update::Error-Mode=any' in host
     assert 'ros-jazzy-' not in host

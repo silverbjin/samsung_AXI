@@ -39,3 +39,10 @@
 - 아직 L0 종료코드/서버 첫 오류는 확정되지 않았으므로 이 현상만으로 동일 원인 확정은 금지.
 - 단, 이미 재현된 APT HTTP 80 실패와 동일한 접속 의존성을 제거하기 위해 **GitHub 임시 호스트 runner의 Ubuntu 24.04 deb822 소스만** HTTPS로 전환. 정적 테스트 코드·ROS/Gazebo/SLAM 기능 변경 없음.
 - L0와 L1 모두 `Acquire::Retries=1`, `APT::Update::Error-Mode=any` 적용 후 검수.
+
+## L0 첫 재검에서 발견된 runner 전용 mirror+file 503
+- PR #6 첫 HEAD Run [#44522520851](https://github.com/silverbjin/samsung_AXI/actions/runs/44522520851) L0 정적 설치에서 실패.
+- 첫 오류: `mirror+file:/etc/apt/apt-mirrors.txt`의 noble/noble-updates/noble-backports APT 인덱스 HTTP 503(Service Unavailable), security.ubuntu.com:80 접속 불능. 이후 libxml2-utils/python3-pytest 패키지 다운로드도 503.
+- 기존 보정에서 `http://archive`·`http://security`만 HTTPS 치환했으나 호스트가 쓰는 `mirror+file` URI는 그대로였음. 이것이 새 실패 경계.
+- 최소 변경: **GitHub 임시 L0 runner에서만** `mirror+file:/etc/apt/apt-mirrors.txt` URI를 공식 `https://archive.ubuntu.com/ubuntu/`로 교체. CI의 L1 컨테이너/ROS/SLAM 설정은 그대로 유지.
+- 후속 실제 GREEN 확인 전 이 단계의 완전 해결 판정 보류.
