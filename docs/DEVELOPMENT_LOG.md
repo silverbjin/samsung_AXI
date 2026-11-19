@@ -34,3 +34,4 @@
 - 2026-11-19 · **CI-01 / Jazzy setup nounset 충돌**: [경과 보고서](reports/tasks/2026-11-19_CI-01_actions_nounset_recovery.md), [문제 해결 보고서](reports/issues/2026-11-19_CI-01_nounset_ros_setup.md), 최초 [Actions Run #44443691545](https://github.com/silverbjin/samsung_AXI/actions/runs/44443691545) L1 실패, 로컬 최소 회귀 6 PASS, CI 재검 필요.
 
 - 2026-11-19 OWNER-01: pinned GitHub WSL2 one-shot + uniform RGB-D world path. Static 10 PASS, PR CI and WSL2 NOT_RUN: [task report](reports/tasks/2026-11-19_OWNER-01_wsl2_one_shot_predeployment.md).
+- 2026-11-19 CI-02: setup-ros bootstrap long-running; isolated CI container candidate, root cause tentative, retest pending: [issue report](reports/issues/2026-11-19_CI-02_setup_ros_bootstrap_stall.md).
