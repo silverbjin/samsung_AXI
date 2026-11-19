@@ -104,7 +104,7 @@ def run(args):
             if not state['odom']:continue
             x,y,yaw=state['odom']
             distance=math.hypot(tx-x,ty-y)
-            if distance<.16:
+            if distance<.09:
                 stop();finished.append(dict(step=step,world=list(target_world),error_m=round(distance,3)))
                 print('S2_MAP02_WAYPOINT_PASS='+str(step)+' ERROR_M='+str(round(distance,3)),flush=True)
                 return
@@ -119,8 +119,16 @@ def run(args):
             if abs(diff)>.22:
                 cmd.angular.z=max(-.7,min(.7,1.7*diff))
             else:
-                if front_distance(state['scan'])<.40:
-                    raise RuntimeError('LIDAR_FORWARD_CLEARANCE_BLOCKED_'+str(step))
+                front=front_distance(state['scan'])
+                if front<.40:
+                    scan=state['scan']
+                    raise RuntimeError('LIDAR_FORWARD_CLEARANCE_BLOCKED_'+str(step)+
+                        ' ODOM='+str(tuple(round(v,3) for v in (x,y,yaw)))+
+                        ' TARGET='+str((round(tx,3),round(ty,3)))+
+                        ' REMAINING_M='+str(round(distance,3))+
+                        ' FRONT_MIN_M='+str(round(front,3))+
+                        ' SCAN_ANGLE_MIN='+str(round(scan.angle_min,3))+
+                        ' SCAN_ANGLE_INCREMENT='+str(round(scan.angle_increment,5)))
                 cmd.linear.x=min(.23,max(.10,.8*distance))
                 cmd.angular.z=max(-.48,min(.48,1.2*diff))
             pub.publish(cmd)

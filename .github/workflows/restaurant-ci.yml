@@ -223,7 +223,7 @@ jobs:
               if actual!=quality[field]:raise SystemExit('MAP_HASH_CONFLICT:'+field)
           if not quality['map'].get('pickup_free_connected_to_table3'):
               raise SystemExit('MAP_NOT_CONNECTED')
-          if quality['map'].get('route_waypoints')!=11:
+          if quality['map'].get('route_waypoints')!=12:
               raise SystemExit('SURVEY_INCOMPLETE')
           evidence={'source_workflow_sha':'${{ github.sha }}',
                     'ci_run':'${{ github.run_id }}','world_sha256':quality['world_sha256'],

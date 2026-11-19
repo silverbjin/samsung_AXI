@@ -60,3 +60,5 @@
 - 2026-11-19 S2-CI-02 최종 HOLD: HTTP 80 / GitHub mirror+file 503 / HTTPS 443 연결 실패 재현. [문제 보고서](reports/issues/2026-11-19_S2-CI-02_ubuntu_apt_network.md). PR #6은 미검증으로 main 미병합, PR #5 실제 Gazebo GREEN과 메인 핵심 소스 Blob 일치 보존.
 
 - 2026-11-19 S2-MAP-02: [CI 전체 지도 탐색·품질·아티팩트 출고](reports/tasks/2026-11-19_S2-MAP-02_ci_full_map.md) — 실제 HEAD L2 검증 전 후보; S2-MAP-01 PASS 고정.
+
+- 2026-11-19 S2-MAP02-CI01: [새 지도 탐색 첫 L2 LiDAR 안전 정지](reports/issues/2026-11-19_S2-MAP02-CI01_lidar_stop.md), [Run #44544900046](https://github.com/silverbjin/samsung_AXI/actions/runs/44544900046) waypoint 1·2 PASS→waypoint 3 STOP. 보수적 회랑 보정·계측 후 재검.
