@@ -1,5 +1,7 @@
 # Restaurant Robot MVP — 강사 독립 실습 기준선 (개발 후보)
 
+**S5-PERF-01 성능 개선 후보:** [단계별 RTF A/B 강사 실행 가이드](docs/S5_PERF_01_OWNER_AB_GUIDE_KO.md) · [개발/공개 CI 보고서](docs/reports/tasks/2026-11-20_S5-PERF-01_live_rtf_profile.md). 기본 RGB-D 5Hz는 유지하고, 2Hz 후보의 **실제 Gazebo 주행/STOP 안전 호환성 CI PASS**만 확인했습니다. WSL2 라이브 RTF 중앙값 90% 목표는 **현장 A/B 실측 전까지 HOLD**이며 기존 S5 기능 L3 ACCEPTED는 보존됩니다.
+
 **2026-11-20 현장 인수 최신 상태: `S5_LIVE_FUNCTION_L3=ACCEPTED`, `S5_LIVE_RTF_MEDIAN_GE_90_PERCENT=HOLD`, `S5_SHUTDOWN_CLEAN=HOLD`.** 강사 WSL2/WSLg에서 저장 지도·자동 AMCL·24.149초 TTY 승인·테이블3 NORMAL 배달(5.144m)·SOUP 복귀(5.074m)·물리 Collision Monitor STOP(/cmd_vel 0, Odom 0m)를 동일 세션으로 실제 검증했습니다. 주행 중 RTF 중앙값은 **84.39%**로 별도 90% 목표에 미달하며 Ctrl+C 뒤 ROS context 경고가 남으므로 전체 성능/운영 인수는 아직 HOLD입니다. [S5 실제 L3 최종 기능 인수 보고서](docs/reports/tasks/2026-11-20_S5-LIVE-01_OWNER_WSL2_L3_FINAL_ACCEPTANCE_KO.md).
 
 **2026-11-20 최신 인수 판정: `OWNER_WSL2_WSLG_GUI_L3=ACCEPTED`, `RTF_MEDIAN_GE_90_PERCENT=PASS`, `RESTAURANT_ROBOT_MVP=PARTIAL`.** 강사 WSL2/WSLg 실제 GUI에서 개선 지도 S2-MAP-03, AMCL 자동 위치 초기화, Nav2 ACTIVE, Gazebo/RViz 동시 표시, D3D12 RTX 3060 가속을 확인했습니다. 실제 Gazebo RTF 100표본 중앙값 99.92%(p10 69.96%)로 90% **중앙값 목표**를 충족했습니다. S3 배달·복귀 및 S4 메뉴 속도·Collision Monitor 안전 STOP의 기존 **CI PASS**에 더해, S5 실제 강사 WSL2 통합 주행 L3 기능도 PASS했습니다. 다만 라이브 RTF 90% 목표 및 종료 안정화는 별도 HOLD이므로 전체 성능·운영 `DEMO_PASS`는 아직 아닙니다. [실제 L3 인수 보고서](docs/reports/tasks/2026-11-20_OWNER_WSL2_GUI_L3_FINAL_ACCEPTANCE_KO.md).
