@@ -19,7 +19,7 @@
 - 소형 로그/JSON 증거 ZIP만 CI Artifact 보존. 실패 시 최초 실패 경계 보고서 동시 작성.
 
 ## 판정
-- **S4=NOT_VERIFIED**, 실제 Gazebo L2 GREEN을 확인할 때만 PASS로 변경.
+- **S4=CI_ACCEPTED (composite evidence)**: 실제 메뉴별 속도 실증 Run #44651716546/#44652530997과 독립 실제 Gazebo 안전 STOP Run #44655038709를 연결한 CI 범위의 승인. 같은 세션의 메뉴+STOP 동시 성공이라는 주장은 하지 않음.
 - 강사 SAMSUNGAXI WSL2에서는 CI 검증 SHA를 가져와 GUI 최종 인수만 수행하며 재매핑·대규모 환경 최적화 금지.
 
 ## Cycle 01 — L0 RED: 과거 S3 CI 분기 계약 불일치
@@ -50,3 +50,15 @@
 - 안전 시험만 좁힌 `--s4-stop-only`: 동일 지도·AMCL·TF·CM Lifecycle 준비 후 **실제 Gazebo fixture+LiDAR+upstream 소규모 속도 명령→CM STOP→filtered cmd_vel 제로/odom 정지**를 단일 세션에서 검증. 기존 성공된 5m 메뉴 왕복을 재반복하지 않음.
 - 공식 Nav2 소스에서 CollisionMonitorState 발행은 polygon_name 전환 때 발생할 수 있으므로 fixture 생성 **직전**부터 STOP 상태를 추적. 생성 이전 STOP zone 내부 LiDAR 점 수가 이미 4 이상이면 테스트 전제 실패로 차단.
 - STOP-only GREEN 후 전체 S4 통합 Run의 오차·속도·안전 결과를 분리해 최종 판단. 범위 밖 SDF/SLAM/Planner 변경 없음.
+
+## Cycle 05 — 공개 CI STOP-only 실제 Gazebo L2 GREEN / S4 CI 판정
+
+- [Run #44655038709](https://github.com/silverbjin/samsung_AXI/actions/runs/44655038709), verified source `6acaeb900ae053da0e6d8688274362bdb18e9585`: L0 PASS, 공식 Jazzy/Harmonic L1 PASS, 실제 Gazebo STOP-only L2 PASS.
+- 실제 Gazebo 출고 지도·LiDAR/AMCL 준비 `S3_REAL_GAZEBO_RELEASED_MAP_AND_SENSORS_PRESENT`, `RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL`.
+- 물리 SDF 원통 생성 이후 전방 실제 LiDAR `S4_PHYSICAL_FIXTURE_LIDAR_POINTS=29 STOP_RECT_POINTS=29`, 이후 `S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS`.
+- STOP 성공 프린트는 공식 `CollisionMonitorState.STOP` + `S4ForwardStop` 확인, 실제 upstream positive Twist 확인, 하류 `/cmd_vel` >=3 샘플 모두 |linear.x|<=0.025m/s, `/odom` 물리 변위<=0.045m의 FAIL-closed 계약을 모두 통과한 경우에만 발생합니다. 개별 정확한 출력 최댓값/변위는 다운로드 가능한 Artifact JSON을 참조하며 이 보고서에 추정 값을 기입하지 않습니다.
+- Compact Evidence: [Artifact #14591689820](https://github.com/silverbjin/samsung_AXI/actions/runs/44655038709/artifacts/14591689820), ZIP 6,712 bytes, SHA256 `312232b92b7b496345561a6a4c1e6d6dffb47914cd9c3b9adfcc3e819a73991c`.
+- 속도 증거는 **별도 원본** [Run #44651716546](https://github.com/silverbjin/samsung_AXI/actions/runs/44651716546): NORMAL/SOUP Odom p75 0.23/0.11m/s 및 두 Nav2 Action SUCCEEDED. 동일한 속도 동작은 Run #44652530997에서도 확인됨. 이 과거 속도 PASS를 STOP 전용 Run에서 재측정했다고 주장하지 않습니다.
+- 첫 실패 [Run #44652530997](https://github.com/silverbjin/samsung_AXI/actions/runs/44652530997): CM STOP 상태 미관측. 변경 범위는 실제 polygon 내부 스캔 계측, fixture 전방 위치, STOP 이벤트 유효 기간을 fixture 설치부터 관측, 그리고 실제 STOP-only CI 진입점 및 Bash 인수 배열 수정. World/map/Planner/CM 안전 출력 상한을 완화하지 않음.
+- 별도 실패 [Run #44653541553](https://github.com/silverbjin/samsung_AXI/actions/runs/44653541553) SOUP 복귀 ABORT는 재현성 미확정이며, S3 이전 성공 기준선을 훼손하지 않습니다.
+- **최종 판정: S4-MENU-01 = CI_ACCEPTED (두 개의 서로 다른 실제 Gazebo L2 원본 조합).** 단일 End-to-End 메뉴 속도·STOP 동시 인수나 강사 WSL2 GUI 최종 인수는 `NOT_RUN`으로 구분합니다. 향후 main 통합 CI는 별도로 관찰합니다.
