@@ -1,5 +1,7 @@
 # Restaurant Robot MVP — 강사 독립 실습 기준선 (개발 후보)
 
+**2026-11-20 S5-PERF-01 현장 실행 오류 점검/재배포:** 새로 제출된 강사 GUI baseline 5Hz 증거에서 `NavigateToPose TABLE_3 ABORTED(status 6)`가 발생하여 **이번 성능 A/B 현장 검수는 HOLD**입니다. 기존 S5 기능 L3 성공은 보존하되, 새로운 시도까지 성공으로 승격하지 않습니다. [원인 경계·RED→GREEN 보고서](docs/reports/issues/2026-11-20_S5_PERF01_NAV2_GOAL_ABORT_KO.md) / [새 SHA 고정 원샷 가이드](docs/S5_PERF_01_OWNER_AB_GUIDE_KO.md). 실제 RTF 기록기를 동시에 켠 공식 Gazebo baseline 5Hz [공개 L2 #44697440947](https://github.com/silverbjin/samsung_AXI/actions/runs/44697440947)은 기능 GREEN, **강사 WSL2 재인수 및 이동 중 RTF ≥0.90은 아직 HOLD**입니다.
+
 **S5-PERF-01 성능 개선 후보:** [단계별 RTF A/B 강사 실행 가이드](docs/S5_PERF_01_OWNER_AB_GUIDE_KO.md) · [개발/공개 CI 보고서](docs/reports/tasks/2026-11-20_S5-PERF-01_live_rtf_profile.md). 기본 RGB-D 5Hz는 유지하고, 2Hz 후보의 **실제 Gazebo 주행/STOP 안전 호환성 CI PASS**만 확인했습니다. WSL2 라이브 RTF 중앙값 90% 목표는 **현장 A/B 실측 전까지 HOLD**이며 기존 S5 기능 L3 ACCEPTED는 보존됩니다.
 
 **2026-11-20 현장 인수 최신 상태: `S5_LIVE_FUNCTION_L3=ACCEPTED`, `S5_LIVE_RTF_MEDIAN_GE_90_PERCENT=HOLD`, `S5_SHUTDOWN_CLEAN=HOLD`.** 강사 WSL2/WSLg에서 저장 지도·자동 AMCL·24.149초 TTY 승인·테이블3 NORMAL 배달(5.144m)·SOUP 복귀(5.074m)·물리 Collision Monitor STOP(/cmd_vel 0, Odom 0m)를 동일 세션으로 실제 검증했습니다. 주행 중 RTF 중앙값은 **84.39%**로 별도 90% 목표에 미달하며 Ctrl+C 뒤 ROS context 경고가 남으므로 전체 성능/운영 인수는 아직 HOLD입니다. [S5 실제 L3 최종 기능 인수 보고서](docs/reports/tasks/2026-11-20_S5-LIVE-01_OWNER_WSL2_L3_FINAL_ACCEPTANCE_KO.md).
