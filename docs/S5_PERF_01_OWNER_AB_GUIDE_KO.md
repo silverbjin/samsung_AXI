@@ -15,7 +15,7 @@
 (
   set -Eeuo pipefail
 
-  PIN="666da599e0af1ef866c9d29bec073a1462ca5756"
+  PIN="e72d2d04561494becac8ba597105bc9afc793b67"
   MODE="baseline"   # 1회차: baseline / 2회차: rgbd2
   SCRIPT="$(mktemp --suffix=.sh)"
   trap 'rm -f "$SCRIPT"' EXIT
@@ -74,3 +74,15 @@
 - 이 L2는 **후보의 기능 안전성 검증**입니다. WSL2 D3D12 GUI 성능 90% 달성의 증거가 아니므로 강사 현장 A/B ZIP 2개가 필요합니다.
 
 참고: [Gazebo Harmonic 센서 설정](https://gazebosim.org/docs/harmonic/sensors/), [Gazebo Harmonic GUI RTF 표시](https://gazebosim.org/docs/harmonic/gui/).
+
+## 2026-11-20 16:31 KST 현장 Goal ABORT 오류 수정 출고
+
+- 이전 SHA `666da599e0af1ef866c9d29bec073a1462ca5756`의 5Hz baseline 현장 ZIP `samsungaxi_gui_20261120T073155Z-7990.zip`에서 **첫 TABLE_3 Goal 수락 후 ABORTED(status 6)**. 실제 `NAV_GOAL_NOT_SUCCEEDED_TABLE_3:6`; 성공으로 판정하지 마십시오. NO_GOAL Preflight ZIP `samsungaxi_gui_20261120T073154Z-7950.zip`은 PASS.
+- 실패 시 주행 RTF median **0.6403**(26 표본), 전체 median 0.9737(50 표본)으로, **이동 구간 RTF 성능 목표 0.90 미달**. ROS/Nav2 오류의 구체적인 원인은 기존 종료 요약에서 빠져 있으므로 단정하지 않습니다.
+- 새 SHA `e72d2d04561494becac8ba597105bc9afc793b67`: Nav2 ABORT에서 실제 `NavigateToPose.Result.error_code/error_msg`, Action feedback(남은 거리·복구 횟수), 물리 Odom·AMCL·센서 age를 `s5_live_evidence.json > nav2_goal_failure`에 기록. Goal 수락 후 실패해도 최종 `goal_sent=true`를 정확히 보존합니다.
+- Compact ZIP의 `ci-s3-summary.txt`에 `NAV2_ACTIVE_GOAL_ERRORS_AND_CONTEXT_LAST_120` 블록을 추가하고, `status.txt`는 `FIRST_FAILED_PHASE=NAV2_ACTIVE_GOAL`, `FIRST_FAILED_MARKER=NAV_GOAL_NOT_SUCCEEDED_TABLE_3:6` 등을 확인할 수 있습니다. ZIP의 `owner_tails.txt`에는 **이번 실행에서 출력한 로그 경로만** 포함하며 이전 실패를 섞지 않습니다.
+- 부하 영향을 배제하기 위해 기본 RTF A/B 실행에서는 주기적인 `ps`·`nvidia-smi` 외부 프로세스 샘플링을 중단합니다. RTF 자체는 실제 Gazebo Stats로 계속 계측합니다. 심층 리소스 연구는 기록기 독립 옵션 `--resource-probes`를 명시해야 하며 기본 라이브에는 포함되지 않습니다.
+- **공개 실제 Gazebo 필드 동등성 CI GREEN**: [Run #44697440947](https://github.com/silverbjin/samsung_AXI/actions/runs/44697440947), 검증 소스 `e72d2d04561494becac8ba597105bc9afc793b67`; L0 34/34 PASS, 기본 RGB-D **5Hz**, LiDAR 10Hz, GUI Xvfb, 실제 RTF 기록기 동시 실행, 12초 TTY 승인, 테이블3 5.153m·픽업 복귀 5.097m, 메뉴 속도 0.23/0.11m/s, 물리 CM STOP PASS, 타임라인·요약 생성 PASS.
+- [증거 Artifact #14611542017](https://github.com/silverbjin/samsung_AXI/actions/runs/44697440947/artifacts/14611542017), ZIP 12,310 bytes, SHA256 `32e8077a2ddcc484ff531abddc5e9b34b1d547b8bac147024f2de73aa5879863`.
+- **권장 재검 순서:** 지금은 `MODE="baseline"`을 **단 한 번** 수행하십시오. 성공 로그에 `S3_NAV02_GOAL_SUCCEEDED=TABLE_3`, `PICKUP_RETURN`, `S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS`가 모두 있다면 그다음 `MODE="rgbd2"`를 단 한 번 수행합니다. baseline이 다시 ABORT되면 임의 재시도·Nav2 파라미터 완화 없이 **새로운 ZIP 한 파일만 첨부**하십시오.
+- 증거 ZIP의 CPU/GPU 시계열이 비어 있는 것은 경량 계측 의도입니다. `rtf.moving.sample_count`와 `rtf.moving.median`를 함께 보십시오. **WSL2 실제 RTF 90% 인수는 여전히 HOLD**입니다.
