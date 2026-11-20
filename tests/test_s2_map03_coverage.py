@@ -24,6 +24,6 @@ def test_enhanced_map_is_opt_in_and_no_occupancy_forgery():
     assert 'survey=OBSERVATION_SURVEY if args.enhanced_survey else SURVEY' in code
     assert 'S2_MAP03_COVERAGE_NOT_IMPROVED' in code
     assert 'reference_known_area_m2=26399*(0.05**2)' in code
-    assert 'SAVE_MAP' in code and 'RELOAD_ACTIVATE' in code
+    assert 'SAVE_MAP' in code and 'Transition.TRANSITION_ACTIVATE' in code
     assert 'pub=node.create_publisher(Twist' in code
     assert 'ground_truth.fresh()' in code
