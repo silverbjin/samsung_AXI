@@ -457,6 +457,14 @@ def run(args):
                         args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
                         print('S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS',flush=True)
                         if args.live_owner:
+                            if args.ci_owner_exit_on_success:
+                                # CI uses a real pseudo-TTY and real Gazebo.
+                                # This only ends the completed CI test; it
+                                # does not bypass owner authorization/safety.
+                                if os.environ.get('CI','').lower()!='true':
+                                    raise RuntimeError('S5_CI_EXIT_REQUIRES_GITHUB_RUNNER')
+                                print('S5_CI_DELAYED_OWNER_S5_COMPLETE',flush=True)
+                                return
                             print('S5_LIVE_GUI_HOLD: inspect Gazebo/RViz; Ctrl+C to close and package evidence.',flush=True)
                             while True:spin_once(.25)
     except Exception as exc:
@@ -491,6 +499,7 @@ def main():
     p.add_argument('--s5-integrated',action='store_true')
     p.add_argument('--gui',action='store_true')
     p.add_argument('--live-owner',action='store_true')
+    p.add_argument('--ci-owner-exit-on-success',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--params',type=Path,required=True)
     p.add_argument('--map',type=Path,required=True)
