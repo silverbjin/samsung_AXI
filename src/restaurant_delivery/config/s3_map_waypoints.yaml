@@ -1,0 +1,13 @@
+# Frozen coordinates from released S2 map (artifact Run 44551726313).
+# World start (-2.60,-2.20) corresponds to SLAM map (0,0).
+# Never use restaurant_world/config/tables.yaml World geometry as map-frame goals.
+frame: map
+source_map_run: '44551726313'
+pickup:
+  x: 0.0
+  y: 0.0
+  yaw: 0.0
+table_3:
+  x: 5.25
+  y: 0.38
+  yaw: -1.57079632679

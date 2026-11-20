@@ -15,5 +15,7 @@ def test_s3_actual_amcl_tfs_without_goal():
     assert "'/tf'" in text and "'/map'" in text and "'/scan'" in text
     assert "'navigate_to_pose'" in text and "goal_sent':False" in text
     assert 'RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL' in text
-    assert '.send_goal_async(' not in text
+    assert "p.add_argument('--exercise-goals',action='store_true')" in text
+    assert 'if args.exercise_goals:' in text
+    assert "goal_sent':False" in text
     assert 'world_to_map' not in text or "validate_release" in text
