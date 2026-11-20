@@ -37,7 +37,7 @@ def test_nav2_goal_rejected_before_lifecycle_active_is_prevented():
     assert "'bt_navigator','planner_server','controller_server'" in text
     assert "'collision_monitor','behavior_server'" in text
     assert 'S3_NAV_LIFECYCLE_NOT_ALL_ACTIVE' in text
-    assert text.index('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL') < text.index('action.send_goal_async(msg)')
+    assert text.index('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL') < text.index('action.send_goal_async(')
 
 
 def test_success_evidence_identifies_real_goals_not_no_goal():
