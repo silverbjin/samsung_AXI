@@ -15,6 +15,7 @@ import time
 
 from s3_map_contract import validate_release,validate_s2_map03_candidate
 from s5_owner_approval import wait_for_owner_approval,wait_for_fresh_sensors
+from s5_nav_abort_evidence import nav_abort_snapshot
 from ci_s2_map_smoke import end_process
 from s2_map02_gt_pose import GazeboModelPose
 from s4_menu_contract import (NORMAL_LIMIT,SOUP_LIMIT,measured_speed,compare_speeds,
@@ -382,13 +383,35 @@ def run(args):
                     msg.pose.pose.position.y=float(target[1])
                     msg.pose.pose.orientation.z=math.sin(heading/2)
                     msg.pose.pose.orientation.w=math.cos(heading/2)
-                    sent=action.send_goal_async(msg)
+                    feedback={}
+                    def on_nav_feedback(packet):
+                        # Read-only Nav2 feedback, no additional ROS subscriptions.
+                        fb=getattr(packet,'feedback',None)
+                        if fb is None:return
+                        try:
+                            if hasattr(fb,'distance_remaining'):
+                                feedback['distance_remaining_m']=round(float(fb.distance_remaining),3)
+                            if hasattr(fb,'number_of_recoveries'):
+                                feedback['number_of_recoveries']=int(fb.number_of_recoveries)
+                            if hasattr(fb,'navigation_time'):
+                                d=fb.navigation_time
+                                feedback['navigation_time_sec']=round(float(d.sec)+float(d.nanosec)*1e-9,3)
+                        except (TypeError,ValueError,AttributeError):
+                            pass
+                    goal_started=time.monotonic()
+                    sent=action.send_goal_async(msg,feedback_callback=on_nav_feedback)
                     deadline=time.monotonic()+25
                     while not sent.done() and time.monotonic()<deadline:
                         spin_once(.20)
                     if not sent.done():raise RuntimeError('NAV_ACTION_GOAL_RESPONSE_TIMEOUT_'+label)
                     handle=sent.result()
                     if not handle.accepted:raise RuntimeError('NAV_ACTION_GOAL_REJECTED_'+label)
+                    # Persist real goal transmission immediately; an aborted
+                    # action MUST NOT leave the earlier pregoal "goal_sent=false".
+                    result['goal_sent']=True
+                    result['active_nav_goal']=label
+                    result['kind']='s5_real_gazebo_goal_in_progress'
+                    args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
                     print('S3_NAV02_REAL_GOAL_ACCEPTED='+label,flush=True)
                     completed=handle.get_result_async()
                     deadline=time.monotonic()+280
@@ -405,6 +428,19 @@ def run(args):
                         raise RuntimeError('NAV_GOAL_TIMEOUT_'+label)
                     response=completed.result()
                     if response.status!=GoalStatus.STATUS_SUCCEEDED:
+                        snapshot=nav_abort_snapshot(
+                            label=label,status=response.status,
+                            action_result=response.result,state=state,
+                            start_odom=start,before_track=before,
+                            goal_target=target,now=time.monotonic(),
+                            goal_elapsed=time.monotonic()-goal_started,
+                            last_feedback=feedback)
+                        result['kind']='s5_nav2_goal_aborted'
+                        result['goal_sent']=True
+                        result['nav2_goal_failure']=snapshot
+                        args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                        print('S5_NAV2_GOAL_ABORT_EVIDENCE='+
+                              json.dumps(snapshot,sort_keys=True),flush=True)
                         raise RuntimeError('NAV_GOAL_NOT_SUCCEEDED_'+label+':'+str(response.status))
                     for _ in range(5):spin_once(.20)
                     if args.menu_safety:s4['active_menu']=None
@@ -424,10 +460,15 @@ def run(args):
                     print('S3_NAV02_GOAL_SUCCEEDED='+label+' ODOM_M='+str(round(traveled,3))+
                           ' AMCL_ERROR_M='+str(round(error,3)),flush=True)
                     return evidence
-                legs=[goto(contract['table3_map_xy'],-math.pi/2,'TABLE_3',
-                           menu='NORMAL' if args.menu_safety else None),
-                      goto(contract['pickup_map_xy'],0.,'PICKUP_RETURN',
-                           menu='SOUP' if args.menu_safety else None)]
+                legs=[]
+                legs.append(goto(contract['table3_map_xy'],-math.pi/2,'TABLE_3',
+                                 menu='NORMAL' if args.menu_safety else None))
+                # Save first successful leg before the return Goal, so a
+                # return-leg abort never masks physical delivery success.
+                result['real_nav_legs']=list(legs)
+                args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                legs.append(goto(contract['pickup_map_xy'],0.,'PICKUP_RETURN',
+                                 menu='SOUP' if args.menu_safety else None))
                 # The preflight result is NO_GOAL only until the action legs finish.
                 result['kind']='s3_real_gazebo_navigation_delivery_return'
                 result['goal_sent']=True
@@ -485,8 +526,24 @@ def run(args):
                          and any(k in line.lower() for k in
                                  ('configur','activat','transition','bond','error','fail'))
                          and 'sending signal' not in line.lower()]
+            # The prior summary kept lifecycle noise and the shutdown
+            # tail, dropping the *active Goal* controller/planner failure.
+            # Retain the last bounded ROS errors and surrounding context,
+            # without packaging the complete potentially huge ROS log.
+            terms=('error','warn','failed','fail to','no valid','progress checker',
+                   'progress check','oscillat','recovery','replanning','recoveries',
+                   'control loop','could not','unable to','tf error','stale')
+            indexes=set()
+            for ix,line in enumerate(lines):
+                if (any(word in line.lower() for word in terms)
+                    and any(component in line.lower() for component in
+                        ('controller','planner','bt_navigator','costmap',
+                         'amcl','collision_monitor','behavior','recover','tf'))):
+                    indexes.update(range(max(0,ix-1),min(len(lines),ix+2)))
+            abort_context=[lines[i][:520] for i in sorted(indexes)][-120:]
             (args.log.parent/'ci-s3-summary.txt').write_text(
                 'FIRST_60_DIAGNOSTIC_LINES\n'+'\n'.join(clues[:60])+
+                '\nNAV2_ACTIVE_GOAL_ERRORS_AND_CONTEXT_LAST_120\n'+'\n'.join(abort_context)+
                 '\nNAV2_TRANSITIONS_LAST_60\n'+'\n'.join(transitions[-60:])+
                 '\nLAST_60_LINES\n'+'\n'.join(lines[-60:])+'\n')
 
