@@ -4,24 +4,31 @@ set -Eeuo pipefail
 PIN="${SAMSUNG_AXI_GUI_PIN:-f39dc1757588b9f7cde1a56f73659f629c57e703}"
 [[ "$PIN" =~ ^[a-f0-9]{40}$ ]] || { echo BLOCKED_INVALID_SOURCE_PIN; exit 2; }
 if [[ "$*" == "--self-test" ]]; then echo SAMSUNGAXI_GUI_STATIC_PASS_NO_GOAL; exit 0; fi
-S5_MODE=0; INSTALL=0; S5_APPROVED=0
+S5_MODE=0; INSTALL=0; S5_APPROVED=0; PREFLIGHT=0
 for arg in "$@"; do
   case "$arg" in
     --install-deps) INSTALL=1 ;;
     --s5-live) S5_MODE=1 ;;
     --approve-goals) S5_APPROVED=1 ;;
+    --preflight-only) PREFLIGHT=1 ;;
     *) echo "BLOCKED_INVALID_ARG=$arg" >&2; exit 2 ;;
   esac
 done
 if (( S5_MODE )); then
-  [[ -n "${SAMSUNG_AXI_GUI_PIN:-}" && $S5_APPROVED -eq 1 ]] || {
+  [[ -n "${SAMSUNG_AXI_GUI_PIN:-}" ]] || {
     echo 'S5_BLOCKED_REQUIRES_EXPLICIT_PIN_AND_APPROVE_GOALS'; exit 2;
   }
-elif (( S5_APPROVED )); then
-  echo 'S5_APPROVE_GOALS_ONLY_VALID_WITH_S5_LIVE'; exit 2
+  if (( PREFLIGHT )); then
+    (( S5_APPROVED == 0 )) || { echo 'S5_BLOCKED_PREFLIGHT_MUST_BE_NO_GOAL'; exit 2; }
+  else
+    (( S5_APPROVED == 1 )) || {
+      echo 'S5_BLOCKED_REQUIRES_EXPLICIT_PIN_AND_APPROVE_GOALS'; exit 2;
+    }
+  fi
+elif (( S5_APPROVED || PREFLIGHT )); then
+  echo 'S5_BLOCKED_LIVE_FLAG_REQUIRED'; exit 2
 fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-if (( S5_MODE )); then export SAMSUNGAXI_S5_RUN_ID="$STAMP-$"; fi
 OUT="$HOME/samsungaxi_gui_evidence"
 mkdir -p "$OUT"
 TMP="$(mktemp -d -p "$OUT" .gui-XXXXXXXX)"
@@ -40,19 +47,56 @@ finish() {
     kill -TERM -- "-$CHILD" 2>/dev/null || :
     wait "$CHILD" 2>/dev/null || :
   fi
+  # The first failure marker is more useful than a later shutdown warning.
+  sleep 0.15
+  local first phase run_id owner_sha authorized sent
+  first="$(grep -Eo 'S5_BLOCKED_[A-Z0-9_]+|RESTAURANT_OWNER_BLOCKED_[A-Z0-9_]+|BLOCKED_[A-Z0-9_]+' "$RUN" | head -n 1 || :)"
+  [[ -n "$first" ]] || { if [[ "$RC" == 0 || "$RC" == 130 || "$RC" == 143 ]]; then first=NONE; else first=OWNER_NONZERO_EXIT; fi; }
+  phase=NONE
+  if [[ "$first" != NONE ]]; then
+    if [[ "$first" == S5_BLOCKED_* || "$first" == RESTAURANT_OWNER_BLOCKED_* || "$first" == BLOCKED_* ]]; then
+      phase=OWNER_PRELAUNCH
+    else
+      phase=OWNER_RUNTIME
+    fi
+  fi
+  run_id="${SAMSUNGAXI_S5_RUN_ID:-NOT_SET}"
+  [[ "$run_id" =~ ^[A-Za-z0-9_-]+$ ]] || run_id=INVALID
+  owner_sha="$(sed -n 's/^RESTAURANT_OWNER_PINNED_SHA=//p' "$RUN" | head -n 1 || :)"
+  [[ -n "$owner_sha" ]] || owner_sha=NOT_RUN
+  authorized=FALSE
+  grep -q '^S5_OWNER_GOALS_AUTHORIZED' "$RUN" && authorized=TRUE
+  sent=UNKNOWN
+  if grep -q '^S3_NAV02_REAL_GOAL_ACCEPTED=' "$RUN"; then
+    sent=TRUE
+  elif (( PREFLIGHT )) || [[ "$phase" == OWNER_PRELAUNCH ]]; then
+    sent=FALSE
+  fi
   {
     echo "PIN=$PIN"
-    echo "RUN_RC=$RC SHELL_RC=$original"
+    echo "PUBLIC_SOURCE_SHA=$PIN"
+    echo "OWNER_SOURCE_SHA=$owner_sha"
+    echo "S5_RUN_ID=$run_id"
+    echo "FIRST_FAILED_PHASE=$phase"
+    echo "FIRST_FAILED_MARKER=$first"
+    echo "RUN_RC=$RC"
+    echo "SHELL_RC=$original"
+    echo "GOAL_AUTHORIZED=$authorized"
+    echo "GOAL_SENT=$sent"
+    echo "DIAGNOSTIC_ZIP=$ZIP"
     echo 'WSL2_GUI_ACCEPTED=NOT_RUN_UNTIL_HUMAN_VISUAL_CHECK'
-    if [[ "$RC" == 0 || "$RC" == 130 || "$RC" == 143 ]]; then
+    if (( PREFLIGHT )) && [[ "$RC" == 0 ]]; then
+      echo VERDICT=PREFLIGHT_PASS_NO_GOAL
+    elif [[ "$RC" == 0 || "$RC" == 130 || "$RC" == 143 ]]; then
       echo VERDICT=GUI_VISUAL_REVIEW_REQUIRED
     else
       echo VERDICT=HOLD
     fi
   } > "$TMP/status.txt"
-  grep -Ei 'fail|error|warn|timeout|exception|fatal|renderer|rviz|gazebo' "$RUN" | tail -n 150 > "$TMP/error_clues.txt" || :
+
+  grep -Ei 'BLOCKED|S5_|RESTAURANT_OWNER_|fail|error|warn|timeout|exception|fatal|renderer|rviz|gazebo' "$RUN" | tail -n 150 > "$TMP/error_clues.txt" || :
   tail -n 350 "$RUN" > "$TMP/log_tail.txt" || :
-  if (( S5_MODE )); then
+  if (( S5_MODE )) && [[ -n "${SAMSUNGAXI_S5_RUN_ID:-}" ]]; then
     for source in "$WORKSPACE/generated/s5/$SAMSUNGAXI_S5_RUN_ID/s5_live_evidence.json" "$WORKSPACE/generated/s5/$SAMSUNGAXI_S5_RUN_ID/ci-s3-summary.txt"; do
       if [[ -s "$source" ]]; then
         cp "$source" "$TMP/$(basename "$source")" || :
@@ -80,6 +124,59 @@ trap finish EXIT
 trap 'RC=130; exit 130' INT
 trap 'RC=143; exit 143' TERM
 exec > >(tee -a "$RUN") 2>&1
+if (( S5_MODE )); then
+  # On a real live run, reject non-interactive stdin before ROS/apt/network.
+  if (( ! PREFLIGHT )) && [[ ! -t 0 ]]; then
+    echo 'S5_BLOCKED_OWNER_TERMINAL_REQUIRED'; RC=2; exit 2
+  fi
+  SRC=""
+  if (( PREFLIGHT )); then
+    # CI can provide its checkout. Deployed pinned one-shot downloads the exact
+    # same three source files; neither path executes ROS or Goal.
+    if [[ -n "${SAMSUNGAXI_S5_PREFLIGHT_REPO:-}" ]]; then
+      SRC="$SAMSUNGAXI_S5_PREFLIGHT_REPO"
+    else
+      SRC="$TMP/preflight_source"
+      mkdir -p "$SRC/scripts"
+      for file in s5_run_id_contract.sh owner_wsl2_once.sh restaurant_demo.sh; do
+        if ! curl -fLsS --retry 3 --connect-timeout 10 --max-time 90 \
+          "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/$file" \
+          -o "$SRC/scripts/$file"; then
+          echo 'S5_BLOCKED_PREFLIGHT_SOURCE_FETCH'; RC=3; exit 3
+        fi
+      done
+    fi
+    for file in s5_run_id_contract.sh owner_wsl2_once.sh restaurant_demo.sh; do
+      if [[ ! -f "$SRC/scripts/$file" ]] || ! bash -n "$SRC/scripts/$file"; then
+        echo 'S5_BLOCKED_PREFLIGHT_SOURCE_INVALID'; RC=3; exit 3
+      fi
+    done
+    source "$SRC/scripts/s5_run_id_contract.sh"
+  else
+    LIB="$TMP/s5_run_id_contract.sh"
+    if ! curl -fLsS --retry 3 --connect-timeout 10 --max-time 90 \
+      "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/s5_run_id_contract.sh" \
+      -o "$LIB"; then
+      echo 'S5_BLOCKED_RUN_ID_CONTRACT_FETCH'; RC=3; exit 3
+    fi
+    if ! bash -n "$LIB"; then
+      echo 'S5_BLOCKED_RUN_ID_CONTRACT_SYNTAX'; RC=3; exit 3
+    fi
+    source "$LIB"
+  fi
+  if ! s5_run_id_commit; then RC=2; exit 2; fi
+  if (( PREFLIGHT )); then
+    if bash "$SRC/scripts/owner_wsl2_once.sh" live NORMAL \
+        --preflight-only --ref "$PIN" --workspace "$SRC"; then
+      RC=0
+      echo 'S5_OWNER_PREFLIGHT_PASS_NO_GOAL'
+      exit 0
+    else
+      RC=$?
+      exit "$RC"
+    fi
+  fi
+fi
 {
   date -u
   uname -a
