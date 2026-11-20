@@ -9,7 +9,9 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 
-def build(src: Path, dst: Path):
+def build(src: Path, dst: Path, rgbd_rate_hz: int = 5):
+    if rgbd_rate_hz not in (2, 5):
+        raise ValueError('S5_PERF_RGBD_RATE_MUST_BE_2_OR_5')
     tree = ET.parse(src)
     robot = tree.getroot().find('./model')
     if robot is None or robot.get('name')!='turtlebot3_waffle_pi':
@@ -37,7 +39,7 @@ def build(src: Path, dst: Path):
     sensor=ET.SubElement(camera,'sensor',{'name':'restaurant_registered_rgbd','type':'rgbd_camera'})
     ET.SubElement(sensor,'pose').text='0 0 0 0 0 0'
     ET.SubElement(sensor,'always_on').text='true'
-    ET.SubElement(sensor,'update_rate').text='5'
+    ET.SubElement(sensor,'update_rate').text=str(rgbd_rate_hz)
     ET.SubElement(sensor,'topic').text='restaurant/rgbd'
     ET.SubElement(sensor,'gz_frame_id').text='restaurant_rgbd_optical'
     cfg=ET.SubElement(sensor,'camera')
@@ -63,7 +65,9 @@ def build(src: Path, dst: Path):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True)
-    p.add_argument('--out',type=Path,required=True);a=p.parse_args()
-    build(a.source,a.out)
+    p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--rgbd-rate-hz',type=int,choices=(2,5),default=5)
+    a=p.parse_args()
+    build(a.source,a.out,rgbd_rate_hz=a.rgbd_rate_hz)
 
 if __name__=='__main__': main()
