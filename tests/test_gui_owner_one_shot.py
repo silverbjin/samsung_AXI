@@ -22,3 +22,16 @@ def test_gui_owner_is_pinned_and_never_maps_or_sends_goals():
 def test_invalid_cli_fails_before_launch():
     result=subprocess.run(['bash',str(OWNER),'--bogus'],capture_output=True,text=True,timeout=10)
     assert result.returncode == 2
+
+def test_auto_pose_opt_in_and_gui_only():
+    p=(ROOT/'scripts'/'prepare_nav2_params.py').read_text()
+    assert "auto_initial_pose=False" in p
+    assert "amcl['set_initial_pose']=True" in p
+    assert "--auto-initial-pose" in p
+    runner=(ROOT/'scripts'/'restaurant_demo.sh').read_text()
+    assert "NAV_AUTO_ARGS=(--auto-initial-pose)" in runner
+    assert "S2_MAP03_CANDIDATE_81PCT" in runner
+    assert "NO GOAL acceptance must never fall through" in runner
+    smoke=(ROOT/'scripts'/'ci_s3_amcl_smoke.py').read_text()
+    assert "not args.no_initial_pose_publish and now-last_publish" in smoke
+    assert "S3_AMCL_AUTO_INITIAL_POSE_REAL_GAZEBO_PASS_NO_MANUAL_PUBLISH" in smoke
