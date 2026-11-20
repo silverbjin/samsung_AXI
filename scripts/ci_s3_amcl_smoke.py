@@ -42,6 +42,8 @@ def run(args):
         raise RuntimeError('S3_REQUIRED_ROBOT_SDF_PARAMS_OR_MAP_MISSING')
     if args.menu_safety and not args.exercise_goals:
         raise RuntimeError('S4_MENU_REQUIRES_REAL_NAV_ACTIONS')
+    if args.s4_stop_only and (args.menu_safety or args.exercise_goals):
+        raise RuntimeError('S4_STOP_ONLY_MUST_NOT_SEND_NAV_GOALS')
     s4={'active_menu':None,'speed_samples':{'NORMAL':[],'SOUP':[]},
         'scan':None,'cm_states':[],'cmd_in':[],'cmd_out':[]}
     state={'clock':False,'scan':0,'scan_t':0.,'odom':None,'odom_t':0.,
@@ -62,7 +64,7 @@ def run(args):
         if len(m.ranges)>10:
             state['scan']+=1
             state['scan_t']=time.monotonic()
-            if args.menu_safety:s4['scan']=m
+            if args.menu_safety or args.s4_stop_only:s4['scan']=m
     def amcl(m):
         pose=m.pose.pose
         state['amcl_pose']=(pose.position.x,pose.position.y)
@@ -106,7 +108,7 @@ def run(args):
             pub=node.create_publisher(PoseWithCovarianceStamped,'/initialpose',10)
             action=ActionClient(node,NavigateToPose,'navigate_to_pose')
             s4_speed_pub=s4_probe=None
-            if args.menu_safety:
+            if args.menu_safety or args.s4_stop_only:
                 def on_cm(m):
                     s4['cm_states'].append((time.monotonic(),int(m.action_type),m.polygon_name))
                 def on_input(m):
@@ -169,6 +171,107 @@ def run(args):
                     'navigate_to_pose_server_ready':True,'goal_sent':False}
             args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
             print('RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL',flush=True)
+            def perform_s4_stop(result):
+                # Real Gazebo physical fixture and real LiDAR/CM output only.
+                # A bounded 0.08 m/s CI probe into the *upstream* CM input
+                # checks its actual STOP filtering, not an alternate robot controller.
+                gt=GazeboModelPose()
+                try:
+                    gt.start()
+                    wait(lambda:gt.fresh() and gt.samples>=2,12,'S4_GAZEBO_MODEL_POSE')
+                    rx,ry,ryaw=gt.pose
+                    if math.dist((rx,ry),(-2.60,-2.20))>.80:
+                        raise RuntimeError('S4_ROBOT_NOT_BACK_AT_PICKUP')
+                    # The physical cylinder must be observed inside the actual
+                    # CM forward STOP polygon, not merely in a broad front sector.
+                    fx=rx+.52*math.cos(ryaw)
+                    fy=ry+.52*math.sin(ryaw)
+                    fixture=args.evidence.parent/'s4_collision_fixture.sdf'
+                    fixture.write_text(fixture_sdf())
+                    fixture_marker=time.monotonic()
+                    created=subprocess.run(
+                        ['ros2','run','ros_gz_sim','create','-name','s4_collision_fixture',
+                         '-file',str(fixture),'-x',str(fx),'-y',str(fy),'-z','.25'],
+                        capture_output=True,text=True,timeout=28,check=False)
+                    if created.returncode!=0 or 'entity creation successful' not in (created.stdout+created.stderr).lower():
+                        raise RuntimeError('S4_GAZEBO_FIXTURE_NOT_CREATED:'+
+                                           repr((created.stdout+created.stderr)[-350:]))
+                    # Sensor and CM state before the fixture must not already
+                    # satisfy the new stop zone (prove stimulus causes STOP).
+                    initial_rect=stop_polygon_points(s4['scan'])
+                    if initial_rect>=4:
+                        raise RuntimeError('S4_FIXTURE_PRECONDITION_STOP_ZONE_NOT_CLEAR:'+str(initial_rect))
+                    stop_mark=time.monotonic()
+                    initial_scan_count=state['scan']
+                    wait(lambda:state['scan']>=initial_scan_count+4 and
+                         front_obstacle_points(s4['scan'])>=4 and
+                         stop_polygon_points(s4['scan'])>=4,18,
+                         'S4_PHYSICAL_FIXTURE_INSIDE_STOP_POLYGON')
+                    print('S4_PHYSICAL_FIXTURE_LIDAR_POINTS='+str(front_obstacle_points(s4['scan']))+
+                          ' STOP_RECT_POINTS='+str(stop_polygon_points(s4['scan'])),flush=True)
+                    if s4_probe.get_subscription_count()<1:
+                        raise RuntimeError('S4_CM_UPSTREAM_TOPIC_SUBSCRIBER_MISSING')
+                    # Guarantee the robot has settled at the Nav2 return goal.
+                    start_xy=state['odom']
+                    start_t=time.monotonic()
+                    marker=time.monotonic()
+                    positive_probe=Twist()
+                    positive_probe.linear.x=.08
+                    while time.monotonic()-start_t<1.8:
+                        s4_probe.publish(positive_probe)
+                        spin_once(.12)
+                    s4_probe.publish(Twist())
+                    for _ in range(8):spin_once(.15)
+                    stopped=any(t>=fixture_marker and a==CollisionMonitorState.STOP
+                                and name=='S4ForwardStop' for t,a,name in s4['cm_states'])
+                    outputs=[v for t,v in s4['cmd_out'] if t>=marker]
+                    positive_input=any(t>=marker and v>=.075 for t,v in s4['cmd_in'])
+                    moved=math.dist(start_xy,state['odom'])
+                    if not positive_input or not stopped or len(outputs)<3:
+                        raise RuntimeError('S4_CM_STOP_CHAIN_UNPROVEN:'+
+                            json.dumps({'input_seen':positive_input,'cm_stop':stopped,
+                                        'cmd_out_count':len(outputs),
+                                        'front_points':front_obstacle_points(s4['scan']),
+                                        'stop_rect_points':stop_polygon_points(s4['scan']),
+                                        'state_messages':len(s4['cm_states']),
+                                        'recent_states':s4['cm_states'][-12:],
+                                        'cmd_in_count':len([1 for t,_ in s4['cmd_in'] if t>=marker]),
+                                        'cmd_out_abs_max':max([abs(v) for v in outputs],default=None)}))
+                    if max(abs(v) for v in outputs)>.025 or moved>.045:
+                        raise RuntimeError('S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED:'+
+                            json.dumps({'cmd_out_max':max(abs(v) for v in outputs),
+                                        'odom_motion_m':moved}))
+                    result['s4_safety_stop']={
+                        'fixture':'physical_gazebo_sdf_cylinder',
+                        'gazebo_fixture_world_xy':[round(fx,3),round(fy,3)],
+                        'scan_front_obstacle_points':front_obstacle_points(s4['scan']),
+                        'cm_state':'STOP','polygon':'S4ForwardStop',
+                        'upstream_positive_command_seen':True,
+                        'filtered_output_max_abs_mps':round(max(abs(v) for v in outputs),4),
+                        'physical_odom_motion_m':round(moved,4)}
+                    result['kind']=('s4_real_gazebo_menu_speed_and_collision_stop'
+                                    if args.menu_safety else 's4_collision_monitor_real_stop_only')
+                    result['s4_complete']=bool(args.menu_safety)
+                    args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                    print('S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS',flush=True)
+                finally:
+                    if s4_probe is not None:
+                        s4_probe.publish(Twist())
+                    gt.close()
+            if args.s4_stop_only:
+                # Standalone S4 safety boundary: prove real Gazebo LiDAR+CM STOP
+                # without repeating previously GREEN full 5m NORMAL/SOUP trips.
+                client=node.create_client(GetState,'/collision_monitor/get_state')
+                def cm_active():
+                    if not client.service_is_ready():return False
+                    future=client.call_async(GetState.Request())
+                    until=time.monotonic()+1.5
+                    while time.monotonic()<until and not future.done():
+                        spin_once(.15)
+                    return future.done() and not future.exception() and (
+                        future.result().current_state.id==State.PRIMARY_STATE_ACTIVE)
+                wait(cm_active,120,'S4_CM_LIFECYCLE_ACTIVE')
+                perform_s4_stop(result)
             if args.exercise_goals:
                 # Action discovery alone is NOT evidence of Nav2 Lifecycle readiness.
                 # With slow first-time Gazebo startup the action server exists while
@@ -291,86 +394,8 @@ def run(args):
                     print('S4_MENU_NORMAL_SOUP_REAL_ODOM_SPEED_PASS N_P75_MPS='+
                           str(normal['p75_mps'])+' S_P75_MPS='+str(soup['p75_mps']),flush=True)
 
-                    # Real Gazebo physical fixture and real LiDAR/CM output only.
-                    # A bounded 0.08 m/s CI probe into the *upstream* CM input
-                    # checks its actual STOP filtering, not an alternate robot controller.
-                    gt=GazeboModelPose()
-                    try:
-                        gt.start()
-                        wait(lambda:gt.fresh() and gt.samples>=2,12,'S4_GAZEBO_MODEL_POSE')
-                        rx,ry,ryaw=gt.pose
-                        if math.dist((rx,ry),(-2.60,-2.20))>.80:
-                            raise RuntimeError('S4_ROBOT_NOT_BACK_AT_PICKUP')
-                        # The physical cylinder must be observed inside the actual
-                        # CM forward STOP polygon, not merely in a broad front sector.
-                        fx=rx+.52*math.cos(ryaw)
-                        fy=ry+.52*math.sin(ryaw)
-                        fixture=args.evidence.parent/'s4_collision_fixture.sdf'
-                        fixture.write_text(fixture_sdf())
-                        fixture_marker=time.monotonic()
-                        created=subprocess.run(
-                            ['ros2','run','ros_gz_sim','create','-name','s4_collision_fixture',
-                             '-file',str(fixture),'-x',str(fx),'-y',str(fy),'-z','.25'],
-                            capture_output=True,text=True,timeout=28,check=False)
-                        if created.returncode!=0 or 'entity creation successful' not in (created.stdout+created.stderr).lower():
-                            raise RuntimeError('S4_GAZEBO_FIXTURE_NOT_CREATED:'+
-                                               repr((created.stdout+created.stderr)[-350:]))
-                        initial_scan_count=state['scan']
-                        wait(lambda:state['scan']>=initial_scan_count+4 and
-                             front_obstacle_points(s4['scan'])>=4 and
-                             stop_polygon_points(s4['scan'])>=4,18,
-                             'S4_PHYSICAL_FIXTURE_INSIDE_STOP_POLYGON')
-                        print('S4_PHYSICAL_FIXTURE_LIDAR_POINTS='+str(front_obstacle_points(s4['scan']))+
-                              ' STOP_RECT_POINTS='+str(stop_polygon_points(s4['scan'])),flush=True)
-                        if s4_probe.get_subscription_count()<1:
-                            raise RuntimeError('S4_CM_UPSTREAM_TOPIC_SUBSCRIBER_MISSING')
-                        # Guarantee the robot has settled at the Nav2 return goal.
-                        start_xy=state['odom']
-                        start_t=time.monotonic()
-                        marker=time.monotonic()
-                        positive_probe=Twist()
-                        positive_probe.linear.x=.08
-                        while time.monotonic()-start_t<1.8:
-                            s4_probe.publish(positive_probe)
-                            spin_once(.12)
-                        s4_probe.publish(Twist())
-                        for _ in range(8):spin_once(.15)
-                        stopped=any(t>=fixture_marker and a==CollisionMonitorState.STOP
-                                    and name=='S4ForwardStop' for t,a,name in s4['cm_states'])
-                        outputs=[v for t,v in s4['cmd_out'] if t>=marker]
-                        positive_input=any(t>=marker and v>=.075 for t,v in s4['cmd_in'])
-                        moved=math.dist(start_xy,state['odom'])
-                        if not positive_input or not stopped or len(outputs)<3:
-                            raise RuntimeError('S4_CM_STOP_CHAIN_UNPROVEN:'+
-                                json.dumps({'input_seen':positive_input,'cm_stop':stopped,
-                                            'cmd_out_count':len(outputs),
-                                            'front_points':front_obstacle_points(s4['scan']),
-                                            'stop_rect_points':stop_polygon_points(s4['scan']),
-                                            'state_messages':len(s4['cm_states']),
-                                            'recent_states':s4['cm_states'][-12:],
-                                            'cmd_in_count':len([1 for t,_ in s4['cmd_in'] if t>=marker]),
-                                            'cmd_out_abs_max':max([abs(v) for v in outputs],default=None)}))
-                        if max(abs(v) for v in outputs)>.025 or moved>.045:
-                            raise RuntimeError('S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED:'+
-                                json.dumps({'cmd_out_max':max(abs(v) for v in outputs),
-                                            'odom_motion_m':moved}))
-                        result['s4_safety_stop']={
-                            'fixture':'physical_gazebo_sdf_cylinder',
-                            'gazebo_fixture_world_xy':[round(fx,3),round(fy,3)],
-                            'scan_front_obstacle_points':front_obstacle_points(s4['scan']),
-                            'cm_state':'STOP','polygon':'S4ForwardStop',
-                            'upstream_positive_command_seen':True,
-                            'filtered_output_max_abs_mps':round(max(abs(v) for v in outputs),4),
-                            'physical_odom_motion_m':round(moved,4)}
-                        result['kind']='s4_real_gazebo_menu_speed_and_collision_stop'
-                        result['s4_complete']=True
-                        args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
-                        print('S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS',flush=True)
-                        print('RESTAURANT_S4_MENU01_REAL_GAZEBO_PASS',flush=True)
-                    finally:
-                        if s4_probe is not None:
-                            s4_probe.publish(Twist())
-                        gt.close()
+                    perform_s4_stop(result)
+                    print('RESTAURANT_S4_MENU01_REAL_GAZEBO_PASS',flush=True)
     except Exception as exc:
         print('RESTAURANT_S3_AMCL_L2_BLOCKED='+str(exc),file=sys.stderr,flush=True)
         raise
@@ -398,6 +423,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument('--exercise-goals',action='store_true')
     p.add_argument('--menu-safety',action='store_true')
+    p.add_argument('--s4-stop-only',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--params',type=Path,required=True)
     p.add_argument('--map',type=Path,required=True)
