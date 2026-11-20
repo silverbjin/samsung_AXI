@@ -92,9 +92,16 @@ if [[ "$MODE" == mapping ]]; then
   exit "${PIPESTATUS[0]}"
 fi
 MAP="$ROOT/maps/restaurant_map.yaml"
+NAV_AUTO_ARGS=()
+if [[ "$MODE" == navigation ]]; then
+  # GUI only: improved, separately proven S2-MAP-03 saved map.
+  MAP="$ROOT/maps/candidates/s2_map03/restaurant_map.yaml"
+  NAV_AUTO_ARGS=(--auto-initial-pose)
+  echo "RESTAURANT_OWNER_GUI_MAP=S2_MAP03_CANDIDATE_81PCT"
+fi
 [[ -s "$MAP" ]] || { echo "BLOCKED: $MAP missing. Run mapping and save a real map first."; exit 2; }
 NAV_SRC="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
-python3 "$ROOT/scripts/prepare_nav2_params.py" --source "$NAV_SRC" --out "$ROOT/generated/nav2_params.yaml" | tee -a "$RUNLOG"
+python3 "$ROOT/scripts/prepare_nav2_params.py" --source "$NAV_SRC" --out "$ROOT/generated/nav2_params.yaml" "${NAV_AUTO_ARGS[@]}" | tee -a "$RUNLOG"
 if [[ "$MODE" == navigation ]]; then
   echo 'RESTAURANT_S3_NAV_READY_CHECK_OWN_ROBOT_BEFORE_GOAL'
   ros2 launch restaurant_bringup navigation.launch.py robot_sdf:="$ROBOT_SDF" map:="$MAP" params_file:="$ROOT/generated/nav2_params.yaml" 2>&1 | tee -a "$RUNLOG"
