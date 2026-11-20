@@ -107,15 +107,19 @@ if [[ "$MODE" == live ]]; then
   [[ "${SAMSUNGAXI_S5_GOALS_APPROVED:-}" == YES-S5-LIVE-GOALS ]] || {
     echo 'S5_LIVE_BLOCKED_OWNER_GOAL_APPROVAL_REQUIRED'; exit 2;
   }
-  mkdir -p "$ROOT/generated/s5"
+  S5_RUN_ID="${SAMSUNGAXI_S5_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$}"
+  [[ "$S5_RUN_ID" =~ ^[A-Za-z0-9_-]+$ ]] || { echo 'S5_BLOCKED_INVALID_RUN_ID'; exit 2; }
+  S5_EVIDENCE_DIR="$ROOT/generated/s5/$S5_RUN_ID"
+  mkdir -p "$S5_EVIDENCE_DIR"
+  echo "S5_LIVE_EVIDENCE_DIR=$S5_EVIDENCE_DIR"
   echo 'S5_LIVE_START: REAL_GAZEBO_NO_GOAL_UNTIL_INTERACTIVE_APPROVAL'
   python3 "$ROOT/scripts/ci_s3_amcl_smoke.py" \
     --exercise-goals --menu-safety --no-initial-pose-publish \
     --s5-integrated --gui --live-owner \
     --robot-sdf "$ROBOT_SDF" --map "$MAP" \
     --params "$ROOT/generated/nav2_params.yaml" \
-    --log "$ROOT/logs/s5_live_launch.log" \
-    --evidence "$ROOT/generated/s5/s5_live_evidence.json" 2>&1 | tee -a "$RUNLOG"
+    --log "$S5_EVIDENCE_DIR/s5_nav2_launch.log" \
+    --evidence "$S5_EVIDENCE_DIR/s5_live_evidence.json" 2>&1 | tee -a "$RUNLOG"
   exit "${PIPESTATUS[0]}"
 fi
 if [[ "$MODE" == navigation ]]; then

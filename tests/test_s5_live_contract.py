@@ -48,6 +48,10 @@ def test_s5_never_bypasses_one_zip_or_writes_direct_motor_commands():
     assert 'SAMSUNGAXI_S5_GOALS_APPROVED' in s
     assert 'SAMSUNGAXI_DIAGNOSTIC_ZIP=' in w
     assert 's5_live_evidence.json' in w
+    assert 'SAMSUNGAXI_S5_RUN_ID' in w
+    assert '</dev/tty &' in w
+    assert 'S5_BLOCKED_OWNER_TERMINAL_REQUIRED' in w
+    assert 'S5_EVIDENCE_DIR' in s
     assert 'setsid bash "$OWNER"' in w
     assert 'pkill' not in w and 'killall' not in w
     assert 'ros2 run slam_toolbox' not in s

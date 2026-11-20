@@ -21,6 +21,7 @@ elif (( S5_APPROVED )); then
   echo 'S5_APPROVE_GOALS_ONLY_VALID_WITH_S5_LIVE'; exit 2
 fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+if (( S5_MODE )); then export SAMSUNGAXI_S5_RUN_ID="$STAMP-$"; fi
 OUT="$HOME/samsungaxi_gui_evidence"
 mkdir -p "$OUT"
 TMP="$(mktemp -d -p "$OUT" .gui-XXXXXXXX)"
@@ -52,7 +53,7 @@ finish() {
   grep -Ei 'fail|error|warn|timeout|exception|fatal|renderer|rviz|gazebo' "$RUN" | tail -n 150 > "$TMP/error_clues.txt" || :
   tail -n 350 "$RUN" > "$TMP/log_tail.txt" || :
   if (( S5_MODE )); then
-    for source in "$WORKSPACE/generated/s5/s5_live_evidence.json" "$WORKSPACE/logs/ci-s3-summary.txt"; do
+    for source in "$WORKSPACE/generated/s5/$SAMSUNGAXI_S5_RUN_ID/s5_live_evidence.json" "$WORKSPACE/generated/s5/$SAMSUNGAXI_S5_RUN_ID/ci-s3-summary.txt"; do
       if [[ -s "$source" ]]; then
         cp "$source" "$TMP/$(basename "$source")" || :
       fi
@@ -155,7 +156,14 @@ else
   echo START_GUI_NO_GOAL
 fi
 if (( ! INSTALL )); then OWNER_ARGS+=(--no-install-deps); fi
-setsid bash "$OWNER" "${OWNER_ARGS[@]}" &
+# Bash non-interactive background jobs otherwise receive stdin=/dev/null.
+# Pass the live operator TTY explicitly: no goal without a real typed YES.
+if (( S5_MODE )); then
+  [[ -t 0 ]] || { echo 'S5_BLOCKED_OWNER_TERMINAL_REQUIRED'; RC=2; exit 2; }
+  setsid bash "$OWNER" "${OWNER_ARGS[@]}" </dev/tty &
+else
+  setsid bash "$OWNER" "${OWNER_ARGS[@]}" &
+fi
 CHILD=$!
 set +e
 wait "$CHILD"; RC=$?
