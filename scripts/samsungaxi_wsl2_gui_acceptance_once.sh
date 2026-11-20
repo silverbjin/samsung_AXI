@@ -34,8 +34,14 @@ if (( PREFLIGHT )) && [[ "$PERF_MODE" != none ]]; then
   echo 'S5_PERF_BLOCKED_PROFILE_WITH_NO_GOAL_PREFLIGHT'; exit 2
 fi
 if (( S5_MODE )); then
-  # No auto-optimization. Profile and candidate sensor rate are explicit.
-  export SAMSUNGAXI_S5_PERF_MODE="$PERF_MODE"
+  # No auto-optimization: a normal S5 run must keep the original 5Hz
+  # camera. Prevent an inherited environment value from silently selecting
+  # an experimental rate without an explicit CLI choice.
+  if [[ "$PERF_MODE" == none ]]; then
+    unset SAMSUNGAXI_S5_PERF_MODE
+  else
+    export SAMSUNGAXI_S5_PERF_MODE="$PERF_MODE"
+  fi
 fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT="$HOME/samsungaxi_gui_evidence"
