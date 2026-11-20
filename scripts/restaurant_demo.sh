@@ -84,7 +84,17 @@ for pkg in restaurant_world restaurant_bringup restaurant_delivery turtlebot3_ga
 ROBOTIS_SHARE="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo"
 OFFICIAL_SDF="$ROBOTIS_SHARE/models/turtlebot3_waffle_pi/model.sdf"
 # Use the SAME generated RGB-D sensor in every mode, including the first GUI world demo.
-python3 "$ROOT/scripts/prepare_waffle_rgbd.py" --source "$OFFICIAL_SDF" --out "$ROOT/generated/waffle_pi_rgbd.sdf" | tee -a "$RUNLOG"
+# Live-S5 only, explicit A/B candidate. Never change LiDAR, motor, physics
+# settings or the default 5Hz RGB-D for other teaching modes.
+RGBD_RATE_ARGS=()
+if [[ "$MODE" == live ]]; then
+  case "${SAMSUNGAXI_S5_PERF_MODE:-baseline}" in
+    baseline) echo 'S5_PERF_RGBD_RATE_HZ=5' ;;
+    rgbd2) RGBD_RATE_ARGS=(--rgbd-rate-hz 2); echo 'S5_PERF_RGBD_RATE_HZ=2' ;;
+    *) echo 'S5_PERF_BLOCKED_UNKNOWN_MODE' >&2; exit 2 ;;
+  esac
+fi
+python3 "$ROOT/scripts/prepare_waffle_rgbd.py" --source "$OFFICIAL_SDF" --out "$ROOT/generated/waffle_pi_rgbd.sdf" "${RGBD_RATE_ARGS[@]}" | tee -a "$RUNLOG"
 ROBOT_SDF="$ROOT/generated/waffle_pi_rgbd.sdf"
 if [[ "$MODE" == world ]]; then
   echo 'RESTAURANT_S1_STARTED_NOT_YET_GUI_VERIFIED'
