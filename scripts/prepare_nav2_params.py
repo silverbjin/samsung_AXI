@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 
-def build(src:Path,dst:Path):
+def build(src:Path,dst:Path,auto_initial_pose=False):
     params=yaml.safe_load(src.read_text())
     voxel=params['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
     voxel['observation_sources']='scan rgbd'
@@ -19,6 +19,11 @@ def build(src:Path,dst:Path):
         'max_obstacle_height':1.6, 'obstacle_max_range':2.5,
         'obstacle_min_range':0.05,
     }
+    if auto_initial_pose:
+        # Map pickup is (0, 0, yaw=0); use official AMCL on GUI launch.
+        amcl=params['amcl']['ros__parameters']
+        amcl['set_initial_pose']=True
+        amcl['initial_pose']={'x':0.0,'y':0.0,'z':0.0,'yaw':0.0}
     # S4: external Nav2 SpeedLimit publisher is '/speed_limit' (absolute m/s).
     # Controller Server's official default is relative 'speed_limit', so pin it.
     params['controller_server']['ros__parameters']['speed_limit_topic']='/speed_limit'
@@ -48,6 +53,8 @@ def build(src:Path,dst:Path):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True)
-    p.add_argument('--out',type=Path,required=True);a=p.parse_args();build(a.source,a.out)
+    p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--auto-initial-pose',action='store_true')
+    a=p.parse_args();build(a.source,a.out,auto_initial_pose=a.auto_initial_pose)
 
 if __name__=='__main__':main()
