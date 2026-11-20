@@ -64,6 +64,12 @@ def summarize(rows):
     result['moving_target_median_ge_90'] = (
         moving['sample_count']>=25 and moving['median']>=.9)
     result['moving_measurement_sufficient']=moving['sample_count']>=25
+    all_samples=result['all']
+    result['overall_measurement_sufficient']=all_samples['sample_count']>=50
+    result['all_target_median_ge_90']=(all_samples['sample_count']>=50
+                                        and all_samples['median']>=.9)
+    result['live_target_verified']=(result['all_target_median_ge_90']
+                                    and result['moving_target_median_ge_90'])
     result['claim']='OWNER_WSL2_MEASUREMENT_ONLY_NOT_CI_GPU_PROOF'
     return result
 
@@ -95,6 +101,23 @@ def read_cpu():
         return {'gz_cpu_pct':None,'nav_cpu_pct':None,'gz_rss_mb':None}
 
 
+def read_gpu():
+    """Optional WSL-gated nvidia-smi telemetry; NOT direct WSLg D3D12 proof."""
+    try:
+        result=subprocess.run([
+            'nvidia-smi',
+            '--query-gpu=utilization.gpu,memory.used',
+            '--format=csv,noheader,nounits'],
+            capture_output=True,text=True,timeout=2,check=True)
+        values=result.stdout.splitlines()[0].split(',')
+        if len(values)>=2:
+            return {'gpu_util_pct':float(values[0].strip()),
+                    'gpu_mem_used_mb':float(values[1].strip())}
+    except (OSError,subprocess.SubprocessError,ValueError,IndexError):
+        pass
+    return {'gpu_util_pct':None,'gpu_mem_used_mb':None}
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--run-log',required=True,type=Path)
@@ -117,7 +140,9 @@ def main():
     started=now
     next_sample=now
     next_cpu=now
+    next_gpu=now+10.
     cpu={'gz_cpu_pct':None,'nav_cpu_pct':None,'gz_rss_mb':None}
+    gpu={'gpu_util_pct':None,'gpu_mem_used_mb':None}
     rows=[]
 
     def stop(_signum,_frame):
@@ -126,7 +151,7 @@ def main():
 
     signal.signal(signal.SIGINT,stop)
     signal.signal(signal.SIGTERM,stop)
-    fields=['utc','elapsed_sec','phase','rtf','gz_cpu_pct','nav_cpu_pct','gz_rss_mb']
+    fields=['utc','elapsed_sec','phase','rtf','gz_cpu_pct','nav_cpu_pct','gz_rss_mb','gpu_util_pct','gpu_mem_used_mb']
     with args.csv_out.open('w',newline='',encoding='utf-8') as target:
         writer=csv.DictWriter(target,fieldnames=fields)
         writer.writeheader()
@@ -179,12 +204,15 @@ def main():
                 if now>=next_cpu:
                     cpu=read_cpu()
                     next_cpu=now+5.
+                if now>=next_gpu:
+                    gpu=read_gpu()
+                    next_gpu=now+15.
                 if now>=next_sample:
                     next_sample=now+max(.5,args.sample_interval)
                     if last_rtf is not None:
                         row={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
                              'elapsed_sec':round(now-started,2),
-                             'phase':phase,'rtf':round(last_rtf,6),**cpu}
+                             'phase':phase,'rtf':round(last_rtf,6),**cpu,**gpu}
                         rows.append(row)
                         writer.writerow(row)
                         target.flush()
@@ -198,6 +226,7 @@ def main():
             summary={'profile_mode':args.mode,'duration_sec':round(time.monotonic()-started,2),
                      'gz_stats_topic':'/world/restaurant/stats',
                      'process_cpu_definition':'ps lifetime-average percent, indicative only',
+                     'gpu_definition':'nvidia-smi optional; WSLg D3D12 graphics may not appear',
                      'rtf':summarize(rows)}
             args.summary_out.write_text(json.dumps(summary,indent=2,sort_keys=True)+'\n')
             print('S5_PERF_PROFILE_SAVED='+str(args.summary_out),flush=True)
