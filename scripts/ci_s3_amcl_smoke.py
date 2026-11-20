@@ -309,7 +309,7 @@ def run(args):
                             ['ros2','run','ros_gz_sim','create','-name','s4_collision_fixture',
                              '-file',str(fixture),'-x',str(fx),'-y',str(fy),'-z','.25'],
                             capture_output=True,text=True,timeout=28,check=False)
-                        if created.returncode!=0 or 'successful' not in created.stdout.lower():
+                        if created.returncode!=0 or 'entity creation successful' not in (created.stdout+created.stderr).lower():
                             raise RuntimeError('S4_GAZEBO_FIXTURE_NOT_CREATED:'+
                                                repr((created.stdout+created.stderr)[-350:]))
                         initial_scan_count=state['scan']

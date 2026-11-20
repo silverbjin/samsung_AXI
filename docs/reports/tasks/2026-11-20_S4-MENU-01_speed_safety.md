@@ -28,3 +28,11 @@
 - S4에서는 main의 주행 검사를 S4 메뉴·안전 통합으로 대체(내부 S3 pregoal+Goal 유지)하므로 **과거 기대 문자열만 낡음**. 신규 S4 메뉴/CM 계약 자체는 PASS.
 - 최소 수정: S3 브랜치에서는 S3 목표 인수 유지, main/S4에서는 S4 속도·정지 검수한다는 분기 정책에 맞춰 L0 계약 1건 수정. 주행/안전 로직 변경 없음.
 - 재검 L0/L2 GREEN 전 S4=HOLD.
+
+## Cycle 02 — 정상·국물 메뉴 속도 L2 PASS, Gazebo 생성 성공 메시지 파싱 RED
+- [Run #44651716546](https://github.com/silverbjin/samsung_AXI/actions/runs/44651716546) L0 전체 PASS / L1 공식 ROS Jazzy+Nav2 build PASS / 실제 Gazebo 2구간 배달·복귀 Action SUCCEEDED.
+- NORMAL 실제 /odom p75=0.23m/s, TABLE_3 odom 이동 5.133m / AMCL error 0.209m. SOUP 실제 /odom p75=0.11m/s, PICKUP_RETURN 5.074m / error 0.117m. **메뉴별 실측 속도 차이 0.12m/s (약 52% 저감) PASS**.
+- 이후 안전 검사 준비 중 `ros2 run ros_gz_sim create`는 실제로 `Entity creation successful.`을 로그에 보고했으나 CI 검사기는 `created.stdout`만 확인했고 메시지는 stderr에 출력되어 `S4_GAZEBO_FIXTURE_NOT_CREATED` 오판.
+- 첫 실패 경계: ROS GZ 실제 fixture 생성 실패가 아닌 CLI 성공 메시지 출력 스트림 검사 오류. 아직 Collision Monitor STOP 결과는 관측되지 않았으므로 S4 전체 PASS는 보류.
+- 최소 수정: subprocess 종료 상태 rc=0 및 stdout+stderr를 합산해 `Entity creation successful`을 확인. 생성/삭제 API, SDF/World, Nav2·LiDAR/CM 속도 정책 변경 없음.
+- 이후 실제 CM STOP, 필터링된 `/cmd_vel` 제로, /odom 정지를 다시 검증해 RED→GREEN 결과 확정.
