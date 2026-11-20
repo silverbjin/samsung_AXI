@@ -87,3 +87,14 @@ def test_bash_contract_shared_not_relaxed():
     assert 'S5_BLOCKED_INVALID_RUN_ID' in src
     for p in (GUI,OWNER,CORE):
         assert 's5_run_id_contract.sh' in p.read_text()
+
+
+def test_b06_core_fallback_pid_in_same_shared_contract():
+    # Direct entry without the wrapper is still safe and uses a real Bash PID.
+    env=os.environ.copy()
+    env.pop('SAMSUNGAXI_S5_RUN_ID',None)
+    p=subprocess.run(['bash',str(CORE),'live','NORMAL','--preflight-only'],
+                     env=env,capture_output=True,text=True,timeout=10)
+    assert p.returncode==0,(p.stdout,p.stderr)
+    assert 'S5_OWNER_CORE_PREFLIGHT_PASS_NO_GOAL' in p.stdout
+    assert re.search(r'S5_RUN_ID=\d{8}T\d{6}Z-\d+',p.stdout)
