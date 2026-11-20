@@ -36,3 +36,10 @@
 - 첫 실패 경계: ROS GZ 실제 fixture 생성 실패가 아닌 CLI 성공 메시지 출력 스트림 검사 오류. 아직 Collision Monitor STOP 결과는 관측되지 않았으므로 S4 전체 PASS는 보류.
 - 최소 수정: subprocess 종료 상태 rc=0 및 stdout+stderr를 합산해 `Entity creation successful`을 확인. 생성/삭제 API, SDF/World, Nav2·LiDAR/CM 속도 정책 변경 없음.
 - 이후 실제 CM STOP, 필터링된 `/cmd_vel` 제로, /odom 정지를 다시 검증해 RED→GREEN 결과 확정.
+
+## Cycle 03 — 실제 LiDAR 26점 확인, STOP 상태 미확인
+- [Run #44652530997](https://github.com/silverbjin/samsung_AXI/actions/runs/44652530997): L0 PASS, L1 공식 Jazzy/Nav2 PASS, L2 NORMAL 0.23m/s/SOUP 0.11m/s p75 및 두 구간 실제 Action/Odom PASS.
+- `s4_collision_fixture` 실제 Gazebo 생성 성공, 전방 LiDAR 유한 거리점 26개 수신, 테스트 상류 `cmd_vel_smoothed` 양의 속도 입력과 하류 `/cmd_vel` 125개 관측 확인.
+- 그러나 `S4_CM_STOP_CHAIN_UNPROVEN` (`cm_stop=false`). 이때 전방 26점은 단지 ±0.48rad / range<=0.65m 범위의 값이며, 공식 Collision Monitor의 좁은 S4ForwardStop polygon 내부라고 직접 증명한 것은 아님.
+- 수정/계측: 피처 원통 중심을 로봇 물리 GT 전방 0.60→0.52m로 이동해 STOP 사각형의 내부 관측 확률을 높이고, 실제 스캔 polar XY의 사각형 내부 점 수·CM state 최근 12개·최종 command absolute max를 오류에서 계측. 센서 가짜 데이터 없이 실패 경계 확인.
+- CM 입력→출력 구조, STOP polygon 크기/임계값, Nav2·SLAM/World 원본, 메뉴 속도 정책, Cmd 속도 안전 상한은 변경하지 않음. 다음 실제 Run GREEN 전 S4=HOLD.

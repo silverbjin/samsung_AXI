@@ -46,6 +46,7 @@ def test_physical_fixture_and_real_scan_required():
     assert '<static>true</static>' in m.fixture_sdf()
     assert '<collision name="c">' in m.fixture_sdf()
     assert m.front_obstacle_points(None)==0
+    assert m.stop_polygon_points(None)==0
     from types import SimpleNamespace
     scan=SimpleNamespace(ranges=[float('nan')]*360,angle_min=0.,
         angle_increment=2*3.141592653589793/360,range_min=.12,range_max=3.5)

@@ -60,3 +60,16 @@ def front_obstacle_points(scan,limit=.65):
         if abs(angle)<.48 and math.isfinite(d) and scan.range_min<=d<=min(scan.range_max,limit):
             count+=1
     return count
+
+def stop_polygon_points(scan):
+    """Untransformed base_scan XY projection, diagnostic only (CM uses TF)."""
+    if scan is None:return 0
+    count=0
+    for i,d in enumerate(scan.ranges):
+        if not (math.isfinite(d) and scan.range_min<=d<=scan.range_max):
+            continue
+        angle=scan.angle_min+i*scan.angle_increment
+        x=d*math.cos(angle);y=d*math.sin(angle)
+        if .10<=x<=.58 and abs(y)<=.28:
+            count+=1
+    return count

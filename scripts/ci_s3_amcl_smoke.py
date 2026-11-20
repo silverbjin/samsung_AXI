@@ -17,7 +17,7 @@ from s3_map_contract import validate_release
 from ci_s2_map_smoke import end_process
 from s2_map02_gt_pose import GazeboModelPose
 from s4_menu_contract import (NORMAL_LIMIT,SOUP_LIMIT,measured_speed,compare_speeds,
-                              fixture_sdf,front_obstacle_points)
+                              fixture_sdf,front_obstacle_points,stop_polygon_points)
 
 def run(args):
     import rclpy
@@ -301,8 +301,10 @@ def run(args):
                         rx,ry,ryaw=gt.pose
                         if math.dist((rx,ry),(-2.60,-2.20))>.80:
                             raise RuntimeError('S4_ROBOT_NOT_BACK_AT_PICKUP')
-                        fx=rx+.60*math.cos(ryaw)
-                        fy=ry+.60*math.sin(ryaw)
+                        # The physical cylinder must be observed inside the actual
+                        # CM forward STOP polygon, not merely in a broad front sector.
+                        fx=rx+.52*math.cos(ryaw)
+                        fy=ry+.52*math.sin(ryaw)
                         fixture=args.evidence.parent/'s4_collision_fixture.sdf'
                         fixture.write_text(fixture_sdf())
                         created=subprocess.run(
@@ -314,8 +316,11 @@ def run(args):
                                                repr((created.stdout+created.stderr)[-350:]))
                         initial_scan_count=state['scan']
                         wait(lambda:state['scan']>=initial_scan_count+4 and
-                             front_obstacle_points(s4['scan'])>=4,18,
-                             'S4_PHYSICAL_FIXTURE_LIDAR_OBSERVATION')
+                             front_obstacle_points(s4['scan'])>=4 and
+                             stop_polygon_points(s4['scan'])>=4,18,
+                             'S4_PHYSICAL_FIXTURE_INSIDE_STOP_POLYGON')
+                        print('S4_PHYSICAL_FIXTURE_LIDAR_POINTS='+str(front_obstacle_points(s4['scan']))+
+                              ' STOP_RECT_POINTS='+str(stop_polygon_points(s4['scan'])),flush=True)
                         if s4_probe.get_subscription_count()<1:
                             raise RuntimeError('S4_CM_UPSTREAM_TOPIC_SUBSCRIBER_MISSING')
                         # Guarantee the robot has settled at the Nav2 return goal.
@@ -338,7 +343,12 @@ def run(args):
                             raise RuntimeError('S4_CM_STOP_CHAIN_UNPROVEN:'+
                                 json.dumps({'input_seen':positive_input,'cm_stop':stopped,
                                             'cmd_out_count':len(outputs),
-                                            'front_points':front_obstacle_points(s4['scan'])}))
+                                            'front_points':front_obstacle_points(s4['scan']),
+                                            'stop_rect_points':stop_polygon_points(s4['scan']),
+                                            'state_messages':len(s4['cm_states']),
+                                            'recent_states':s4['cm_states'][-12:],
+                                            'cmd_in_count':len([1 for t,_ in s4['cmd_in'] if t>=marker]),
+                                            'cmd_out_abs_max':max([abs(v) for v in outputs],default=None)}))
                         if max(abs(v) for v in outputs)>.025 or moved>.045:
                             raise RuntimeError('S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED:'+
                                 json.dumps({'cmd_out_max':max(abs(v) for v in outputs),
