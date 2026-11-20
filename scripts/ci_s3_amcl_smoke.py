@@ -145,7 +145,7 @@ def run(args):
             while time.monotonic()<until:
                 spin_once(.22)
                 now=time.monotonic()
-                if now-last_publish>2 and pub.get_subscription_count()>0:
+                if not args.no_initial_pose_publish and now-last_publish>2 and pub.get_subscription_count()>0:
                     initial.header.stamp=node.get_clock().now().to_msg()
                     pub.publish(initial);last_publish=now
                 if (state['amcl_pose'] is not None and state['map_to_odom']
@@ -171,6 +171,9 @@ def run(args):
                     'scan_count':state['scan'],'map_to_odom':state['map_to_odom'],
                     'odom_to_base':state['odom_to_base'],
                     'navigate_to_pose_server_ready':True,'goal_sent':False}
+            result['manual_initial_pose_published']=not args.no_initial_pose_publish
+            if args.no_initial_pose_publish:
+                print('S3_AMCL_AUTO_INITIAL_POSE_REAL_GAZEBO_PASS_NO_MANUAL_PUBLISH',flush=True)
             args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
             print('RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL',flush=True)
             def perform_s4_stop(result):
@@ -424,6 +427,7 @@ def main():
     p.add_argument('--exercise-goals',action='store_true')
     p.add_argument('--menu-safety',action='store_true')
     p.add_argument('--s4-stop-only',action='store_true')
+    p.add_argument('--no-initial-pose-publish',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--params',type=Path,required=True)
     p.add_argument('--map',type=Path,required=True)

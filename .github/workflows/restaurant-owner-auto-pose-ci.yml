@@ -1,0 +1,119 @@
+name: SAMSUNGAXI OWNER AMCL Auto Initial Pose
+on:
+  push:
+    branches: [owner/s3-gui-auto-initialpose-20261120]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: owner-amcl-auto-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  candidate-l0:
+    name: OWNER-AUTOPOSE L0 / official param and NO_GOAL contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+      - name: Verify both old release and candidate map contracts
+        run: |
+          set -Eeuo pipefail
+          python3 -m compileall -q scripts tests
+          python3 -m pytest -q tests/test_s3_map_contract.py tests/test_gui_owner_one_shot.py
+          echo OWNER_AUTOPOSE_L0_PASS
+  candidate-l2:
+    name: OWNER-AUTOPOSE L2 / actual Gazebo AMCL no initialpose message
+    needs: candidate-l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DISTRO: jazzy
+      ROS_DOMAIN_ID: '79'
+      GZ_PARTITION: samsungaxi_owner_auto_${{ github.run_id }}_${{ github.run_attempt }}
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      RESTAURANT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official ROS Jazzy Nav2 Gazebo Harmonic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git python3-colcon-common-extensions python3-yaml \
+            xvfb xauth mesa-utils ros-jazzy-ros-base ros-jazzy-ros-gz \
+            ros-jazzy-ros-gz-image ros-jazzy-nav2-bringup ros-jazzy-navigation2 \
+            ros-jazzy-slam-toolbox ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+      - name: Checkout exact ROBOTIS Jazzy Waffle Pi simulation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p src/upstream
+          git clone --quiet --depth 1 --branch jazzy \
+            https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git \
+            src/upstream/turtlebot3_simulations
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          if [[ $(git -C src/upstream/turtlebot3_simulations rev-parse HEAD) != "$PIN" ]]; then
+            git -C src/upstream/turtlebot3_simulations fetch --quiet --depth 1 origin "$PIN"
+            git -C src/upstream/turtlebot3_simulations checkout --quiet --detach "$PIN"
+          fi
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+      - name: Build and unchanged sensor/Nav2 parameter overlay
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-up-to restaurant_world restaurant_bringup restaurant_delivery
+          set +u
+          source install/setup.bash
+          set -u
+          mkdir -p generated
+          ROBOT_SDF="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
+          python3 scripts/prepare_waffle_rgbd.py --source "$ROBOT_SDF" --out generated/waffle_pi_rgbd.sdf
+          NAV_SRC="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+          python3 scripts/prepare_nav2_params.py --source "$NAV_SRC" --out generated/nav2_params.yaml --auto-initial-pose
+          python3 scripts/s3_map_contract.py .
+      - name: Real Gazebo AMCL pose and TF without /initialpose publish
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          set +u
+          source install/setup.bash
+          set -u
+          mkdir -p generated/owner_autopose logs
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=20s 940s \
+            python3 scripts/ci_s3_amcl_smoke.py --no-initial-pose-publish \
+              --robot-sdf "$PWD/generated/waffle_pi_rgbd.sdf" \
+              --map "$PWD/maps/candidates/s2_map03/restaurant_map.yaml" \
+              --params "$PWD/generated/nav2_params.yaml" \
+              --log "$PWD/logs/map03-nav.log" \
+              --evidence "$PWD/generated/owner_autopose/nav_delivery_candidate.json"
+          cp logs/ci-s3-summary.txt generated/owner_autopose/ci-summary.txt
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: samsungaxi-owner-autopose-green-${{ github.run_id }}
+          path: generated/owner_autopose/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: samsungaxi-owner-autopose-first-failure-${{ github.run_id }}
+          path: |
+            logs/ci-s3-summary.txt
+            generated/owner_autopose/nav_delivery_candidate.json
+          if-no-files-found: ignore
+          retention-days: 7
