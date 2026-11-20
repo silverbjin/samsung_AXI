@@ -21,3 +21,10 @@
 ## 판정
 - **S4=NOT_VERIFIED**, 실제 Gazebo L2 GREEN을 확인할 때만 PASS로 변경.
 - 강사 SAMSUNGAXI WSL2에서는 CI 검증 SHA를 가져와 GUI 최종 인수만 수행하며 재매핑·대규모 환경 최적화 금지.
+
+## Cycle 01 — L0 RED: 과거 S3 CI 분기 계약 불일치
+- [Actions Run #44651503909](https://github.com/silverbjin/samsung_AXI/actions/runs/44651503909): L0 pytest 14 PASS / 1 FAIL, L1/L2 SKIPPED.
+- 최초 실패: `tests/test_s3_nav_contract.py::test_nav02_ci_uses_one_gazebo_session_for_pregoal_and_goals`가 S3 NAV-02의 과거 브랜치 조건에 `main` 포함을 요구.
+- S4에서는 main의 주행 검사를 S4 메뉴·안전 통합으로 대체(내부 S3 pregoal+Goal 유지)하므로 **과거 기대 문자열만 낡음**. 신규 S4 메뉴/CM 계약 자체는 PASS.
+- 최소 수정: S3 브랜치에서는 S3 목표 인수 유지, main/S4에서는 S4 속도·정지 검수한다는 분기 정책에 맞춰 L0 계약 1건 수정. 주행/안전 로직 변경 없음.
+- 재검 L0/L2 GREEN 전 S4=HOLD.
