@@ -39,3 +39,29 @@
 - 성공 Run의 `nav_delivery.json`은 `goal_sent=true`, `delivery_return=true`임에도 기존 NO-GOAL 프리플라이트 딕셔너리에서 `kind=s3_real_gazebo_no_navigation_goal`을 그대로 이어받았음. **동작 실패가 아니라 결과 메타데이터 명칭 불일치**.
 - 후속 실행 결과에서 Goal 2구간 성공 시에만 `kind=s3_real_gazebo_navigation_delivery_return`로 교정. 이전 원본 Artifact는 수정하거나 재해석하지 않고 보존.
 - S3 전용 Actions가 main에도 작동하며 실제 NAV-02 주행을 검사하도록 workflow branch와 조건을 최소 확장. 코드·보고서 병합 후 main CI에서 최종 확인.
+
+## Cycle 04 — CI 연속 Nav2 두 세션 문제 분리
+- [Run #44644596110](https://github.com/silverbjin/samsung_AXI/actions/runs/44644596110): 최신 schema 수정 소스의 L0·L1 PASS, 첫 실제 AMCL NO-GOAL L2 PASS. 이어서 동일 Job의 두 번째 전체 Gazebo/Nav2 Launch에서 160초 안에 NavigateToPose action server를 준비하지 못해 HOLD.
+- 오류 시에도 AMCL 추정 (-0.01227,0.02584), map→odom/odom→base TF true, Scan 123회. 지도/SLAM 오류로 승격하지 않음. Goal은 전송하지 않음.
+- 두 연속 세션의 DDS 발견·Lifecycle 전환 경합 가능성은 가설로 남김. 실제 그 내부 최종 원인은 당시 축약 로그만으로 단정할 수 없음.
+- 중복 구성 제거: NAV-02/main CI에서는 동일 단일 Gazebo 세션에서 지도 SHA→Map Server→AMCL→TF→NavigateToPose 준비→5개 Lifecycle ACTIVE→배달·복귀를 수행. 별도 NO-GOAL 단독 시연은 AMCL 전용 브랜치에 보존.
+- 관련 이슈: [S3-NAV-CI03](../issues/2026-11-20_S3-NAV-CI03_duplicate_nav_session.md). Lifecycle 최신 전환 흔적을 축약 로그에 추가하고 원본 지도를 보존.
+
+## Cycle 05 — 단일 Gazebo 세션 CI GREEN
+- [Run #44646024902](https://github.com/silverbjin/samsung_AXI/actions/runs/44646024902), 소스 SHA `e61815bcd9d9640295de8b31e974f2e9c692cd6f`, L0/L1/실제 Gazebo L2 PASS.
+- Goal 전 핵심 5개 Nav2 Lifecycle ACTIVE. TABLE_3 Action SUCCEEDED/odometry 5.232m/AMCL 오차 0.198m, PICKUP_RETURN Action SUCCEEDED/odometry 5.244m/AMCL 오차 0.026m.
+- `nav_delivery.json`의 kind=`s3_real_gazebo_navigation_delivery_return`, goal_sent=true, delivery_return=true, Action status 4 두 개를 실제 JSON 원본에서 확인. 지도 PGM SHA256 동일.
+- 기존 S1/S2 전체 회귀 [Run #44646032257](https://github.com/silverbjin/samsung_AXI/actions/runs/44646032257) GREEN. 이 단계는 S2 33.3m 지도를 다시 만드는 개발이 아니라 회귀 확인.
+
+## Final — main 반영 및 실증 인수
+- [PR #10](https://github.com/silverbjin/samsung_AXI/pull/10) 병합, main 코드 커밋 `e2e7cf04e281866fec123629d0b90a1191359c22`.
+- main 실제 S3 Actions [Run #44646848087](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848087) L0/L1/L2 GREEN. 배달 TABLE_3 odom 5.257m / AMCL error 0.132m / Scan +145 / Action status 4; 복귀 PICKUP_RETURN odom 5.219m / error 0.126m / Scan +268 / status 4.
+- main S1·S2 회귀 [Run #44646848122](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848122) L0/L1/실제 Gazebo 센서·S2-MAP-01 지도 저장·재로딩·S2-MAP-02 실제 전체 지도 품질 GREEN.
+- main S3 증거 ZIP `samsungaxi-s3-amcl-verified-44646848087`: `generated/s3/nav_delivery.json`, 축약 로그. map PGM SHA `b20bebc872145fa674315757c61e5bb10444eb4c5067ac34d5948d679157e8d8`.
+- 판정: **S3-NAV-02 실제 Gazebo 배달·복귀 CI PASS / main 통합 PASS**. 기존 출고 지도 재생성, WSL2 재매핑은 불필요.
+- 경계: 실제 식기 취급, 메뉴별 NORMAL/SOUP SpeedLimit 동작, 강사 WSL2/WSLg GUI 실습 최종 인수는 이번 Goal CI의 증거 범위 밖이며 별도 검증 전 PASS로 보고하지 않음.
+
+## 교육용 설계 의도
+- L0는 **출고된 동일 지도/좌표**를 지키고, L1은 **공식 패키지·빌드**, L2는 **실제 Gazebo 센서·주행·AMCL/Action**을 측정합니다. 통과하지 못한 계층을 추정치로 PASS 처리하지 않습니다.
+- Goal 거절은 Nav2 Lifecycle ACTIVE 전 경합, 성공 JSON 이름 모순은 증거 계약 결함, 연속 기동의 불안정성은 CI 세션 설계라는 서로 다른 실패 경계로 분리해야 합니다.
+- 작업마다 원본 Run/SHA와 압축 로그를 보존하면, 이미 GREEN인 SLAM·Robot/World 코드를 다시 개발하지 않고 최초 실패 경계만 수정할 수 있습니다.

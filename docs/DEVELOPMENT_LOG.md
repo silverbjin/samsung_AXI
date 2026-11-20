@@ -73,3 +73,6 @@
 
 - 2026-11-20 S3-NAV-CI01 해결: [실제 Gazebo L2 Run #44564927414](https://github.com/silverbjin/samsung_AXI/actions/runs/44564927414) Goal 전 Nav2 Lifecycle ACTIVE→TABLE_3/RETURN 물리 Odom 5.185m/5.214m, AMCL 오차 0.192m/0.066m, 2회 Action SUCCEEDED. [보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md).
 - 2026-11-20 S3-NAV-CI02: [배달 성공 증거의 kind 명칭 불일치](reports/issues/2026-11-20_S3-NAV-CI02_evidence_kind.md) 교정, main S3 CI 실제 주행 게이트 유지.
+
+- 2026-11-20 S3-NAV-CI03: [연속 Nav2 2세션의 두 번째 Action 서버 타임아웃](reports/issues/2026-11-20_S3-NAV-CI03_duplicate_nav_session.md), Run #44644596110 RED. 한 세션으로 중복 제거하여 Run #44646024902 GREEN, 같은 센서/SLAM 유지.
+- 2026-11-20 **S3-NAV-02 CI·main PASS**: [PR #10](https://github.com/silverbjin/samsung_AXI/pull/10) main e2e7cf04; [Run #44646848087](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848087) 배달 Odom 5.257m / 오차 0.132m, 복귀 5.219m / 오차 0.126m, Nav2 Lifecycle/2 Action SUCCESS. S1/S2 회귀 [Run #44646848122](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848122) GREEN. [최종 보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md). WSL2 GUI 및 메뉴별 속도는 별도 인수.
