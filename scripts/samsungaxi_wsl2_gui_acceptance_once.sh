@@ -72,6 +72,21 @@ if ! grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease; then echo BLOCKED_NOT
 if [[ ! -f /opt/ros/jazzy/setup.bash ]]; then echo BLOCKED_ROS_JAZZY; RC=2; exit 2; fi
 if [[ -z "$DISPLAY" && -z "$WAYLAND_DISPLAY" ]]; then echo BLOCKED_WSLG; RC=2; exit 2; fi
 for cmd in curl git python3 setsid timeout; do command -v "$cmd" >/dev/null || { echo "BLOCKED_TOOL=$cmd"; RC=2; exit 2; }; done
+# WSLg GPU: prefer previously verified D3D12 NVIDIA only if the live
+# renderer reports accelerated=yes. Process-scoped; no global system edits.
+if command -v glxinfo >/dev/null 2>&1; then
+  GPU_PROBE="$(env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA timeout 10 glxinfo -B 2>&1)" || GPU_PROBE=""
+  printf '%s\n' "$GPU_PROBE" | grep -E 'OpenGL renderer|Accelerated|Device:' > "$TMP/gpu_probe.txt" || :
+  if [[ "$GPU_PROBE" == *D3D12* && "$GPU_PROBE" == *NVIDIA* && "$GPU_PROBE" == *"Accelerated: yes"* ]]; then
+    unset LIBGL_ALWAYS_SOFTWARE
+    export GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA
+    echo 'SAMSUNGAXI_WSLG_GPU_ROUTE=D3D12_NVIDIA_ACCELERATED'
+  else
+    echo 'SAMSUNGAXI_WSLG_GPU_ROUTE=UNVERIFIED_NO_AUTO_OVERRIDE'
+  fi
+else
+  echo 'SAMSUNGAXI_WSLG_GPU_ROUTE=GLXINFO_UNAVAILABLE'
+fi
 OWNER="$TMP/owner_wsl2_once.sh"
 URL="https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/owner_wsl2_once.sh"
 if ! curl -fLsS --retry 3 --connect-timeout 10 --max-time 90 "$URL" -o "$OWNER"; then echo BLOCKED_DOWNLOAD; RC=3; exit 3; fi
@@ -83,6 +98,29 @@ bash "$OWNER" world --self-test --ref "$PIN"
   source /opt/ros/jazzy/setup.bash
   if [[ -r "$WORKSPACE/install/setup.bash" ]]; then source "$WORKSPACE/install/setup.bash"; fi
   set -u
+  # Real Gazebo Stats in the SAME live GUI session; no fabricated RTF.
+  timeout 28s gz topic -e -t /world/restaurant/stats 2>/dev/null |
+    awk '/real_time_factor:/ {print $2; if(++n>=100)exit}' > "$TMP/rtf_samples.txt" || :
+  export RTF_SAMPLE_PATH="$TMP/rtf_samples.txt" RTF_REPORT_PATH="$TMP/rtf_report.txt"
+  python3 - <<'PY'
+import os,statistics
+from pathlib import Path
+samples=[]
+for line in Path(os.environ['RTF_SAMPLE_PATH']).read_text().splitlines():
+    try:
+        v=float(line)
+        if 0 <= v <= 10:samples.append(v)
+    except ValueError:pass
+if len(samples)<5:
+    result='RTF_MEASUREMENT=INSUFFICIENT_SAMPLES'
+else:
+    ordered=sorted(samples)
+    result=('RTF_SAMPLE_COUNT=%d\nRTF_MEDIAN=%.4f\nRTF_P10=%.4f\nRTF_AT_LEAST_90PCT=%s'
+            %(len(samples),statistics.median(samples),
+              ordered[int((len(samples)-1)*.1)],
+              str(statistics.median(samples)>=.9).upper()))
+Path(os.environ['RTF_REPORT_PATH']).write_text(result+'\n')
+PY
   for cmd in 'ros2 node list' 'ros2 topic list -t' 'ros2 action list' 'ros2 topic echo /scan --once' 'ros2 topic echo /odom --once' 'ros2 lifecycle get /amcl' 'ros2 lifecycle get /collision_monitor'; do
     echo "== $cmd ==" >> "$TMP/ros_diagnostics.txt"
     timeout 8 bash -c "$cmd" >> "$TMP/ros_diagnostics.txt" 2>&1 || echo PROBE_NONZERO >> "$TMP/ros_diagnostics.txt"

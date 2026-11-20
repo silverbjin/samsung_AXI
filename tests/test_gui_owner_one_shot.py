@@ -35,3 +35,13 @@ def test_auto_pose_opt_in_and_gui_only():
     smoke=(ROOT/'scripts'/'ci_s3_amcl_smoke.py').read_text()
     assert "not args.no_initial_pose_publish and now-last_publish" in smoke
     assert "S3_AMCL_AUTO_INITIAL_POSE_REAL_GAZEBO_PASS_NO_MANUAL_PUBLISH" in smoke
+
+def test_rtf_gpu_route_is_conditional_and_evidence_is_not_autopass():
+    src=OWNER.read_text()
+    assert 'GALLIUM_DRIVER=d3d12' in src
+    assert 'Accelerated: yes' in src
+    assert 'SAMSUNGAXI_WSLG_GPU_ROUTE=UNVERIFIED_NO_AUTO_OVERRIDE' in src
+    assert 'gz topic -e -t /world/restaurant/stats' in src
+    assert 'RTF_MEDIAN=' in src
+    assert "RTF_MEASUREMENT=INSUFFICIENT_SAMPLES" in src
+    assert "WSL2_GUI_ACCEPTED=NOT_RUN_UNTIL_HUMAN_VISUAL_CHECK" in src

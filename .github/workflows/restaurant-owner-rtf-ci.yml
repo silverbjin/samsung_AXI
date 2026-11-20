@@ -1,0 +1,24 @@
+name: SAMSUNGAXI OWNER WSLg RTF Source QA
+on:
+  push:
+    branches: [owner/wslg-rtf-gpu-20261120]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gui-rtf-l0:
+    name: OWNER-RTF L0 / Bash and conditional GPU contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+      - name: Verify GUI source and no hardware PASS
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/samsungaxi_wsl2_gui_acceptance_once.sh
+          bash scripts/samsungaxi_wsl2_gui_acceptance_once.sh --self-test
+          python3 -m pytest -q tests/test_gui_owner_one_shot.py
+          echo OWNER_RTF_L0_STATIC_PASS_WSLG_RTF_NOT_MEASURED
