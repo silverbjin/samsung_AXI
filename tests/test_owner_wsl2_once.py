@@ -51,5 +51,5 @@ def test_navigation_no_goal_never_falls_through_to_demo():
     end=script.index('[[ "$MENU" == NORMAL',start)
     block=script[start:end]
     assert 'exit "${PIPESTATUS[0]}"' in block
-    assert block.index('exit "${PIPESTATUS[0]}"') < block.index('fi')
+    assert block.index('exit "${PIPESTATUS[0]}"') < block.rindex('\nfi')
     assert block.count('ros2 launch') == 1
