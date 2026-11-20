@@ -59,3 +59,11 @@ def test_s4_opt_in_never_replaces_s3_goal_mode():
     assert 'S4_MENU_NORMAL_SOUP_REAL_ODOM_SPEED_PASS' in s
     assert 'S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS' in s
     assert 'send_goal_async' in s and 'GoalStatus.STATUS_SUCCEEDED' in s
+
+def test_stop_transition_between_fixture_and_probe_is_not_lost():
+    # Nav2 publishes CollisionMonitorState on polygon transitions, not every Twist.
+    # Fixture may trigger STOP before the positive-input probe marker.
+    script=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
+    assert 'fixture_marker=time.monotonic()' in script
+    assert 't>=fixture_marker and a==CollisionMonitorState.STOP' in script
+    assert 'if max(abs(v) for v in outputs)>.025 or moved>.045:' in script
