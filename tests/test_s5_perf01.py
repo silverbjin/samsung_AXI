@@ -83,3 +83,46 @@ def test_s5_opt_in_profile_does_not_mutate_existing_general_demo_contracts():
     assert 'RGBD_RATE_ARGS=(--rgbd-rate-hz 2)' in t
     assert 'S5_PERF_RGBD_RATE_HZ=5' in t and 'S5_PERF_RGBD_RATE_HZ=2' in t
     assert '--s5-integrated --gui --live-owner' in t
+
+
+def test_real_profiler_process_writes_timeline_and_json_on_ctrl_c(tmp_path):
+    # Regression for shipped performance executable, not only its static API.
+    # Fake Gazebo stdout here tests read/termination; the real Gazebo is L2.
+    import csv,json,os,signal,sys,time
+    tool=tmp_path/'gz'
+    tool.write_text(
+        '#!/usr/bin/env python3\n'
+        'import time\n'
+        'for _ in range(120):\n'
+        ' print("real_time_factor: 0.95",flush=True)\n'
+        ' time.sleep(.1)\n')
+    tool.chmod(0o755)
+    log=tmp_path/'run.log'
+    log.write_text('S3_NAV02_REAL_GOAL_ACCEPTED=TABLE_3\n')
+    timeline=tmp_path/'timeline.csv'
+    summary=tmp_path/'summary.json'
+    env=os.environ.copy()
+    env['PATH']=str(tmp_path)+os.pathsep+env.get('PATH','')
+    cmd=[sys.executable,str(ROOT/'scripts/s5_perf_profile.py'),
+         '--run-log',str(log),'--csv-out',str(timeline),
+         '--summary-out',str(summary),'--mode','baseline',
+         '--max-sec','12','--sample-interval','.5']
+    p=subprocess.Popen(cmd,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+    try:
+        time.sleep(2.7)
+        p.send_signal(signal.SIGINT)
+        output,_=p.communicate(timeout=8)
+        assert p.returncode==0,output
+        assert 'S5_PERF_PROFILE_SAVED=' in output
+        rows=list(csv.DictReader(timeline.open()))
+        assert len(rows)>=2,rows
+        assert set(x['phase'] for x in rows)=={'normal_delivery'}
+        report=json.loads(summary.read_text())
+        assert report['profile_mode']=='baseline'
+        assert report['rtf']['all']['sample_count']>=2
+        assert report['rtf']['moving']['median']>.9
+        assert report['rtf']['moving_target_median_ge_90'] is False  # <25 valid seconds
+    finally:
+        if p.poll() is None:
+            p.kill()
+            p.wait(timeout=3)
