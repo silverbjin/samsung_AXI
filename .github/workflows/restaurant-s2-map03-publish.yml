@@ -1,0 +1,80 @@
+name: SAMSUNGAXI S2-MAP-03 Publish Actual Map Candidate
+on:
+  push:
+    branches: [maps/s2-map03-release-20261120]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-only:
+    name: Verify prior real Gazebo L2 artifact and commit immutable map candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 44664079567
+          name: samsungaxi-s2-map03-candidate-44664079567
+          path: downloaded
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify source SHA, candidate physical-map hashes and improvement
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/silverbjin/samsung_AXI/actions/runs/44664079567 \
+            > downloaded/source_run.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('downloaded')
+          run=json.loads((p/'source_run.json').read_text())
+          if run['head_sha']!='ea78fe457e7cfc88754a88f788e08eabd098d766' or run['conclusion']!='success':
+              raise SystemExit('S2_MAP03_SOURCE_RUN_SHA_OR_GREEN_MISMATCH')
+          q=json.loads((p/'map02_quality.json').read_text())
+          for name,field in [('restaurant_map.pgm','map_image_sha256'),('restaurant_map.yaml','map_yaml_sha256')]:
+              if hashlib.sha256((p/name).read_bytes()).hexdigest()!=q[field]:
+                  raise SystemExit('S2_MAP03_ARTIFACT_HASH_MISMATCH:'+name)
+          m=q['map']
+          if not (m['route_waypoints']==27 and m['known']>=30394 and
+                  m['known_fraction']>=.81 and m['pickup_free_connected_to_table3']):
+              raise SystemExit('S2_MAP03_CANDIDATE_QUALITY_REJECTED')
+          world=Path('src/restaurant_world/worlds/restaurant.sdf')
+          if hashlib.sha256(world.read_bytes()).hexdigest()!=q['world_sha256']:
+              raise SystemExit('S2_MAP03_WORLD_CHANGED')
+          print('S2_MAP03_PROVENANCE_AND_MAP_QUALITY_PASS')
+          PY
+      - name: Copy candidate maps without replacing baseline release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p maps/candidates/s2_map03
+          cp downloaded/restaurant_map.pgm downloaded/restaurant_map.yaml maps/candidates/s2_map03/
+          cp downloaded/map02_quality.json maps/candidates/s2_map03/restaurant_map_quality.json
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          p=Path('maps/candidates/s2_map03')
+          files=[p/'restaurant_map.pgm',p/'restaurant_map.yaml',p/'restaurant_map_quality.json']
+          info={'source_ci_run':'44664079567',
+                'source_sha':'ea78fe457e7cfc88754a88f788e08eabd098d766',
+                'status':'REAL_GAZEBO_CANDIDATE_S3_MAP_ACCEPTANCE_NOT_RUN',
+                'files':{f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in files}}
+          (p/'restaurant_map_manifest.json').write_text(json.dumps(info,indent=2,sort_keys=True)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f maps/candidates/s2_map03/restaurant_map.pgm \
+            maps/candidates/s2_map03/restaurant_map.yaml \
+            maps/candidates/s2_map03/restaurant_map_quality.json \
+            maps/candidates/s2_map03/restaurant_map_manifest.json
+          if git diff --cached --quiet; then
+            echo 'S2_MAP03_MAP_CANDIDATE_ALREADY_PRESENT'
+          else
+            git commit -m 'artifacts(S2-MAP-03): actual Gazebo 81pct map candidate [skip ci]'
+            git push origin HEAD:maps/s2-map03-release-20261120
+          fi
+          echo S2_MAP03_MAP_CANDIDATE_GITHUB_COMMITTED_MAIN_UNCHANGED
