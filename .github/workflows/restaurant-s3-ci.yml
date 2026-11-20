@@ -1,7 +1,7 @@
 name: SAMSUNGAXI S3 AMCL Real Map CI
 on:
   push:
-    branches: [main, s3/amcl-nav2-20261120, s3/nav-delivery-20261120]
+    branches: [main, s3/amcl-nav2-20261120, s3/nav-delivery-20261120, s4/menu-safety-20261120]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,7 +26,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m compileall -q scripts src tests
-          python3 -m pytest -q tests/test_s3_map_contract.py tests/test_s3_amcl_contract.py tests/test_s3_nav_contract.py
+          python3 -m pytest -q tests/test_s3_map_contract.py tests/test_s3_amcl_contract.py tests/test_s3_nav_contract.py tests/test_s4_menu_contract.py
           python3 scripts/s3_map_contract.py "$PWD"
           echo 'RESTAURANT_S3_CI_L0_RELEASE_MAP_PASS'
   l1-l2-amcl:
@@ -118,7 +118,7 @@ jobs:
               --log "$PWD/logs/ci-s3-amcl.log" \
               --evidence "$PWD/generated/s3/amcl_preflight.json"
       - name: S3-NAV-02 / actual NavigateToPose 1-to-3-to-1 and physical odom
-        if: github.ref == 'refs/heads/s3/nav-delivery-20261120' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/s3/nav-delivery-20261120'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -139,6 +139,28 @@ jobs:
               --log "$PWD/logs/ci-s3-nav.log" \
               --evidence "$PWD/generated/s3/nav_delivery.json"
           cp logs/ci-s3-summary.txt logs/ci-s3-nav-summary.txt
+      - name: S4-MENU-01 / actual Gazebo menu speeds and Collision Monitor scan STOP
+        if: github.ref == 'refs/heads/s4/menu-safety-20261120' || github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          set +u
+          source install/setup.bash
+          set -u
+          mkdir -p generated/s4 logs
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=20s 940s \
+            python3 scripts/ci_s3_amcl_smoke.py \
+              --exercise-goals --menu-safety \
+              --robot-sdf "$PWD/generated/waffle_pi_rgbd.sdf" \
+              --map "$PWD/maps/restaurant_map.yaml" \
+              --params "$PWD/generated/nav2_params.yaml" \
+              --log "$PWD/logs/ci-s4-menu.log" \
+              --evidence "$PWD/generated/s4/menu_safety.json"
+          cp logs/ci-s3-summary.txt logs/ci-s4-summary.txt
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -148,6 +170,8 @@ jobs:
             logs/ci-s3-summary.txt
             generated/s3/nav_delivery.json
             logs/ci-s3-nav-summary.txt
+            generated/s4/menu_safety.json
+            logs/ci-s4-summary.txt
           if-no-files-found: error
           retention-days: 5
       - uses: actions/upload-artifact@v4
@@ -156,5 +180,6 @@ jobs:
           name: samsungaxi-s3-first-failure-${{ github.run_id }}
           path: |
             logs/ci-s3-summary.txt
+            generated/s4/menu_safety.json
           if-no-files-found: ignore
           retention-days: 5

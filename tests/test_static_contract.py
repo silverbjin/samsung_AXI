@@ -60,7 +60,11 @@ def test_nav_params_only_local_pointcloud_added(tmp_path):
     base={
       'local_costmap':{'local_costmap':{'ros__parameters':{'voxel_layer':{'observation_sources':'scan'}}}},
       'controller_server':{'ros__parameters':{}},
-      'collision_monitor':{'ros__parameters':{'observation_sources':['scan']}}
+      'collision_monitor':{'ros__parameters':{
+          'observation_sources':['scan'],
+          'cmd_vel_in_topic':'cmd_vel_smoothed','cmd_vel_out_topic':'cmd_vel',
+          'polygons':['FootprintApproach'],
+          'FootprintApproach':{'action_type':'approach'}}}
     }
     src=tmp_path/'nav2.yaml'
     src.write_text(yaml.safe_dump(base))
