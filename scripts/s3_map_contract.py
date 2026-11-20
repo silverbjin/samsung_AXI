@@ -128,3 +128,36 @@ if __name__=='__main__':
     import sys
     print('RESTAURANT_S3_SAVED_MAP_FRAME_STATIC_PASS',
           json.dumps(validate_release(sys.argv[1] if len(sys.argv)>1 else '.')))
+
+
+def validate_s2_map03_candidate(repo):
+    """Independent candidate custody; never weakens original S2/S3 release."""
+    repo=Path(repo);root=repo/'maps/candidates/s2_map03'
+    manifest=json.loads((root/'restaurant_map_manifest.json').read_text())
+    quality=json.loads((root/'restaurant_map_quality.json').read_text())
+    if manifest['source_ci_run']!='44664079567' or manifest['source_sha']!='ea78fe457e7cfc88754a88f788e08eabd098d766':
+        raise ValueError('MAP03_UNEXPECTED_REAL_GAZEBO_SOURCE')
+    for name,digest in manifest['files'].items():
+        if sha256(root/name)!=digest:
+            raise ValueError('MAP03_FILE_HASH_CHANGED_'+name)
+    if quality['map_image_sha256']!=manifest['files']['restaurant_map.pgm']:
+        raise ValueError('MAP03_IMAGE_CUSTODY_MISMATCH')
+    if quality['map_yaml_sha256']!=manifest['files']['restaurant_map.yaml']:
+        raise ValueError('MAP03_YAML_CUSTODY_MISMATCH')
+    if sha256(repo/'src/restaurant_world/worlds/restaurant.sdf')!=quality['world_sha256']:
+        raise ValueError('MAP03_WORLD_CHANGED')
+    metric=quality['map']
+    if (metric['route_waypoints']!=27 or metric['known']<30394 or
+            metric['known_fraction']<.81 or not metric['pickup_free_connected_to_table3']):
+        raise ValueError('MAP03_QUALITY_NOT_PROVEN')
+    meta=yaml.safe_load((root/'restaurant_map.yaml').read_text())
+    if meta['image']!='restaurant_map.pgm' or meta['mode']!='trinary':
+        raise ValueError('MAP03_METADATA_INVALID')
+    w,h,pixels=read_pgm(root/'restaurant_map.pgm')
+    if (w,h)!=(metric['width'],metric['height']):
+        raise ValueError('MAP03_DIMENSIONS_CHANGED')
+    if not connected(w,h,pixels,meta['origin'],float(meta['resolution']),MAP_PICKUP,MAP_TABLE3):
+        raise ValueError('MAP03_PICKUP_TO_TABLE3_DISCONNECTED')
+    return {'release_run':manifest['source_ci_run'],'width':w,'height':h,
+            'pickup_map_xy':MAP_PICKUP,'table3_map_xy':MAP_TABLE3,
+            'pgm_sha256':manifest['files']['restaurant_map.pgm'],'free_connected':True}

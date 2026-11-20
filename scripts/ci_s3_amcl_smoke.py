@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 
-from s3_map_contract import validate_release
+from s3_map_contract import validate_release,validate_s2_map03_candidate
 from ci_s2_map_smoke import end_process
 from s2_map02_gt_pose import GazeboModelPose
 from s4_menu_contract import (NORMAL_LIMIT,SOUP_LIMIT,measured_speed,compare_speeds,
@@ -37,7 +37,9 @@ def run(args):
     from lifecycle_msgs.msg import State
 
     repo=Path(__file__).resolve().parents[1]
-    contract=validate_release(repo)
+    candidate=repo/'maps/candidates/s2_map03/restaurant_map.yaml'
+    contract=(validate_s2_map03_candidate(repo) if args.map.resolve()==candidate.resolve()
+              else validate_release(repo))
     if not args.robot_sdf.is_file() or not args.params.is_file() or not args.map.is_file():
         raise RuntimeError('S3_REQUIRED_ROBOT_SDF_PARAMS_OR_MAP_MISSING')
     if args.menu_safety and not args.exercise_goals:

@@ -28,3 +28,14 @@ def test_binary_pgm_parser_rejects_corrupt_file(tmp_path):
     import pytest
     with pytest.raises(ValueError,match='PGM_PIXEL_LENGTH_MISMATCH'):
         mod.read_pgm(f)
+
+
+def test_separate_s2_map03_observation_candidate_is_real_and_connected():
+    from pathlib import Path
+    candidate=ROOT/'maps/candidates/s2_map03/restaurant_map.pgm'
+    assert candidate.is_file()
+    q=mod.validate_s2_map03_candidate(ROOT)
+    assert q['width']==202 and q['height']==185
+    assert q['pgm_sha256']=='aedaed8f89e703f33ef22f9cf0c9d8f77b11763157d6e3a61c839a58fe871f00'
+    assert q['free_connected']
+    assert mod.validate_release(ROOT)['release_run']=='44551726313'
