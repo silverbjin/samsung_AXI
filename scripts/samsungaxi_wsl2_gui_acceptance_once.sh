@@ -4,13 +4,15 @@ set -Eeuo pipefail
 PIN="${SAMSUNG_AXI_GUI_PIN:-f39dc1757588b9f7cde1a56f73659f629c57e703}"
 [[ "$PIN" =~ ^[a-f0-9]{40}$ ]] || { echo BLOCKED_INVALID_SOURCE_PIN; exit 2; }
 if [[ "$*" == "--self-test" ]]; then echo SAMSUNGAXI_GUI_STATIC_PASS_NO_GOAL; exit 0; fi
-S5_MODE=0; INSTALL=0; S5_APPROVED=0; PREFLIGHT=0
+S5_MODE=0; INSTALL=0; S5_APPROVED=0; PREFLIGHT=0; PERF_MODE=none
 for arg in "$@"; do
   case "$arg" in
     --install-deps) INSTALL=1 ;;
     --s5-live) S5_MODE=1 ;;
     --approve-goals) S5_APPROVED=1 ;;
     --preflight-only) PREFLIGHT=1 ;;
+    --perf-baseline) PERF_MODE=baseline ;;
+    --perf-rgbd2) PERF_MODE=rgbd2 ;;
     *) echo "BLOCKED_INVALID_ARG=$arg" >&2; exit 2 ;;
   esac
 done
@@ -25,8 +27,15 @@ if (( S5_MODE )); then
       echo 'S5_BLOCKED_REQUIRES_EXPLICIT_PIN_AND_APPROVE_GOALS'; exit 2;
     }
   fi
-elif (( S5_APPROVED || PREFLIGHT )); then
+elif (( S5_APPROVED || PREFLIGHT )) || [[ "$PERF_MODE" != none ]]; then
   echo 'S5_BLOCKED_LIVE_FLAG_REQUIRED'; exit 2
+fi
+if (( PREFLIGHT )) && [[ "$PERF_MODE" != none ]]; then
+  echo 'S5_PERF_BLOCKED_PROFILE_WITH_NO_GOAL_PREFLIGHT'; exit 2
+fi
+if (( S5_MODE )); then
+  # No auto-optimization. Profile and candidate sensor rate are explicit.
+  export SAMSUNGAXI_S5_PERF_MODE="$PERF_MODE"
 fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT="$HOME/samsungaxi_gui_evidence"
@@ -34,13 +43,23 @@ mkdir -p "$OUT"
 TMP="$(mktemp -d -p "$OUT" .gui-XXXXXXXX)"
 ZIP="$OUT/samsungaxi_gui_$STAMP-$$.zip"
 RUN="$TMP/run.log"
-RC=99; CHILD=''; PROBER=''
+RC=99; CHILD=''; PROBER=''; PERF_PID=''
 export ROS_DOMAIN_ID=58 GZ_PARTITION="samsungaxi_gui_$$"
 WORKSPACE="$HOME/samsung_AXI"
 finish() {
   local original=$?
   trap - EXIT INT TERM
   if [[ -n "$PROBER" ]]; then kill "$PROBER" 2>/dev/null || :; wait "$PROBER" 2>/dev/null || :; fi
+  # Preserve one CSV+summary per live profile; stop only the child we started.
+  if [[ -n "$PERF_PID" ]]; then
+    kill -INT "$PERF_PID" 2>/dev/null || :
+    for _ in $(seq 1 12); do
+      kill -0 "$PERF_PID" 2>/dev/null || break
+      sleep 0.25
+    done
+    if kill -0 "$PERF_PID" 2>/dev/null; then kill -TERM "$PERF_PID" 2>/dev/null || :; fi
+    wait "$PERF_PID" 2>/dev/null || :
+  fi
   if [[ -n "$CHILD" ]] && kill -0 "$CHILD" 2>/dev/null; then
     kill -INT -- "-$CHILD" 2>/dev/null || :
     sleep 2
@@ -84,6 +103,12 @@ finish() {
     echo "GOAL_AUTHORIZED=$authorized"
     echo "GOAL_SENT=$sent"
     echo "DIAGNOSTIC_ZIP=$ZIP"
+    echo "S5_PERF_MODE=$PERF_MODE"
+    if [[ -s "$TMP/s5_perf_summary.json" ]]; then
+      echo 'S5_PERF_PROFILE_PRESENT=TRUE'
+    elif [[ "$PERF_MODE" != none ]]; then
+      echo 'S5_PERF_PROFILE_PRESENT=FALSE'
+    fi
     echo 'WSL2_GUI_ACCEPTED=NOT_RUN_UNTIL_HUMAN_VISUAL_CHECK'
     if (( PREFLIGHT )) && [[ "$RC" == 0 ]]; then
       echo VERDICT=PREFLIGHT_PASS_NO_GOAL
@@ -245,6 +270,28 @@ PY
     timeout 8 bash -c "$cmd" >> "$TMP/ros_diagnostics.txt" 2>&1 || echo PROBE_NONZERO >> "$TMP/ros_diagnostics.txt"
   done
 ) & PROBER=$!
+if (( S5_MODE )) && [[ "$PERF_MODE" != none ]]; then
+  PERF_SCRIPT="$TMP/s5_perf_profile.py"
+  if ! curl -fLsS --retry 3 --connect-timeout 10 --max-time 90 \
+    "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/s5_perf_profile.py" \
+    -o "$PERF_SCRIPT"; then
+    echo 'S5_PERF_BLOCKED_PROFILE_SCRIPT_FETCH'; RC=3; exit 3
+  fi
+  if ! python3 - "$PERF_SCRIPT" <<'PY'
+import ast,sys
+ast.parse(open(sys.argv[1],encoding='utf-8').read())
+PY
+  then
+    echo 'S5_PERF_BLOCKED_PROFILE_SCRIPT_SYNTAX'; RC=3; exit 3
+  fi
+  echo "S5_PERF_PROFILE_MODE=$PERF_MODE"
+  python3 "$PERF_SCRIPT" \
+    --run-log "$RUN" \
+    --csv-out "$TMP/s5_perf_timeline.csv" \
+    --summary-out "$TMP/s5_perf_summary.json" \
+    --mode "$PERF_MODE" >"$TMP/s5_perf_collector.log" 2>&1 &
+  PERF_PID=$!
+fi
 OWNER_ARGS=(navigation NORMAL --ref "$PIN" --workspace "$WORKSPACE")
 if (( S5_MODE )); then
   OWNER_ARGS=(live NORMAL --ref "$PIN" --workspace "$WORKSPACE" --goals-approved)
