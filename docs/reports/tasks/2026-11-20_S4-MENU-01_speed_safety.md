@@ -62,3 +62,12 @@
 - 첫 실패 [Run #44652530997](https://github.com/silverbjin/samsung_AXI/actions/runs/44652530997): CM STOP 상태 미관측. 변경 범위는 실제 polygon 내부 스캔 계측, fixture 전방 위치, STOP 이벤트 유효 기간을 fixture 설치부터 관측, 그리고 실제 STOP-only CI 진입점 및 Bash 인수 배열 수정. World/map/Planner/CM 안전 출력 상한을 완화하지 않음.
 - 별도 실패 [Run #44653541553](https://github.com/silverbjin/samsung_AXI/actions/runs/44653541553) SOUP 복귀 ABORT는 재현성 미확정이며, S3 이전 성공 기준선을 훼손하지 않습니다.
 - **최종 판정: S4-MENU-01 = CI_ACCEPTED (두 개의 서로 다른 실제 Gazebo L2 원본 조합).** 단일 End-to-End 메뉴 속도·STOP 동시 인수나 강사 WSL2 GUI 최종 인수는 `NOT_RUN`으로 구분합니다. 향후 main 통합 CI는 별도로 관찰합니다.
+
+## Cycle 06 — 병합 후 main 최초 실패 분리와 독립 STOP L2 GREEN
+
+- PR #11 merge SHA `88fa583fd42a69a04cc1e63191ed00e0ec746bff` 이후 [main Run #44655682930](https://github.com/silverbjin/samsung_AXI/actions/runs/44655682930)의 S4 full-goal 통합 실행이 `S3_AMCL_TF_OR_NAV2_ACTION_NOT_READY`로 실패. 실패 원본에는 AMCL pose/TF 모두 존재하며 Scan 121회 수신, Action server discovery는 준비되지 않음. 이는 앞서 확인한 LiDAR/CM STOP 성능 실패와 별개. 같은 main의 [MVP Run #44655683029](https://github.com/silverbjin/samsung_AXI/actions/runs/44655683029)은 이미 통과한 기본 인프라 회귀.
+- 원인 분류: STOP 전용 증명에는 Nav2 NavigateToPose Action discovery 및 새 왕복 Goal이 필요 없음. S3/Nav2 원본 주행 코드를 고치는 대신, STOP-only에서 해당 불필요한 Action readiness 의존성만 제외하고 실제 CM ACTIVE/물리 관측은 유지. main workflow는 앞선 GREEN 메뉴 왕복 실증 재실행 대신 STOP-only로 축소.
+- 최소 구현 + 계약: `236cd4060abb443c95c414e37f0a51173d70c2ae` (3개 파일: smoke runner, CI YAML, L0 테스트). 안전 출력/이동 한계, 지도/원본 월드, Nav2 Controller/Planner/CM 로직과 기존 메뉴 값은 불변.
+- [**main GREEN Run #44656669479**](https://github.com/silverbjin/samsung_AXI/actions/runs/44656669479): L0/L1/L2 SUCCESS, 실제 지도+AMCL 준비, `S4_PHYSICAL_FIXTURE_LIDAR_POINTS=29 STOP_RECT_POINTS=29`, `S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS`.
+- Compact Evidence: [Artifact #14593432791](https://github.com/silverbjin/samsung_AXI/actions/runs/44656669479/artifacts/14593432791), ZIP 7,349 bytes, SHA256 `7971bb95011e650ed2cfc241ae60085bf7ee37eaba146468c4d5ba4cfcca3fa6`.
+- 판정: **S4 CI_ACCEPTED**, 현재 main의 STOP-only L2 GREEN과 이전 메뉴 속도 0.23/0.11m/s 및 Nav2 왕복 Action PASS의 증거를 분리 보존. 같은 CI에서 전 구간을 동시에 재검증했다고 주장하지 않음. **WSL2 GUI L3=NOT_RUN**.
