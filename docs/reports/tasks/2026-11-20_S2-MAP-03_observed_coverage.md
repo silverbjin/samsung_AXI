@@ -38,3 +38,12 @@ PGM binary P5 원본 분석: 201x180=36180셀, known=26399(72.965%), free=24811,
 - `WSL2_GUI_WITH_NEW_MAP`: NOT_RUN.
 - Draft PR #13의 지도 확대 코드는 리뷰 후보. 실제 PGM은 별도 Actions Artifact에 출고됐으나, S3 호환성 실증·영구 저장소 게시가 완료되기 전에는 main으로 지도 변경을 병합하지 않음.
 - 요청된 다음 단계: 2D Pose Estimate 자동화, 마지막 단계 RTF >=90%. 1단계 지도 후보 main 출고 확인 전 2/3 실구현은 순서 정책상 보류.
+
+## Cycle 03 — 실제 AMCL·Nav2 개선 지도 호환성 CI GREEN
+
+- 지도 영구 보존: [GitHub Publisher Run #44665906184](https://github.com/silverbjin/samsung_AXI/actions/runs/44665906184) PASS, `maps/s2-map03-release-20261120` 브랜치의 `maps/candidates/s2_map03/{restaurant_map.pgm,restaurant_map.yaml,restaurant_map_quality.json,restaurant_map_manifest.json}` 출고. 기존 main `maps/restaurant_map.*` 보존.
+- `validate_s2_map03_candidate()`는 Run #44664079567, source SHA `ea78fe457e7cfc88754a88f788e08eabd098d766`, Map PGM/YAML/quality 파일 SHA256, 원본 World, known fraction >=.81, pickup↔Table3 connected를 검사.
+- [후속 S3 후보 L2 GREEN Run #44666192437](https://github.com/silverbjin/samsung_AXI/actions/runs/44666192437): L0 PASS, ROS Jazzy/Nav2/Gazebo Harmonic L1 PASS, 실제 저장 지도 기반 AMCL·TF 및 두 개의 NavigateToPose Action SUCCEEDED.
+- TABLE_3: Odom 5.204m, AMCL 도착 오차 0.113m; PICKUP_RETURN: Odom 5.294m, AMCL 도착 오차 0.021m.
+- [S3 개선지도 compact evidence #14598031271](https://github.com/silverbjin/samsung_AXI/actions/runs/44666192437/artifacts/14598031271), ZIP SHA256 `478e4a29e750c7fb762d9b6dfb24d648e95ecf167bb4c7fd20d4953cfda4d7d9`.
+- **판정: S2-MAP-03 지도 관측 확대/실제 Gazebo 저장 및 재로딩 = PASS, S3 후보 지도 AMCL/Nav2 실제 왕복 = PASS.** 강사 WSL2 GUI 인수 및 자동 initial pose와 RTF 개선은 별도 미실시.
