@@ -307,6 +307,7 @@ def run(args):
                         fy=ry+.52*math.sin(ryaw)
                         fixture=args.evidence.parent/'s4_collision_fixture.sdf'
                         fixture.write_text(fixture_sdf())
+                        fixture_marker=time.monotonic()
                         created=subprocess.run(
                             ['ros2','run','ros_gz_sim','create','-name','s4_collision_fixture',
                              '-file',str(fixture),'-x',str(fx),'-y',str(fy),'-z','.25'],
@@ -334,7 +335,7 @@ def run(args):
                             spin_once(.12)
                         s4_probe.publish(Twist())
                         for _ in range(8):spin_once(.15)
-                        stopped=any(t>=marker and a==CollisionMonitorState.STOP
+                        stopped=any(t>=fixture_marker and a==CollisionMonitorState.STOP
                                     and name=='S4ForwardStop' for t,a,name in s4['cm_states'])
                         outputs=[v for t,v in s4['cmd_out'] if t>=marker]
                         positive_input=any(t>=marker and v>=.075 for t,v in s4['cmd_in'])
