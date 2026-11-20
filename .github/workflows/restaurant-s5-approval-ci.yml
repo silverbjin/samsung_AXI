@@ -22,5 +22,126 @@ jobs:
       - name: Verify authorization and original sensor freshness threshold
         run: |
           set -Eeuo pipefail
-          python3 -m pytest -q tests/test_s5_owner_approval.py
+          python3 -m pytest -q tests/test_s5_owner_approval.py \
+            tests/test_s5_live_contract.py \
+            tests/test_s5_owner_run_id_preflight.py \
+            tests/test_gui_owner_one_shot.py
           echo S5_OWNER_TTY_APPROVAL_L0_PASS
+
+  l2-owner-delayed:
+    name: S5 L2 / actual Gazebo delayed 12s TTY approval, Nav2 and CM STOP
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DISTRO: jazzy
+      ROS_DOMAIN_ID: '84'
+      GZ_PARTITION: samsungaxi_s5approval_${{ github.run_id }}_${{ github.run_attempt }}
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      RESTAURANT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Official ROS Jazzy, Nav2 and Gazebo Harmonic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git python3-colcon-common-extensions python3-yaml \
+            xvfb xauth mesa-utils ros-jazzy-ros-base ros-jazzy-ros-gz \
+            ros-jazzy-ros-gz-image ros-jazzy-nav2-bringup \
+            ros-jazzy-navigation2 ros-jazzy-slam-toolbox \
+            ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+      - name: Exact reviewed ROBOTIS Jazzy Waffle Pi
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p src/upstream
+          git clone --quiet --depth 1 --branch jazzy \
+            https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git \
+            src/upstream/turtlebot3_simulations
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          if [[ $(git -C src/upstream/turtlebot3_simulations rev-parse HEAD) != "$PIN" ]]; then
+            git -C src/upstream/turtlebot3_simulations fetch --quiet --depth 1 origin "$PIN"
+            git -C src/upstream/turtlebot3_simulations checkout --quiet --detach "$PIN"
+          fi
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+      - name: Build same packages, source and AMCL auto-init params
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-up-to restaurant_world restaurant_bringup restaurant_delivery
+          set +u
+          source install/setup.bash
+          set -u
+          mkdir -p generated/s5 logs
+          ROBOT_SDF="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
+          python3 scripts/prepare_waffle_rgbd.py --source "$ROBOT_SDF" --out generated/waffle_pi_rgbd.sdf
+          NAV_PARAMS="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+          python3 scripts/prepare_nav2_params.py --source "$NAV_PARAMS" \
+            --out generated/nav2_params_s5.yaml --auto-initial-pose
+          PYTHONPATH="$PWD/scripts" python3 -c \
+            'from s3_map_contract import validate_s2_map03_candidate; print("S5_MAP03_CUSTODY_PASS",validate_s2_map03_candidate("."))'
+          echo SAMSUNGAXI_S5_L1_BUILD_PASS
+      - name: Same session real Gazebo, delay operator TTY 12s then navigate and STOP
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          set +u
+          source install/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=25s 1250s \
+            python3 scripts/s5_ci_delayed_tty.py \
+              --approval-delay-sec 12 \
+              --robot-sdf "$PWD/generated/waffle_pi_rgbd.sdf" \
+              --map "$PWD/maps/candidates/s2_map03/restaurant_map.yaml" \
+              --params "$PWD/generated/nav2_params_s5.yaml" \
+              --log "$PWD/logs/s5_owner_delayed_gazebo.log" \
+              --evidence "$PWD/generated/s5/s5_owner_delayed_evidence.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('generated/s5/s5_owner_delayed_evidence.json').read_text())
+          ack=d['s5_owner_approval']
+          assert ack['authorized'] is True
+          assert ack['freshness_verified'] is True
+          assert ack['wait_seconds'] >= 10.0
+          assert ack['scan_count_after_approval'] > 0
+          assert ack['odom_count_after_approval'] > 0
+          assert d.get('manual_initial_pose_published') is False
+          assert d.get('s5_integrated') is True
+          assert d.get('delivery_return') is True
+          assert len(d.get('real_nav_legs',[])) == 2
+          assert 's4_menu_speed' in d
+          assert d.get('s4_safety_stop',{}).get('cm_state') == 'STOP'
+          assert d['s4_safety_stop']['filtered_output_max_abs_mps']<=.025
+          assert d['s4_safety_stop']['physical_odom_motion_m']<=.045
+          print('S5_OWNER_DELAYED_TTY_REAL_GAZEBO_L2_PASS')
+          PY
+          cp logs/ci-s3-summary.txt generated/s5/s5_owner_delayed_compact_diagnostics.txt
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: samsungaxi-s5-owner-delayed-verified-${{ github.run_id }}
+          path: generated/s5/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: samsungaxi-s5-owner-delayed-first-failure-${{ github.run_id }}
+          path: |
+            generated/s5/s5_owner_delayed_evidence.json
+            logs/ci-s3-summary.txt
+          if-no-files-found: ignore
+          retention-days: 14
