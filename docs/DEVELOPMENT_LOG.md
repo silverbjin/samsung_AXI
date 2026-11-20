@@ -70,3 +70,6 @@
 - 2026-11-20 **S3-AMCL-01 PASS**: [Run #44561573820](https://github.com/silverbjin/samsung_AXI/actions/runs/44561573820) 저장 지도 201×180, AMCL pose/TF, Nav2 action READY/NO GOAL 검증. PR #9 main 2e0b1459. [보고서](reports/tasks/2026-11-20_S3-AMCL-01_real_map_preflight.md). 다음 S3 Goal/물리 주행은 별도.
 
 - 2026-11-20 S3-NAV-02 착수: 기존 S3-AMCL-01 L2 GREEN 재사용, 실제 map 좌표 pickup(0,0)/table3(5.25,0.38)로 Nav2 NavigateToPose Action 배달·복귀 시험. 2구간 action status·AMCL·물리 odom 증거 필요. [작업 보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md).
+
+- 2026-11-20 S3-NAV-CI01 해결: [실제 Gazebo L2 Run #44564927414](https://github.com/silverbjin/samsung_AXI/actions/runs/44564927414) Goal 전 Nav2 Lifecycle ACTIVE→TABLE_3/RETURN 물리 Odom 5.185m/5.214m, AMCL 오차 0.192m/0.066m, 2회 Action SUCCEEDED. [보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md).
+- 2026-11-20 S3-NAV-CI02: [배달 성공 증거의 kind 명칭 불일치](reports/issues/2026-11-20_S3-NAV-CI02_evidence_kind.md) 교정, main S3 CI 실제 주행 게이트 유지.

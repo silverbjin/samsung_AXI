@@ -225,6 +225,8 @@ def run(args):
                     return evidence
                 legs=[goto(contract['table3_map_xy'],-math.pi/2,'TABLE_3'),
                       goto(contract['pickup_map_xy'],0.,'PICKUP_RETURN')]
+                # The preflight result is NO_GOAL only until the action legs finish.
+                result['kind']='s3_real_gazebo_navigation_delivery_return'
                 result['goal_sent']=True
                 result['real_nav_legs']=legs
                 result['delivery_return']=True

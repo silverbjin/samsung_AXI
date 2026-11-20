@@ -38,3 +38,9 @@ def test_nav2_goal_rejected_before_lifecycle_active_is_prevented():
     assert "'collision_monitor','behavior_server'" in text
     assert 'S3_NAV_LIFECYCLE_NOT_ALL_ACTIVE' in text
     assert text.index('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL') < text.index('action.send_goal_async(msg)')
+
+
+def test_success_evidence_identifies_real_goals_not_no_goal():
+    code=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
+    assert "result['kind']='s3_real_gazebo_navigation_delivery_return'" in code
+    assert code.index("result['kind']='s3_real_gazebo_navigation_delivery_return'") < code.index("result['delivery_return']=True")

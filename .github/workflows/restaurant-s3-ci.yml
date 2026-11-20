@@ -1,7 +1,7 @@
 name: SAMSUNGAXI S3 AMCL Real Map CI
 on:
   push:
-    branches: [s3/amcl-nav2-20261120, s3/nav-delivery-20261120]
+    branches: [main, s3/amcl-nav2-20261120, s3/nav-delivery-20261120]
   workflow_dispatch:
 permissions:
   contents: read
@@ -116,7 +116,7 @@ jobs:
               --log "$PWD/logs/ci-s3-amcl.log" \
               --evidence "$PWD/generated/s3/amcl_preflight.json"
       - name: S3-NAV-02 / actual NavigateToPose 1-to-3-to-1 and physical odom
-        if: github.ref == 'refs/heads/s3/nav-delivery-20261120'
+        if: github.ref == 'refs/heads/s3/nav-delivery-20261120' || github.ref == 'refs/heads/main'
         shell: bash
         run: |
           set -Eeuo pipefail

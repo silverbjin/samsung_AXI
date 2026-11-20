@@ -17,3 +17,8 @@
 
 ## 교육용 메시지
 Nav2 액션 서버가 보이는 것과 Nav2 Lifecycle 노드가 ACTIVE인 것은 다릅니다. Goal 거절 시 Planner를 새로 개발하거나 지도를 다시 만들기보다 lifecycle_manager의 전환 로그와 해당 노드의 GetState를 먼저 확인해야 합니다.
+
+## RESOLVED — 2026-11-20 실제 Gazebo L2 검증
+- [Run #44564927414](https://github.com/silverbjin/samsung_AXI/actions/runs/44564927414), commit `22d19347`: Nav2 Lifecycle ACTIVE 확인 뒤 TABLE_3 Action accepted/SUCCEEDED, 물리 Odom 5.185m, 도착 오차 0.192m. PICKUP_RETURN Action SUCCEEDED, Odom 5.214m, 도착 오차 0.066m.
+- 초기 서버 발견만으로 Goal을 보내던 경합을 공식 Lifecycle GetState ACTIVE 게이트로 해소. 다른 Planner나 Collision Monitor 기능을 변경하지 않았음.
+- 자료: `samsungaxi-s3-amcl-verified-44564927414` ZIP 내 JSON+축약 로그. 기존 성공 증거 보존.
