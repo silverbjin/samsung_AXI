@@ -1,0 +1,26 @@
+name: S5 Owner Nonblocking TTY Approval Regression
+on:
+  push:
+    branches: [fix/s5-owner-nonblocking-approval-20261120]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: samsungaxi-s5-approval-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  l0:
+    name: S5 approval L0 / delayed TTY and fresh Scan Odom gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system pytest
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest
+      - name: Verify authorization and original sensor freshness threshold
+        run: |
+          set -Eeuo pipefail
+          python3 -m pytest -q tests/test_s5_owner_approval.py
+          echo S5_OWNER_TTY_APPROVAL_L0_PASS
