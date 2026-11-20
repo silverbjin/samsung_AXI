@@ -16,7 +16,7 @@ import sys
 import time
 
 from s2_map02_contract import (
-    START,SURVEY,TABLE3_APPROACH,coverage,from_world_to_odom,
+    START,SURVEY,OBSERVATION_SURVEY,TABLE3_APPROACH,coverage,from_world_to_odom,
     map_coordinates,free_path_connected,route_clearance,boxes_from_sdf,
     front_sector_clearance,
 )
@@ -69,7 +69,8 @@ def run(args):
 
     root=Path(__file__).resolve().parents[1]
     world=root/'src/restaurant_world/worlds/restaurant.sdf'
-    violations=route_clearance(world)
+    survey=OBSERVATION_SURVEY if args.enhanced_survey else SURVEY
+    violations=route_clearance(world,route=survey)
     if violations:raise RuntimeError('SURVEY_COLLISION_GEOMETRY:'+str(violations[:2]))
     if not args.robot_sdf.is_file():raise RuntimeError('ROBOT_SDF_MISSING')
     prefix=args.map_prefix.resolve()
@@ -210,7 +211,7 @@ def run(args):
                 raise RuntimeError('GAZEBO_SPAWN_DISPLACED_FROM_PICKUP:'+str(ground_truth.pose))
             print('S2_MAP02_ACTUAL_GAZEBO_SURVEY_STARTED',flush=True)
             try:
-                for i,target in enumerate(SURVEY[1:],1):drive(target,i)
+                for i,target in enumerate(survey[1:],1):drive(target,i)
             finally:
                 stop()
             before=state['map_count']
@@ -221,10 +222,24 @@ def run(args):
             target=world_to_map_point(TABLE3_APPROACH,ground_truth.pose,state['odom'],state['tf'])
             if not free_path_connected(state['map'],pickup,target):
                 raise RuntimeError('PICKUP_TO_TABLE3_FREE_SPACE_DISCONNECTED_OR_UNKNOWN')
-            metrics.update(route_waypoints=len(finished),route_length_m=round(sum(math.dist(a,b) for a,b in zip(SURVEY,SURVEY[1:])),3),
+            metrics.update(route_waypoints=len(finished),route_length_m=round(sum(math.dist(a,b) for a,b in zip(survey,survey[1:])),3),
                            pickup_free_connected_to_table3=True,sensor_scans=state['scan_count'],
                            gazebo_ground_truth_samples=ground_truth.samples)
             print('S2_MAP02_COVERAGE='+json.dumps(metrics,sort_keys=True),flush=True)
+            if args.enhanced_survey:
+                # Compare physical known area to the previous released map. A
+                # synthetic white fill or a regression is not an acceptance.
+                cells=metrics['width']*metrics['height']
+                ratio=metrics['known']/cells
+                reference_known_area_m2=26399*(0.05**2)
+                observed_known_area_m2=metrics['known']*(metrics['resolution']**2)
+                metrics['known_fraction']=round(ratio,5)
+                metrics['released_map_known_area_m2']=round(reference_known_area_m2,4)
+                metrics['new_known_area_m2']=round(observed_known_area_m2,4)
+                print('S2_MAP03_KNOWN_AREA_CANDIDATE='+json.dumps(metrics,sort_keys=True),flush=True)
+                if ratio<0.74 or observed_known_area_m2<reference_known_area_m2+0.5:
+                    raise RuntimeError('S2_MAP03_COVERAGE_NOT_IMPROVED: ratio='+str(round(ratio,4))+
+                                       ' known_area_m2='+str(round(observed_known_area_m2,3)))
             save=node.create_client(SaveMap,'/map_saver/save_map')
             req=SaveMap.Request()
             req.map_topic='/map';req.map_url=str(prefix);req.image_format='pgm';req.map_mode='trinary'
@@ -246,13 +261,15 @@ def run(args):
                 raise RuntimeError('RELOADED_MAP_FREE_PATH_INVALID')
             quality=prefix.parent/'map02_quality.json'
             quality.write_text(json.dumps({
-                'scope':'real_gazebo_survey_slam_toolbox_save_reload',
+                'scope':('real_gazebo_enhanced_observation_candidate' if args.enhanced_survey
+                         else 'real_gazebo_survey_slam_toolbox_save_reload'),
                 'not_guaranteed':'Nav2_AMCL_or_complete_coverage_of_every_corner',
                 'world_sha256':sha256(world),'sdf_sha256':sha256(args.robot_sdf),
                 'map_yaml_sha256':sha256(yaml_file),'map_image_sha256':sha256(image),
                 'map':metrics,'waypoints':finished
             },indent=2,sort_keys=True)+'\n')
-            print('RESTAURANT_S2_MAP02_L2_FULL_COVERAGE_PASS='+str(quality),flush=True)
+            print(('RESTAURANT_S2_MAP03_ENHANCED_MAP_CANDIDATE_PASS=' if args.enhanced_survey
+                   else 'RESTAURANT_S2_MAP02_L2_FULL_COVERAGE_PASS=')+str(quality),flush=True)
     except Exception as exc:
         print('RESTAURANT_S2_MAP02_BLOCKED='+str(exc),file=sys.stderr,flush=True)
         raise
@@ -266,6 +283,7 @@ def run(args):
 
 def main():
     p=argparse.ArgumentParser()
+    p.add_argument('--enhanced-survey',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--map-prefix',type=Path,required=True)
     p.add_argument('--log',type=Path,required=True)
