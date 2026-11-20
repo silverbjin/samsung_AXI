@@ -43,3 +43,10 @@
 - 그러나 `S4_CM_STOP_CHAIN_UNPROVEN` (`cm_stop=false`). 이때 전방 26점은 단지 ±0.48rad / range<=0.65m 범위의 값이며, 공식 Collision Monitor의 좁은 S4ForwardStop polygon 내부라고 직접 증명한 것은 아님.
 - 수정/계측: 피처 원통 중심을 로봇 물리 GT 전방 0.60→0.52m로 이동해 STOP 사각형의 내부 관측 확률을 높이고, 실제 스캔 polar XY의 사각형 내부 점 수·CM state 최근 12개·최종 command absolute max를 오류에서 계측. 센서 가짜 데이터 없이 실패 경계 확인.
 - CM 입력→출력 구조, STOP polygon 크기/임계값, Nav2·SLAM/World 원본, 메뉴 속도 정책, Cmd 속도 안전 상한은 변경하지 않음. 다음 실제 Run GREEN 전 S4=HOLD.
+
+## Cycle 04 — SOUP Nav2 복귀 단일 ABORT / 안전 STOP 별도 L2로 축소
+- [Run #44653541553](https://github.com/silverbjin/samsung_AXI/actions/runs/44653541553): L0/L1 PASS, NORMAL TABLE3 Action SUCCEEDED / 실제 Odom 5.208m / AMCL error 0.074m, SOUP 복귀 Action status 6 (ABORTED), CM fixture 시험 전에 실패.
+- 기존 Run #44651716546과 #44652530997에서 NORMAL 0.23/SOUP 0.11m/s 실제 속도 비교와 두 구간 Action 모두 SUCCEEDED를 확보했고, S3 NAV 배달·복귀 기준선 #44646848087도 GREEN. 이번 단일 ABORT 원인을 로봇/Planner 고장으로 단정하지 않음.
+- 안전 시험만 좁힌 `--s4-stop-only`: 동일 지도·AMCL·TF·CM Lifecycle 준비 후 **실제 Gazebo fixture+LiDAR+upstream 소규모 속도 명령→CM STOP→filtered cmd_vel 제로/odom 정지**를 단일 세션에서 검증. 기존 성공된 5m 메뉴 왕복을 재반복하지 않음.
+- 공식 Nav2 소스에서 CollisionMonitorState 발행은 polygon_name 전환 때 발생할 수 있으므로 fixture 생성 **직전**부터 STOP 상태를 추적. 생성 이전 STOP zone 내부 LiDAR 점 수가 이미 4 이상이면 테스트 전제 실패로 차단.
+- STOP-only GREEN 후 전체 S4 통합 Run의 오차·속도·안전 결과를 분리해 최종 판단. 범위 밖 SDF/SLAM/Planner 변경 없음.

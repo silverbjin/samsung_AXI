@@ -153,8 +153,13 @@ jobs:
           mkdir -p generated/s4 logs
           xvfb-run -a -s '-screen 0 1280x720x24' \
             timeout --signal=INT --kill-after=20s 940s \
+            FLAGS=(--exercise-goals --menu-safety)
+            if [[ "${GITHUB_REF}" == refs/heads/s4/menu-safety-20261120 ]]; then
+              # Narrow STOP diagnosis: already GREEN menu-speed trips are not repeated.
+              FLAGS=(--s4-stop-only)
+            fi
             python3 scripts/ci_s3_amcl_smoke.py \
-              --exercise-goals --menu-safety \
+              "${FLAGS[@]}" \
               --robot-sdf "$PWD/generated/waffle_pi_rgbd.sdf" \
               --map "$PWD/maps/restaurant_map.yaml" \
               --params "$PWD/generated/nav2_params.yaml" \

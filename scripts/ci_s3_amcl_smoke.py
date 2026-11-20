@@ -186,6 +186,10 @@ def run(args):
                     # CM forward STOP polygon, not merely in a broad front sector.
                     fx=rx+.52*math.cos(ryaw)
                     fy=ry+.52*math.sin(ryaw)
+                    # Before injecting, prove the requested STOP zone is clear.
+                    initial_rect=stop_polygon_points(s4['scan'])
+                    if initial_rect>=4:
+                        raise RuntimeError('S4_FIXTURE_PRECONDITION_STOP_ZONE_NOT_CLEAR:'+str(initial_rect))
                     fixture=args.evidence.parent/'s4_collision_fixture.sdf'
                     fixture.write_text(fixture_sdf())
                     fixture_marker=time.monotonic()
@@ -196,12 +200,6 @@ def run(args):
                     if created.returncode!=0 or 'entity creation successful' not in (created.stdout+created.stderr).lower():
                         raise RuntimeError('S4_GAZEBO_FIXTURE_NOT_CREATED:'+
                                            repr((created.stdout+created.stderr)[-350:]))
-                    # Sensor and CM state before the fixture must not already
-                    # satisfy the new stop zone (prove stimulus causes STOP).
-                    initial_rect=stop_polygon_points(s4['scan'])
-                    if initial_rect>=4:
-                        raise RuntimeError('S4_FIXTURE_PRECONDITION_STOP_ZONE_NOT_CLEAR:'+str(initial_rect))
-                    stop_mark=time.monotonic()
                     initial_scan_count=state['scan']
                     wait(lambda:state['scan']>=initial_scan_count+4 and
                          front_obstacle_points(s4['scan'])>=4 and
