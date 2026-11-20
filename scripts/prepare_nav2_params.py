@@ -45,11 +45,6 @@ def build(src:Path,dst:Path,auto_initial_pose=False):
     # Explicitly declare Jazzy Twist behavior and the single collision-monitor output.
     params['controller_server']['ros__parameters']['enable_stamped_cmd_vel']=False
     params['collision_monitor']['ros__parameters']['enable_stamped_cmd_vel']=False
-    if gui_auto_initial_pose:
-        # Official Jazzy AMCL initialization in actual SLAM map-frame origin.
-        amcl=params['amcl']['ros__parameters']
-        amcl['set_initial_pose']=True
-        amcl['initial_pose']={'x':0.0,'y':0.0,'z':0.0,'yaw':0.0}
     dst.parent.mkdir(parents=True,exist_ok=True)
     dst.write_text('# Official Nav2 Jazzy params with MINIMAL restaurant overlay.\n'
                    + yaml.safe_dump(params,sort_keys=False))
