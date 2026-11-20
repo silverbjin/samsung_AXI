@@ -14,7 +14,7 @@ import sys
 import time
 
 from s3_map_contract import validate_release,validate_s2_map03_candidate
-from s5_owner_approval import wait_for_owner_approval
+from s5_owner_approval import wait_for_owner_approval,wait_for_fresh_sensors
 from ci_s2_map_smoke import end_process
 from s2_map02_gt_pose import GazeboModelPose
 from s4_menu_contract import (NORMAL_LIMIT,SOUP_LIMIT,measured_speed,compare_speeds,
@@ -325,29 +325,28 @@ def run(args):
                         raise
                     print('S5_OWNER_GOALS_AUTHORIZED WAIT_SEC='+
                           str(round(approval_wait_s,3)),flush=True)
-                    approved_at=time.monotonic()
-                    scan_before=state['scan']
-                    odom_before=state['odom_count']
-                    # Require newly delivered samples AFTER approval, not
-                    # only timestamps which were fresh prior to user input.
-                    wait(lambda:state['scan']>scan_before and
-                         state['odom_count']>odom_before and
-                         state['scan_t']>approved_at and
-                         state['odom_t']>approved_at,8,
-                         'S5_OWNER_FRESH_SCAN_ODOM_AFTER_APPROVAL')
-                    scan_age=time.monotonic()-state['scan_t']
-                    odom_age=time.monotonic()-state['odom_t']
+                    try:
+                        fresh=wait_for_fresh_sensors(
+                            spin_once,
+                            lambda:(state['scan'],state['odom_count'],
+                                    state['scan_t'],state['odom_t']))
+                    except Exception:
+                        result['s5_owner_approval']={
+                            'authorized':True,'goal_sent':False,
+                            'freshness_verified':False,
+                            'wait_seconds':round(approval_wait_s,3),
+                            'scan_age_sec':round(time.monotonic()-state['scan_t'],3),
+                            'odom_age_sec':round(time.monotonic()-state['odom_t'],3)}
+                        args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                        raise
                     result['s5_owner_approval']={
                         'authorized':True,'goal_sent':False,
-                        'wait_seconds':round(approval_wait_s,3),
-                        'scan_count_after_approval':state['scan']-scan_before,
-                        'odom_count_after_approval':state['odom_count']-odom_before,
-                        'scan_age_sec':round(scan_age,3),
-                        'odom_age_sec':round(odom_age,3)}
+                        'freshness_verified':True,
+                        'wait_seconds':round(approval_wait_s,3),**fresh}
                     args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
                     print('S5_OWNER_FRESH_SCAN_ODOM_AFTER_APPROVAL_PASS'+
-                          ' SCAN_AGE_SEC='+str(round(scan_age,3))+
-                          ' ODOM_AGE_SEC='+str(round(odom_age,3))+
+                          ' SCAN_AGE_SEC='+str(fresh['scan_age_sec'])+
+                          ' ODOM_AGE_SEC='+str(fresh['odom_age_sec'])+
                           ' APPROVAL_WAIT_SEC='+str(round(approval_wait_s,3)),flush=True)
                 if args.menu_safety and s4_speed_pub.get_subscription_count()<1:
                     raise RuntimeError('S4_NAV2_SPEED_LIMIT_SUBSCRIBER_ABSENT_NO_GOAL')
