@@ -44,3 +44,11 @@ def test_success_evidence_identifies_real_goals_not_no_goal():
     code=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
     assert "result['kind']='s3_real_gazebo_navigation_delivery_return'" in code
     assert code.index("result['kind']='s3_real_gazebo_navigation_delivery_return'") < code.index("result['delivery_return']=True")
+
+def test_nav02_ci_uses_one_gazebo_session_for_pregoal_and_goals():
+    workflow=(ROOT/'.github/workflows/restaurant-s3-ci.yml').read_text()
+    assert "if: github.ref == 'refs/heads/s3/amcl-nav2-20261120'" in workflow
+    assert "if: github.ref == 'refs/heads/s3/nav-delivery-20261120' || github.ref == 'refs/heads/main'" in workflow
+    script=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
+    assert script.index('RESTAURANT_S3_AMCL_L2_REAL_MAP_LOCALIZATION_PASS_NO_GOAL') < script.index('if args.exercise_goals:')
+    assert 'NAV2_TRANSITIONS_LAST_60' in script

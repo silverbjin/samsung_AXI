@@ -96,7 +96,9 @@ jobs:
           python3 scripts/ci_check_generated.py
           python3 scripts/s3_map_contract.py "$PWD"
           echo 'RESTAURANT_S3_CI_L1_BUILD_PASS'
+      # NAV-02 includes actual AMCL/TF/Action pregoal checks in its single run.
       - name: S3 L2 / actual map server, AMCL, TF and action readiness NO GOAL
+        if: github.ref == 'refs/heads/s3/amcl-nav2-20261120'
         shell: bash
         run: |
           set -Eeuo pipefail

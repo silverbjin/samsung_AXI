@@ -243,9 +243,17 @@ def run(args):
             lines=args.log.read_text(errors='replace').splitlines()
             clues=[line[:400] for line in lines if
                    any(word in line.lower() for word in ('error','warn','fail','timeout','lifecycle','amcl'))]
+            # Include recent lifecycle transitions; avoid preserving massive ROS logs.
+            transitions=[line[:400] for line in lines
+                         if any(w in line for w in ('lifecycle_manager_navigation',
+                                                 'bt_navigator','planner_server'))
+                         and any(k in line.lower() for k in
+                                 ('configur','activat','transition','bond','error','fail'))
+                         and 'sending signal' not in line.lower()]
             (args.log.parent/'ci-s3-summary.txt').write_text(
                 'FIRST_60_DIAGNOSTIC_LINES\n'+'\n'.join(clues[:60])+
-                '\nLAST_80_LINES\n'+'\n'.join(lines[-80:])+'\n')
+                '\nNAV2_TRANSITIONS_LAST_60\n'+'\n'.join(transitions[-60:])+
+                '\nLAST_60_LINES\n'+'\n'.join(lines[-60:])+'\n')
 
 def main():
     p=argparse.ArgumentParser()
