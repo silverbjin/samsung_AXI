@@ -13,7 +13,7 @@
 ```bash
 (
   set -Eeuo pipefail
-  PIN="340527bf81c3ad23fdef0279fbaf07314d242a0b"
+  PIN="c59dd030b2f70351b06eae39e3b3bfeb7ed4b128"
   SCRIPT="$(mktemp --suffix=.sh)"
   trap 'rm -f "$SCRIPT"' EXIT
   curl -fL --retry 3 --connect-timeout 10 --max-time 90 \
@@ -61,3 +61,16 @@
 - [공개 최종 Owner L0 #44681029156](https://github.com/silverbjin/samsung_AXI/actions/runs/44681029156): 실제 Shell 회귀 21/21 PASS.
 - [기존 S5 실제 Gazebo 통합 L2 #44673556772](https://github.com/silverbjin/samsung_AXI/actions/runs/44673556772): 독립 원본 증거로 보존, 이번 수정에서 주행 코드 변경 없음.
 - 강사 WSL2 실제 라이브 L3는 재실행 전까지 `NOT_RUN`; 새 Preflight GREEN을 L3 GOAL PASS로 해석하지 마십시오.
+
+## 2026-11-20 S5 Owner TTY 승인 지연·센서 신선도 수정 출고
+
+- 기존 현장 원본 `samsungaxi_gui_20261120T053905Z-4185.zip`에서 `S5_OWNER_GOALS_AUTHORIZED` 직후 `NAV_PREGOAL_SENSOR_STALE_TABLE_3`로 종료, 최초 Goal은 발행하지 않음(`goal_sent=false`). Preflight ZIP은 PASS.
+- 원인: 단일 ROS Executor의 `input()` 블로킹으로 승인 대기 중 /scan·/odom 콜백 처리가 중단됨.
+- 수정: 기존 승인 문자열·2단계 승인을 보존하고 `select.select` 기반 비차단 TTY 폴링 중에 실제 `rclpy.spin_once`를 계속 호출. 승인 후 신규 /scan과 /odom을 모두 관찰한 경우에만 Goal 허용. **기존 8초 센서 신선도 기준은 완화하지 않음**.
+- 사용자 승인 대기·센서 정체 시 NO_GOAL 차단을 유지. 승인 시간, 신규 센서 수, Scan/Odom age를 `s5_owner_approval` 증거 JSON과 터미널에 기록.
+- [공개 RED #44685116880](https://github.com/silverbjin/samsung_AXI/actions/runs/44685116880): `input()` 정체 회귀 예상 실패.
+- **[공개 최종 GREEN #44686196254](https://github.com/silverbjin/samsung_AXI/actions/runs/44686196254), 검증 SHA `c59dd030b2f70351b06eae39e3b3bfeb7ed4b128`:** 기존 L0 + 실제 Gazebo L2 성공. 12.026초 지연 후 pseudo-TTY로 YES 입력, 승인 후 Scan age 0.004초 / Odom age 0.000초, 실제 NORMAL Odom 5.109m, SOUP 4.985m, p75 0.23/0.11m/s, 물리 Collision Monitor STOP PASS.
+- [Compact Artifact #14606188931](https://github.com/silverbjin/samsung_AXI/actions/runs/44686196254/artifacts/14606188931), 4,768 bytes, SHA256 `5fdc9dd07a974e11adb31de5fc26fbed04de856d2055bd995dd16744c3cf583c`.
+- 현장 실행 전에는 이전 ROS/GUI 세션을 종료하고, **위 PIN이 포함된 원샷을 GitHub RAW에서 다운로드**하여 `bash -n` → `--self-test` → `--s5-live --preflight-only` → `--s5-live --approve-goals` 순으로 진행합니다. Gazebo/RViz에서 경로 확인 후 실제 TTY에서 `YES-S5-LIVE-GOALS`를 입력합니다. 입력까지 8초 이상 기다려도 콜백은 계속 처리되어야 합니다.
+- 성공 시 예상: `S5_OWNER_GOALS_AUTHORIZED WAIT_SEC=...`, `S5_OWNER_FRESH_SCAN_ODOM_AFTER_APPROVAL_PASS`, `S3_NAV02_GOAL_SUCCEEDED=TABLE_3`, `S3_NAV02_GOAL_SUCCEEDED=PICKUP_RETURN`, `S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS`, `S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS`.
+- Ctrl+C로 GUI를 종료하면 `SAMSUNGAXI_DIAGNOSTIC_ZIP=...` 경로에 진단 ZIP **한 파일**을 생성합니다. 오류 시 해당 ZIP만 전달하십시오. **실제 강사 WSL2 라이브 L3는 NOT_RUN**이며, CI에서 Windows GPU/WSLg 최종 성능을 주장하지 않습니다.

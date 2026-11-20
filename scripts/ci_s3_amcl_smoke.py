@@ -14,6 +14,7 @@ import sys
 import time
 
 from s3_map_contract import validate_release,validate_s2_map03_candidate
+from s5_owner_approval import wait_for_owner_approval,wait_for_fresh_sensors
 from ci_s2_map_smoke import end_process
 from s2_map02_gt_pose import GazeboModelPose
 from s4_menu_contract import (NORMAL_LIMIT,SOUP_LIMIT,measured_speed,compare_speeds,
@@ -58,7 +59,7 @@ def run(args):
         raise RuntimeError('S4_STOP_ONLY_MUST_NOT_SEND_NAV_GOALS')
     s4={'active_menu':None,'speed_samples':{'NORMAL':[],'SOUP':[]},
         'scan':None,'cm_states':[],'cmd_in':[],'cmd_out':[]}
-    state={'clock':False,'scan':0,'scan_t':0.,'odom':None,'odom_t':0.,
+    state={'clock':False,'scan':0,'scan_t':0.,'odom':None,'odom_t':0.,'odom_count':0,
            'odom_track':[],'map':None,'amcl_pose':None,
            'amcl_cov':None,'map_to_odom':False,'odom_to_base':False}
     args.log.parent.mkdir(parents=True,exist_ok=True)
@@ -67,7 +68,7 @@ def run(args):
     started=False
     def odom(m):
         xy=(float(m.pose.pose.position.x),float(m.pose.pose.position.y))
-        state['odom']=xy;state['odom_t']=time.monotonic()
+        state['odom']=xy;state['odom_t']=time.monotonic();state['odom_count']+=1
         if args.menu_safety and s4['active_menu'] is not None:
             s4['speed_samples'][s4['active_menu']].append(float(m.twist.twist.linear.x))
         if not state['odom_track'] or math.dist(xy,state['odom_track'][-1])>.02:
@@ -313,10 +314,40 @@ def run(args):
                 print('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL='+','.join(managed),flush=True)
                 if args.live_owner:
                     print('S5_OWNER_ARMED_NO_GOAL: confirm only after checking Gazebo/RViz pose and clear path.',flush=True)
-                    answer=input('Type YES-S5-LIVE-GOALS to authorize physical Gazebo navigation: ').strip()
-                    if answer!='YES-S5-LIVE-GOALS':
-                        raise RuntimeError('S5_OWNER_GOAL_CONFIRMATION_MISSING')
-                    print('S5_OWNER_GOALS_AUTHORIZED',flush=True)
+                    # A blocking input() starves this same single ROS executor.
+                    # Keep spinning /scan, /odom and TF while the operator
+                    # examines Gazebo/RViz before typing YES.
+                    try:
+                        approval_wait_s=wait_for_owner_approval(spin_once)
+                    except Exception:
+                        result['s5_owner_approval']={'authorized':False,'goal_sent':False}
+                        args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                        raise
+                    print('S5_OWNER_GOALS_AUTHORIZED WAIT_SEC='+
+                          str(round(approval_wait_s,3)),flush=True)
+                    try:
+                        fresh=wait_for_fresh_sensors(
+                            spin_once,
+                            lambda:(state['scan'],state['odom_count'],
+                                    state['scan_t'],state['odom_t']))
+                    except Exception:
+                        result['s5_owner_approval']={
+                            'authorized':True,'goal_sent':False,
+                            'freshness_verified':False,
+                            'wait_seconds':round(approval_wait_s,3),
+                            'scan_age_sec':round(time.monotonic()-state['scan_t'],3),
+                            'odom_age_sec':round(time.monotonic()-state['odom_t'],3)}
+                        args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                        raise
+                    result['s5_owner_approval']={
+                        'authorized':True,'goal_sent':False,
+                        'freshness_verified':True,
+                        'wait_seconds':round(approval_wait_s,3),**fresh}
+                    args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                    print('S5_OWNER_FRESH_SCAN_ODOM_AFTER_APPROVAL_PASS'+
+                          ' SCAN_AGE_SEC='+str(fresh['scan_age_sec'])+
+                          ' ODOM_AGE_SEC='+str(fresh['odom_age_sec'])+
+                          ' APPROVAL_WAIT_SEC='+str(round(approval_wait_s,3)),flush=True)
                 if args.menu_safety and s4_speed_pub.get_subscription_count()<1:
                     raise RuntimeError('S4_NAV2_SPEED_LIMIT_SUBSCRIBER_ABSENT_NO_GOAL')
                 def goto(target,heading,label,menu=None):
@@ -426,6 +457,14 @@ def run(args):
                         args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
                         print('S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS',flush=True)
                         if args.live_owner:
+                            if args.ci_owner_exit_on_success:
+                                # CI uses a real pseudo-TTY and real Gazebo.
+                                # This only ends the completed CI test; it
+                                # does not bypass owner authorization/safety.
+                                if os.environ.get('CI','').lower()!='true':
+                                    raise RuntimeError('S5_CI_EXIT_REQUIRES_GITHUB_RUNNER')
+                                print('S5_CI_DELAYED_OWNER_S5_COMPLETE',flush=True)
+                                return
                             print('S5_LIVE_GUI_HOLD: inspect Gazebo/RViz; Ctrl+C to close and package evidence.',flush=True)
                             while True:spin_once(.25)
     except Exception as exc:
@@ -460,6 +499,7 @@ def main():
     p.add_argument('--s5-integrated',action='store_true')
     p.add_argument('--gui',action='store_true')
     p.add_argument('--live-owner',action='store_true')
+    p.add_argument('--ci-owner-exit-on-success',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--params',type=Path,required=True)
     p.add_argument('--map',type=Path,required=True)

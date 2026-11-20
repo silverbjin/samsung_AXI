@@ -36,7 +36,7 @@ def test_s5_uses_proven_map_amcl_nav_and_cm_in_one_session():
     assert '--exercise-goals --menu-safety --no-initial-pose-publish' in s
     assert '--s5-integrated --gui --live-owner' in s
     assert 'S5_REQUIRES_CUSTODY_VERIFIED_S2_MAP03' in p
-    assert 'S5_OWNER_GOAL_CONFIRMATION_MISSING' in p
+    assert 'S5_OWNER_GOAL_CONFIRMATION_MISSING' in (ROOT/'scripts/s5_owner_approval.py').read_text()
     assert 'S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS' in p
     assert 'S5_INTEGRATED_EVIDENCE_INCOMPLETE' in p
     assert 'perform_s4_stop(result)' in p
