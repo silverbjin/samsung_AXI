@@ -41,3 +41,11 @@
 - 실제 LiDAR/CM STOP 폴리곤 **29점**, `S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS` 및 `S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS` 모두 발생. 하류 속도/물리 변위 상한은 기존 S4 Fail-closed 계약 그대로 유지.
 - Compact Artifact: [#14601770464](https://github.com/silverbjin/samsung_AXI/actions/runs/44673556772/artifacts/14601770464) (4,718 bytes, SHA256 `b3fdf4eacd0e13eafd0660239e8f817e428fb89c710f7e4cf39027cdd4b868d7`).
 - **판정 `S5_LIVE01_CI=PASS`**, `S5_OWNER_WSL2_L3=NOT_RUN`. 실제 GUI에서 Goal 승인/화면/RTF/STOP 확인은 강사 현장 인수로 별도 실행해야 합니다. CI는 headless Xvfb/llvmpipe이며 WSLg 성능 근거가 아닙니다.
+
+## Cycle 03 — 강사 실제 WSL2/WSLg L3 기능 인수 완료 (2026-11-20)
+
+- 현장 NO_GOAL Preflight ZIP `samsungaxi_gui_20261120T062445Z-5135.zip`: `RUN_RC=0`, `VERDICT=PREFLIGHT_PASS_NO_GOAL` 및 전체 Shell RUN_ID 계약 PASS.
+- 현장 S5 라이브 ZIP `samsungaxi_gui_20261120T062446Z-5175.zip`: 실제 승인 대기 24.149초 후 Scan/Odom freshness 확인, TABLE_3 NORMAL 5.144m, PICKUP_RETURN SOUP 5.074m, 실제 속도 0.23/0.11m/s, LiDAR 29점→CM STOP→cmd_vel/odom 0.0.
+- `S5_LIVE_FUNCTION_L3=ACCEPTED`. 기존 `NOT_RUN`은 이전 단계 이력으로 보존하며 이번 시점부터 기능 인수 판정을 갱신함.
+- 주행 중 RTF 중앙값 0.8439, P10 0.4030으로 **RTF 90% 목표 HOLD**. 성공 이후 Ctrl+C 종료 과정의 ROS Context 오류 경고는 **SHUTDOWN_CLEAN HOLD**. 두 이슈는 기능 성공과 분리.
+- 정확한 해석·검수 원본 해시·후속 작업: [S5 실제 L3 인수 보고서](2026-11-20_S5-LIVE-01_OWNER_WSL2_L3_FINAL_ACCEPTANCE_KO.md).
