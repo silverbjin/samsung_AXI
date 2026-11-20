@@ -72,6 +72,9 @@ def test_s5_opt_in_profile_does_not_mutate_existing_general_demo_contracts():
         subprocess.run(['bash','-n',str(path)],check=True)
     s=wrapper.read_text();t=core.read_text()
     assert '--perf-baseline' in s and '--perf-rgbd2' in s
+    # Legacy S5 invocation must not inherit an experimental camera mode.
+    assert 'unset SAMSUNGAXI_S5_PERF_MODE' in s
+    assert 'export SAMSUNGAXI_S5_PERF_MODE="$PERF_MODE"' in s
     assert "S5_PERF_BLOCKED_PROFILE_WITH_NO_GOAL_PREFLIGHT" in s
     assert "S5_PERF_BLOCKED_PROFILE_SCRIPT_FETCH" in s
     assert "s5_perf_timeline.csv" in s and "s5_perf_summary.json" in s
