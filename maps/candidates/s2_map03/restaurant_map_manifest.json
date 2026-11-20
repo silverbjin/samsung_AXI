@@ -1,0 +1,10 @@
+{
+  "files": {
+    "restaurant_map.pgm": "aedaed8f89e703f33ef22f9cf0c9d8f77b11763157d6e3a61c839a58fe871f00",
+    "restaurant_map.yaml": "aeff959ee7e41cf208cdd9a71f459d7ec8b55133e03e811c293ac2c2b1b09247",
+    "restaurant_map_quality.json": "64fc384aac78b6ff2fde32abb59e313d2de5b4c96208eccf0690862c42ade1e3"
+  },
+  "source_ci_run": "44664079567",
+  "source_sha": "ea78fe457e7cfc88754a88f788e08eabd098d766",
+  "status": "REAL_GAZEBO_CANDIDATE_S3_MAP_ACCEPTANCE_NOT_RUN"
+}

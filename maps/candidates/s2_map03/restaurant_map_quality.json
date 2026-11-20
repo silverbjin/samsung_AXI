@@ -1,0 +1,244 @@
+{
+  "map": {
+    "free": 28653,
+    "gazebo_ground_truth_samples": 20032,
+    "height": 185,
+    "known": 30394,
+    "known_fraction": 0.81333,
+    "known_span_x_m": 10.05000014975667,
+    "known_span_y_m": 9.150000136345625,
+    "new_known_area_m2": 75.985,
+    "occupied": 1741,
+    "pickup_free_connected_to_table3": true,
+    "released_map_known_area_m2": 65.9975,
+    "resolution": 0.05000000074505806,
+    "route_length_m": 58.14,
+    "route_waypoints": 27,
+    "sensor_scans": 3354,
+    "width": 202
+  },
+  "map_image_sha256": "aedaed8f89e703f33ef22f9cf0c9d8f77b11763157d6e3a61c839a58fe871f00",
+  "map_yaml_sha256": "aeff959ee7e41cf208cdd9a71f459d7ec8b55133e03e811c293ac2c2b1b09247",
+  "not_guaranteed": "Nav2_AMCL_or_complete_coverage_of_every_corner",
+  "scope": "real_gazebo_enhanced_observation_candidate",
+  "sdf_sha256": "d3fb18dc76f930b4d19b04078b3976194cfc7e5dd2cd554d1702e0b2382afad5",
+  "waypoints": [
+    {
+      "error_m": 0.089,
+      "step": 1,
+      "world": [
+        -2.6,
+        -0.6
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 2,
+      "world": [
+        -1.9,
+        -0.6
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 3,
+      "world": [
+        -1.9,
+        1.4
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 4,
+      "world": [
+        -3.75,
+        1.4
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 5,
+      "world": [
+        -3.75,
+        -0.6
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 6,
+      "world": [
+        -3.75,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 7,
+      "world": [
+        -1.45,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 8,
+      "world": [
+        -1.45,
+        1.8
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 9,
+      "world": [
+        -1.45,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 10,
+      "world": [
+        1.4,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 11,
+      "world": [
+        1.4,
+        1.2
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 12,
+      "world": [
+        1.4,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.088,
+      "step": 13,
+      "world": [
+        3.85,
+        3.91
+      ]
+    },
+    {
+      "error_m": 0.088,
+      "step": 14,
+      "world": [
+        3.85,
+        1.2
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 15,
+      "world": [
+        3.1,
+        1.2
+      ]
+    },
+    {
+      "error_m": 0.088,
+      "step": 16,
+      "world": [
+        3.1,
+        -1.4
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 17,
+      "world": [
+        0.0,
+        -1.4
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 18,
+      "world": [
+        0.0,
+        -0.4
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 19,
+      "world": [
+        1.3,
+        -0.4
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 20,
+      "world": [
+        1.3,
+        -1.4
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 21,
+      "world": [
+        1.3,
+        1.2
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 22,
+      "world": [
+        1.3,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 23,
+      "world": [
+        3.85,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 24,
+      "world": [
+        3.85,
+        -2.55
+      ]
+    },
+    {
+      "error_m": 0.09,
+      "step": 25,
+      "world": [
+        3.85,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 26,
+      "world": [
+        1.3,
+        -2.12
+      ]
+    },
+    {
+      "error_m": 0.089,
+      "step": 27,
+      "world": [
+        -2.6,
+        -2.12
+      ]
+    }
+  ],
+  "world_sha256": "44923278beac3d721f2f9efe42f699103f7bb099eb40c38bf1f5f8299ef3fbdf"
+}
