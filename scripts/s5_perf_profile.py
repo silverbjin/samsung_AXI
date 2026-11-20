@@ -125,6 +125,9 @@ def main():
     p.add_argument('--summary-out',required=True,type=Path)
     p.add_argument('--mode',choices=['baseline','rgbd2'],required=True)
     p.add_argument('--max-sec',type=int,default=1100)
+    # External ps/nvidia-smi subprocess polling can distort WSL2 latency
+    # precisely when the robot is moving. Explicit opt-in for research only.
+    p.add_argument('--resource-probes',action='store_true')
     p.add_argument('--sample-interval',type=float,default=1.0)
     args=p.parse_args()
     for path in (args.csv_out,args.summary_out):
@@ -201,12 +204,12 @@ def main():
                 else:
                     time.sleep(.15)
                 now=time.monotonic()
-                if now>=next_cpu:
+                if args.resource_probes and now>=next_cpu:
                     cpu=read_cpu()
-                    next_cpu=now+5.
-                if now>=next_gpu:
+                    next_cpu=now+10.
+                if args.resource_probes and now>=next_gpu:
                     gpu=read_gpu()
-                    next_gpu=now+15.
+                    next_gpu=now+30.
                 if now>=next_sample:
                     next_sample=now+max(.5,args.sample_interval)
                     if last_rtf is not None:
@@ -225,6 +228,11 @@ def main():
                     gz.kill();gz.wait()
             summary={'profile_mode':args.mode,'duration_sec':round(time.monotonic()-started,2),
                      'gz_stats_topic':'/world/restaurant/stats',
+                     'resource_probes_enabled':bool(args.resource_probes),
+                     'resource_probes_policy':(
+                         'EXPLICIT_OPTIONAL_PS_NVIDIA_SMI'
+                         if args.resource_probes else
+                         'DISABLED_DURING_DEFAULT_LIVE_TO_MINIMIZE_PROFILING_INTERFERENCE'),
                      'process_cpu_definition':'ps lifetime-average percent, indicative only',
                      'gpu_definition':'nvidia-smi optional; WSLg D3D12 graphics may not appear',
                      'rtf':summarize(rows)}
