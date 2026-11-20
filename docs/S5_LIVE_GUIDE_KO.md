@@ -74,3 +74,13 @@
 - 현장 실행 전에는 이전 ROS/GUI 세션을 종료하고, **위 PIN이 포함된 원샷을 GitHub RAW에서 다운로드**하여 `bash -n` → `--self-test` → `--s5-live --preflight-only` → `--s5-live --approve-goals` 순으로 진행합니다. Gazebo/RViz에서 경로 확인 후 실제 TTY에서 `YES-S5-LIVE-GOALS`를 입력합니다. 입력까지 8초 이상 기다려도 콜백은 계속 처리되어야 합니다.
 - 성공 시 예상: `S5_OWNER_GOALS_AUTHORIZED WAIT_SEC=...`, `S5_OWNER_FRESH_SCAN_ODOM_AFTER_APPROVAL_PASS`, `S3_NAV02_GOAL_SUCCEEDED=TABLE_3`, `S3_NAV02_GOAL_SUCCEEDED=PICKUP_RETURN`, `S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS`, `S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS`.
 - Ctrl+C로 GUI를 종료하면 `SAMSUNGAXI_DIAGNOSTIC_ZIP=...` 경로에 진단 ZIP **한 파일**을 생성합니다. 오류 시 해당 ZIP만 전달하십시오. **실제 강사 WSL2 라이브 L3는 NOT_RUN**이며, CI에서 Windows GPU/WSLg 최종 성능을 주장하지 않습니다.
+
+## 2026-11-20 강사 WSL2 라이브 기능 L3 최종 인수
+
+- 현장 실제 S5 증거 ZIP: `samsungaxi_gui_20261120T062446Z-5175.zip` (SHA256 `ae9079c0e921a4b64e78fbf15cd50b1628a93c06ef6d6ecdda10ade3aa66761d`), 별도 NO_GOAL Preflight ZIP `samsungaxi_gui_20261120T062445Z-5135.zip` (SHA256 `65c9e647944c477e1931d5b2431682c998964c53476b54dfe7841cc1d65e6051`).
+- 실제 강사 TTY 승인 24.149초 후 새 Scan/Odom 확인 PASS, NORMAL TABLE_3 Action SUCCEEDED (5.144m), SOUP PICKUP_RETURN Action SUCCEEDED (5.074m), Odom p75 0.23/0.11m/s, LiDAR/Collision Monitor STOP (29점), 하류 /cmd_vel 0, Odom 이동량 0m.
+- 최종 기능 판정: `S5_LIVE_FUNCTION_L3=ACCEPTED`.
+- 성능 예외: 주행 중 RTF **중앙값 84.39%**, 100개 중 44개가 90% 이상; 90% 중앙값 목표 **HOLD**. CPU/GPU 부하·Gazebo 물리/센서·Nav2 부하를 우선 좁혀 검증할 것.
+- 종료 예외: 의도된 Ctrl+C `RUN_RC=130` 이후 ROS context invalid 관련 경고가 남아 `SHUTDOWN_CLEAN=HOLD` 유지.
+- root `goal_sent=true`는 실제 2개 Action 성공과 일치. `s5_owner_approval.goal_sent=false`는 승인 직후 **사전송신 스냅샷**이며 최종 Goal 상태가 아님.
+- 인수 보고서: [S5-LIVE-01 WSL2 현장 기능 인수](reports/tasks/2026-11-20_S5-LIVE-01_OWNER_WSL2_L3_FINAL_ACCEPTANCE_KO.md). 현재 원샷은 검증 및 인수 완료된 소스 `c59dd030b2f70351b06eae39e3b3bfeb7ed4b128`를 계속 사용하며, 과도한 기능 확대는 금지합니다.
