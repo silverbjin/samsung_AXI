@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: samsungaxi-s2-map03-\${{ github.ref }}
+  group: samsungaxi-s2-map03-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   l0-route:
@@ -34,7 +34,7 @@ jobs:
     env:
       ROS_DISTRO: jazzy
       ROS_DOMAIN_ID: '74'
-      GZ_PARTITION: samsungaxi_map03_\${{ github.run_id }}_\${{ github.run_attempt }}
+      GZ_PARTITION: samsungaxi_map03_${{ github.run_id }}_${{ github.run_attempt }}
       LIBGL_ALWAYS_SOFTWARE: '1'
       GALLIUM_DRIVER: llvmpipe
     steps:
@@ -98,14 +98,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: samsungaxi-s2-map03-candidate-\${{ github.run_id }}
+          name: samsungaxi-s2-map03-candidate-${{ github.run_id }}
           path: generated/s2_map03/
           if-no-files-found: error
           retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: samsungaxi-s2-map03-first-failure-\${{ github.run_id }}
+          name: samsungaxi-s2-map03-first-failure-${{ github.run_id }}
           path: |
             logs/ci-s2-map02-summary.txt
             generated/s2_map03/map02_quality.json
