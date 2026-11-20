@@ -11,6 +11,7 @@ WORKSPACE="${SAMSUNG_AXI_WORKSPACE:-$HOME/samsung_AXI}"
 INSTALL_DEPS=1
 SELF_TEST=0
 LIVE_APPROVED=0
+PREFLIGHT=0
 
 usage() {
   cat <<'USAGE'
@@ -38,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --workspace) [[ $# -ge 2 ]] || { echo 'ERROR: --workspace needs a directory' >&2; exit 2; }; WORKSPACE="$2"; shift 2 ;;
     --no-install-deps) INSTALL_DEPS=0; shift ;;
     --goals-approved) LIVE_APPROVED=1; shift ;;
+    --preflight-only) PREFLIGHT=1; shift ;;
     --self-test) SELF_TEST=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "ERROR: unknown argument $1" >&2; usage; exit 2 ;;
@@ -47,6 +49,21 @@ case "$MODE" in world|mapping|navigation|demo|live|doctor) ;; *) usage; exit 2 ;
 case "$MENU" in NORMAL|SOUP) ;; *) echo 'ERROR: menu must be NORMAL or SOUP' >&2; exit 2 ;; esac
 if [[ "$REF" != main && ! "$REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
   echo 'ERROR: --ref must be main or 40-character commit SHA' >&2; exit 2
+fi
+if (( PREFLIGHT )); then
+  [[ "$MODE" == live && "$LIVE_APPROVED" == 0 ]] || {
+    echo 'S5_BLOCKED_PREFLIGHT_MUST_BE_NO_GOAL' >&2; exit 2;
+  }
+  # No checkout, dependency installation, ROS sourcing, or Goal in preflight.
+  [[ -f "$WORKSPACE/scripts/s5_run_id_contract.sh" ]] || {
+    echo 'S5_BLOCKED_PREFLIGHT_CONTRACT_MISSING' >&2; exit 2;
+  }
+  source "$WORKSPACE/scripts/s5_run_id_contract.sh"
+  s5_run_id_commit || exit 2
+  printf 'OWNER_SOURCE_SHA=%s\n' "$REF"
+  bash "$WORKSPACE/scripts/restaurant_demo.sh" live NORMAL --preflight-only || exit $?
+  echo 'S5_OWNER_PREFLIGHT_PASS_NO_GOAL'
+  exit 0
 fi
 if [[ "$MODE" == live ]]; then
   if (( ! LIVE_APPROVED )); then
