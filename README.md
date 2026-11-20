@@ -1,6 +1,6 @@
 # Restaurant Robot MVP — 강사 독립 실습 기준선 (개발 후보)
 
-**인수 판정: `RESTAURANT_ROBOT_MVP=PARTIAL`**. 강사 WSL2에서 S1 Gazebo World·Waffle Pi 렌더링이 확인됐으며 D3D12 GPU 적용 후 화면 RTF 99.89%(이전 61.95%)가 관찰됐습니다. 이는 각 단일 시점의 화면값이며 S2 Map·AMCL·S3 주행·S4 안전 인수는 아직 남았습니다. `DEMO_PASS`로 간주하지 마세요.
+**2026-11-20 최신 인수 판정: `OWNER_WSL2_WSLG_GUI_L3=ACCEPTED`, `RTF_MEDIAN_GE_90_PERCENT=PASS`, `RESTAURANT_ROBOT_MVP=PARTIAL`.** 강사 WSL2/WSLg 실제 GUI에서 개선 지도 S2-MAP-03, AMCL 자동 위치 초기화, Nav2 ACTIVE, Gazebo/RViz 동시 표시, D3D12 RTX 3060 가속을 확인했습니다. 실제 Gazebo RTF 100표본 중앙값 99.92%(p10 69.96%)로 90% **중앙값 목표**를 충족했습니다. S3 배달·복귀 및 S4 메뉴 속도·Collision Monitor 안전 STOP은 각각 실제 Gazebo **CI PASS**를 보존하며, 강사 WSL2 라이브 GOAL 시연(L3)은 **NOT_RUN**입니다. 따라서 전체 `DEMO_PASS`는 아직 아닙니다. [실제 L3 인수 보고서](docs/reports/tasks/2026-11-20_OWNER_WSL2_GUI_L3_FINAL_ACCEPTANCE_KO.md).
 
 목표는 단 하나: **Waffle Pi가 레스토랑에서 픽업(1) → 테이블(3) → 픽업(1)을 실제 이동하고, 메뉴 정책과 장애물 대응을 확인한 후 개발 종료**. 도면 원본이 현재 첨부되지 않았으므로 SDF는 임시 10×9m 배치입니다. `docs/WORLD_LAYOUT.md` 참고.
 
