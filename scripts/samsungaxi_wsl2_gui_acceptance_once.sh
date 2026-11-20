@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SmartDish GUI acceptance: pinned WSL2, Gazebo + RViz, NO GOAL/NO MAPPING.
 set -Eeuo pipefail
-PIN=f39dc1757588b9f7cde1a56f73659f629c57e703
+PIN="${SAMSUNG_AXI_GUI_PIN:-f39dc1757588b9f7cde1a56f73659f629c57e703}"
+[[ "$PIN" =~ ^[a-f0-9]{40}$ ]] || { echo BLOCKED_INVALID_SOURCE_PIN; exit 2; }
 if [[ "$*" == "--self-test" ]]; then echo SAMSUNGAXI_GUI_STATIC_PASS_NO_GOAL; exit 0; fi
 if [[ "$*" != "" && "$*" != "--install-deps" ]]; then echo 'Usage: bash script.sh [--install-deps|--self-test]'; exit 2; fi
 INSTALL=0; [[ "$*" == "--install-deps" ]] && INSTALL=1
