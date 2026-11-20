@@ -43,7 +43,7 @@ if [[ "$MODE" == doctor ]]; then
   echo "DISPLAY=${DISPLAY:-<unset>} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-<unset>}"
   exit 0
 fi
-case "$MODE" in world|mapping|navigation|demo) ;; *) echo 'Usage: restaurant_demo.sh world|mapping|navigation|demo [NORMAL|SOUP]'; exit 2;; esac
+case "$MODE" in world|mapping|navigation|demo|live) ;; *) echo 'Usage: restaurant_demo.sh world|mapping|navigation|demo [NORMAL|SOUP]'; exit 2;; esac
 for pkg in ros_gz_sim ros_gz_bridge ros_gz_image; do need_pkg "$pkg"; done
 # CI and Owner use the same pinned ROBOTIS Jazzy source, not a floating branch HEAD.
 UPSTREAM="$ROOT/src/upstream/turtlebot3_simulations"
@@ -93,15 +93,31 @@ if [[ "$MODE" == mapping ]]; then
 fi
 MAP="$ROOT/maps/restaurant_map.yaml"
 NAV_AUTO_ARGS=()
-if [[ "$MODE" == navigation ]]; then
-  # GUI only: improved, separately proven S2-MAP-03 saved map.
+if [[ "$MODE" == navigation || "$MODE" == live ]]; then
+  # Instructor GUI and S5 live only: improved proven S2-MAP-03 saved map.
   MAP="$ROOT/maps/candidates/s2_map03/restaurant_map.yaml"
   NAV_AUTO_ARGS=(--auto-initial-pose)
   echo "RESTAURANT_OWNER_GUI_MAP=S2_MAP03_CANDIDATE_81PCT"
+  PYTHONPATH="$ROOT/scripts" python3 -c 'from s3_map_contract import validate_s2_map03_candidate; import os; print("S5_MAP03_CUSTODY_PASS",validate_s2_map03_candidate(os.environ["RESTAURANT_ROOT"]))'
 fi
 [[ -s "$MAP" ]] || { echo "BLOCKED: $MAP missing. Run mapping and save a real map first."; exit 2; }
 NAV_SRC="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
 python3 "$ROOT/scripts/prepare_nav2_params.py" --source "$NAV_SRC" --out "$ROOT/generated/nav2_params.yaml" "${NAV_AUTO_ARGS[@]}" | tee -a "$RUNLOG"
+if [[ "$MODE" == live ]]; then
+  [[ "${SAMSUNGAXI_S5_GOALS_APPROVED:-}" == YES-S5-LIVE-GOALS ]] || {
+    echo 'S5_LIVE_BLOCKED_OWNER_GOAL_APPROVAL_REQUIRED'; exit 2;
+  }
+  mkdir -p "$ROOT/generated/s5"
+  echo 'S5_LIVE_START: REAL_GAZEBO_NO_GOAL_UNTIL_INTERACTIVE_APPROVAL'
+  python3 "$ROOT/scripts/ci_s3_amcl_smoke.py" \
+    --exercise-goals --menu-safety --no-initial-pose-publish \
+    --s5-integrated --gui --live-owner \
+    --robot-sdf "$ROBOT_SDF" --map "$MAP" \
+    --params "$ROOT/generated/nav2_params.yaml" \
+    --log "$ROOT/logs/s5_live_launch.log" \
+    --evidence "$ROOT/generated/s5/s5_live_evidence.json" 2>&1 | tee -a "$RUNLOG"
+  exit "${PIPESTATUS[0]}"
+fi
 if [[ "$MODE" == navigation ]]; then
   echo 'RESTAURANT_S3_NAV_READY_CHECK_OWN_ROBOT_BEFORE_GOAL'
   ros2 launch restaurant_bringup navigation.launch.py robot_sdf:="$ROBOT_SDF" map:="$MAP" params_file:="$ROOT/generated/nav2_params.yaml" 2>&1 | tee -a "$RUNLOG"

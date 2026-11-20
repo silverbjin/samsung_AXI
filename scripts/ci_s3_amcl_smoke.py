@@ -36,10 +36,20 @@ def run(args):
     from lifecycle_msgs.srv import GetState
     from lifecycle_msgs.msg import State
 
+    # S5 is one combined physical Gazebo session; never silently launch goals
+    # in an instructor GUI without explicit CLI and on-terminal authorization.
+    if args.s5_integrated and not (args.exercise_goals and args.menu_safety
+                                   and args.no_initial_pose_publish):
+        raise RuntimeError('S5_REQUIRES_MENU_NAV_ACTION_AND_AUTO_AMCL')
+    if args.live_owner and not (args.s5_integrated and args.gui and
+                                os.environ.get('SAMSUNGAXI_S5_GOALS_APPROVED')=='YES-S5-LIVE-GOALS'):
+        raise RuntimeError('S5_OWNER_GOALS_NOT_AUTHORIZED')
     repo=Path(__file__).resolve().parents[1]
     candidate=repo/'maps/candidates/s2_map03/restaurant_map.yaml'
     contract=(validate_s2_map03_candidate(repo) if args.map.resolve()==candidate.resolve()
               else validate_release(repo))
+    if args.s5_integrated and args.map.resolve()!=candidate.resolve():
+        raise RuntimeError('S5_REQUIRES_CUSTODY_VERIFIED_S2_MAP03')
     if not args.robot_sdf.is_file() or not args.params.is_file() or not args.map.is_file():
         raise RuntimeError('S3_REQUIRED_ROBOT_SDF_PARAMS_OR_MAP_MISSING')
     if args.menu_safety and not args.exercise_goals:
@@ -90,7 +100,8 @@ def run(args):
         with args.log.open('w') as out:
             proc=subprocess.Popen(
                 ['ros2','launch','restaurant_bringup','navigation.launch.py',
-                 'gui:=false','robot_sdf:='+str(args.robot_sdf.resolve()),
+                 'gui:=true' if args.gui else 'gui:=false',
+                 'robot_sdf:='+str(args.robot_sdf.resolve()),
                  'map:='+str(args.map.resolve()),
                  'params_file:='+str(args.params.resolve())],
                 stdout=out,stderr=subprocess.STDOUT,start_new_session=True,env=os.environ.copy())
@@ -300,6 +311,12 @@ def run(args):
                 if not all(active.values()):
                     raise RuntimeError('S3_NAV_LIFECYCLE_NOT_ALL_ACTIVE:'+json.dumps(active))
                 print('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL='+','.join(managed),flush=True)
+                if args.live_owner:
+                    print('S5_OWNER_ARMED_NO_GOAL: confirm only after checking Gazebo/RViz pose and clear path.',flush=True)
+                    answer=input('Type YES-S5-LIVE-GOALS to authorize physical Gazebo navigation: ').strip()
+                    if answer!='YES-S5-LIVE-GOALS':
+                        raise RuntimeError('S5_OWNER_GOAL_CONFIRMATION_MISSING')
+                    print('S5_OWNER_GOALS_AUTHORIZED',flush=True)
                 if args.menu_safety and s4_speed_pub.get_subscription_count()<1:
                     raise RuntimeError('S4_NAV2_SPEED_LIMIT_SUBSCRIBER_ABSENT_NO_GOAL')
                 def goto(target,heading,label,menu=None):
@@ -399,6 +416,18 @@ def run(args):
 
                     perform_s4_stop(result)
                     print('RESTAURANT_S4_MENU01_REAL_GAZEBO_PASS',flush=True)
+                    if args.s5_integrated:
+                        result['kind']='s5_live01_real_gazebo_integration'
+                        result['s5_integrated']=bool(result.get('delivery_return')
+                           and result.get('s4_menu_speed') and result.get('s4_safety_stop')
+                           and result.get('manual_initial_pose_published') is False)
+                        if not result['s5_integrated']:
+                            raise RuntimeError('S5_INTEGRATED_EVIDENCE_INCOMPLETE')
+                        args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                        print('S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS',flush=True)
+                        if args.live_owner:
+                            print('S5_LIVE_GUI_HOLD: inspect Gazebo/RViz; Ctrl+C to close and package evidence.',flush=True)
+                            while True:spin_once(.25)
     except Exception as exc:
         print('RESTAURANT_S3_AMCL_L2_BLOCKED='+str(exc),file=sys.stderr,flush=True)
         raise
@@ -428,6 +457,9 @@ def main():
     p.add_argument('--menu-safety',action='store_true')
     p.add_argument('--s4-stop-only',action='store_true')
     p.add_argument('--no-initial-pose-publish',action='store_true')
+    p.add_argument('--s5-integrated',action='store_true')
+    p.add_argument('--gui',action='store_true')
+    p.add_argument('--live-owner',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--params',type=Path,required=True)
     p.add_argument('--map',type=Path,required=True)

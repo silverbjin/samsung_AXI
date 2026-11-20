@@ -4,8 +4,22 @@ set -Eeuo pipefail
 PIN="${SAMSUNG_AXI_GUI_PIN:-f39dc1757588b9f7cde1a56f73659f629c57e703}"
 [[ "$PIN" =~ ^[a-f0-9]{40}$ ]] || { echo BLOCKED_INVALID_SOURCE_PIN; exit 2; }
 if [[ "$*" == "--self-test" ]]; then echo SAMSUNGAXI_GUI_STATIC_PASS_NO_GOAL; exit 0; fi
-if [[ "$*" != "" && "$*" != "--install-deps" ]]; then echo 'Usage: bash script.sh [--install-deps|--self-test]'; exit 2; fi
-INSTALL=0; [[ "$*" == "--install-deps" ]] && INSTALL=1
+S5_MODE=0; INSTALL=0; S5_APPROVED=0
+for arg in "$@"; do
+  case "$arg" in
+    --install-deps) INSTALL=1 ;;
+    --s5-live) S5_MODE=1 ;;
+    --approve-goals) S5_APPROVED=1 ;;
+    *) echo "BLOCKED_INVALID_ARG=$arg" >&2; exit 2 ;;
+  esac
+done
+if (( S5_MODE )); then
+  [[ -n "${SAMSUNG_AXI_GUI_PIN:-}" && $S5_APPROVED -eq 1 ]] || {
+    echo 'S5_BLOCKED_REQUIRES_EXPLICIT_PIN_AND_APPROVE_GOALS'; exit 2;
+  }
+elif (( S5_APPROVED )); then
+  echo 'S5_APPROVE_GOALS_ONLY_VALID_WITH_S5_LIVE'; exit 2
+fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT="$HOME/samsungaxi_gui_evidence"
 mkdir -p "$OUT"
@@ -37,6 +51,13 @@ finish() {
   } > "$TMP/status.txt"
   grep -Ei 'fail|error|warn|timeout|exception|fatal|renderer|rviz|gazebo' "$RUN" | tail -n 150 > "$TMP/error_clues.txt" || :
   tail -n 350 "$RUN" > "$TMP/log_tail.txt" || :
+  if (( S5_MODE )); then
+    for source in "$WORKSPACE/generated/s5/s5_live_evidence.json" "$WORKSPACE/logs/ci-s3-summary.txt"; do
+      if [[ -s "$source" ]]; then
+        cp "$source" "$TMP/$(basename "$source")" || :
+      fi
+    done
+  fi
   if [[ -d "$WORKSPACE/logs" ]]; then
     find "$WORKSPACE/logs" -maxdepth 1 -type f -mmin -45 | sort | tail -n 8 | while read -r f; do
       echo "==== $f ====" >> "$TMP/owner_tails.txt"
@@ -126,12 +147,15 @@ PY
     timeout 8 bash -c "$cmd" >> "$TMP/ros_diagnostics.txt" 2>&1 || echo PROBE_NONZERO >> "$TMP/ros_diagnostics.txt"
   done
 ) & PROBER=$!
-echo START_GUI_NO_GOAL
-if ((INSTALL)); then
-  setsid bash "$OWNER" navigation NORMAL --ref "$PIN" --workspace "$WORKSPACE" &
+OWNER_ARGS=(navigation NORMAL --ref "$PIN" --workspace "$WORKSPACE")
+if (( S5_MODE )); then
+  OWNER_ARGS=(live NORMAL --ref "$PIN" --workspace "$WORKSPACE" --goals-approved)
+  echo 'S5_LIVE_MODE=ARMED_WITH_EXPLICIT_CLI_BUT_NO_GOAL_UNTIL_TERMINAL_CONFIRMATION'
 else
-  setsid bash "$OWNER" navigation NORMAL --ref "$PIN" --workspace "$WORKSPACE" --no-install-deps &
+  echo START_GUI_NO_GOAL
 fi
+if (( ! INSTALL )); then OWNER_ARGS+=(--no-install-deps); fi
+setsid bash "$OWNER" "${OWNER_ARGS[@]}" &
 CHILD=$!
 set +e
 wait "$CHILD"; RC=$?
