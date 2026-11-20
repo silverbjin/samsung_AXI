@@ -10,11 +10,11 @@ spec.loader.exec_module(m)
 def test_existing_s2_map02_unchanged_and_new_route_is_physically_clear():
     assert m.SURVEY[0]==(-2.60,-2.20)
     assert len(m.SURVEY)==13
-    assert len(m.OBSERVATION_SURVEY)==22
+    assert len(m.OBSERVATION_SURVEY)==28
     assert m.OBSERVATION_SURVEY[0]==m.SURVEY[0]
     assert m.OBSERVATION_SURVEY[-1]==m.SURVEY[-1]
     assert 33.0 < m.route_length(m.SURVEY) < 34.0
-    assert 46.0 < m.route_length(m.OBSERVATION_SURVEY) < 52.0
+    assert 57.0 < m.route_length(m.OBSERVATION_SURVEY) < 60.0
     world=ROOT/'src/restaurant_world/worlds/restaurant.sdf'
     assert not m.route_clearance(world,route=m.OBSERVATION_SURVEY,clearance=.40)
 
