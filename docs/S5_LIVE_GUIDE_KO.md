@@ -13,13 +13,16 @@
 ```bash
 (
   set -Eeuo pipefail
-  PIN="d0738c56716390c52710767e7a3ac7b42d1966b5"
+  PIN="340527bf81c3ad23fdef0279fbaf07314d242a0b"
   SCRIPT="$(mktemp --suffix=.sh)"
   trap 'rm -f "$SCRIPT"' EXIT
   curl -fL --retry 3 --connect-timeout 10 --max-time 90 \
     "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/samsungaxi_wsl2_gui_acceptance_once.sh" -o "$SCRIPT"
   bash -n "$SCRIPT"
   SAMSUNG_AXI_GUI_PIN="$PIN" bash "$SCRIPT" --self-test
+  # ROS/Goal 없이 실제 원샷→Owner→Core Shell 경로 사전검사
+  SAMSUNG_AXI_GUI_PIN="$PIN" bash "$SCRIPT" --s5-live --preflight-only
+  # 위에서 S5_OWNER_PREFLIGHT_PASS_NO_GOAL 확인 후에만 현장 라이브 시작
   SAMSUNG_AXI_GUI_PIN="$PIN" bash "$SCRIPT" --s5-live --approve-goals
 )
 ```
@@ -47,3 +50,14 @@
 - S4 기존 물리 원통과 실제 LiDAR 전방 29점, CM STOP 구역 29점, 공식 STOP 상태→/cmd_vel 필터 0→물리 /odom 정지 PASS.
 - [Compact Artifact #14601770464](https://github.com/silverbjin/samsung_AXI/actions/runs/44673556772/artifacts/14601770464) (ZIP 4,718 bytes, SHA256 `b3fdf4eacd0e13eafd0660239e8f817e428fb89c710f7e4cf39027cdd4b868d7`).
 - 새 경로의 소스는 L2에서 확인되었으나 **강사 WSL2의 실제 GUI 라이브 Goal은 NOT_RUN**입니다. ZIP에 기존 실행의 JSON이 혼입되지 않도록 S5 원샷은 UTC-run-id별 별도 증거 디렉터리를 사용합니다.
+
+## 2026-11-20 출고 오류 근본 원인과 현장 Preflight
+
+- 이전 SHA `d0738c56...`는 RUN_ID 뒤에 PID를 붙이는 `$$`가 단일 `$`로 저장돼 WSL2에서 `S5_BLOCKED_INVALID_RUN_ID` 발생.
+- 새 SHA `340527bf81c3ad23fdef0279fbaf07314d242a0b`: 공통 `scripts/s5_run_id_contract.sh` 사용, 기존 정규식 유지, 실제 ROS 실행 전 RUN_ID 생성·검증.
+- `--s5-live --preflight-only`: GitHub SHA에 고정된 공통 계약/Owner/Core를 동일 경로로 실행, **ROS·Gazebo·Goal을 시작하지 않고 종료**. 최초 실패/성공 모두 ZIP 1개로 기록.
+- 기대 성공 문자열: `S5_RUN_ID_CONTRACT_PASS`, `S5_OWNER_CORE_PREFLIGHT_PASS_NO_GOAL`, `S5_OWNER_PREFLIGHT_PASS_NO_GOAL`. 실패 시 `S5_BLOCKED_...`, `FIRST_FAILED_PHASE`, `FIRST_FAILED_MARKER`, `GOAL_SENT=FALSE`를 ZIP의 `status.txt`에서 확인.
+- 실제 Goal 실행은 별도 CLI `--approve-goals`와 대화형 터미널 `YES-S5-LIVE-GOALS`가 **모두 필요**하며, 무인 CI preflight는 Goal 송신을 승인하지 않습니다.
+- [공개 최종 Owner L0 #44681029156](https://github.com/silverbjin/samsung_AXI/actions/runs/44681029156): 실제 Shell 회귀 21/21 PASS.
+- [기존 S5 실제 Gazebo 통합 L2 #44673556772](https://github.com/silverbjin/samsung_AXI/actions/runs/44673556772): 독립 원본 증거로 보존, 이번 수정에서 주행 코드 변경 없음.
+- 강사 WSL2 실제 라이브 L3는 재실행 전까지 `NOT_RUN`; 새 Preflight GREEN을 L3 GOAL PASS로 해석하지 마십시오.

@@ -7,6 +7,14 @@ export TURTLEBOT3_MODEL=waffle_pi
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-58}"
 export GZ_PARTITION="${GZ_PARTITION:-restaurant_mvp}"
 MODE="${1:-world}"; MENU="${2:-NORMAL}"
+if [[ "${3:-}" == "--preflight-only" ]]; then
+  [[ "$MODE" == live ]] || { echo 'S5_BLOCKED_PREFLIGHT_REQUIRES_LIVE'; exit 2; }
+  # Same contract as production live path, before ROS and map preflight.
+  source "$ROOT/scripts/s5_run_id_contract.sh"
+  s5_run_id_commit || exit 2
+  echo 'S5_OWNER_CORE_PREFLIGHT_PASS_NO_GOAL'
+  exit 0
+fi
 mkdir -p "$ROOT/logs" "$ROOT/generated"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 RUNLOG="$ROOT/logs/${MODE}_${STAMP}.log"
@@ -107,8 +115,9 @@ if [[ "$MODE" == live ]]; then
   [[ "${SAMSUNGAXI_S5_GOALS_APPROVED:-}" == YES-S5-LIVE-GOALS ]] || {
     echo 'S5_LIVE_BLOCKED_OWNER_GOAL_APPROVAL_REQUIRED'; exit 2;
   }
-  S5_RUN_ID="${SAMSUNGAXI_S5_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$}"
-  [[ "$S5_RUN_ID" =~ ^[A-Za-z0-9_-]+$ ]] || { echo 'S5_BLOCKED_INVALID_RUN_ID'; exit 2; }
+  source "$ROOT/scripts/s5_run_id_contract.sh"
+  s5_run_id_commit || exit 2
+  S5_RUN_ID="$SAMSUNGAXI_S5_RUN_ID"
   S5_EVIDENCE_DIR="$ROOT/generated/s5/$S5_RUN_ID"
   mkdir -p "$S5_EVIDENCE_DIR"
   echo "S5_LIVE_EVIDENCE_DIR=$S5_EVIDENCE_DIR"

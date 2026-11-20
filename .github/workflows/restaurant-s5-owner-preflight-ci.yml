@@ -1,0 +1,33 @@
+name: S5 Owner Shell Preflight Contract CI
+on:
+  push:
+    branches: [fix/s5-owner-run-id-preflight-20261120]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: s5-owner-runid-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  l0:
+    name: S5 L0 / shipped shell RUN_ID, no ROS, no Goal, compact ZIP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system pytest (same /usr/bin/python3)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest
+      - name: RED-GREEN real shell preflight
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/samsungaxi_wsl2_gui_acceptance_once.sh
+          bash -n scripts/owner_wsl2_once.sh
+          bash -n scripts/restaurant_demo.sh
+          python3 -m pytest -q tests/test_s5_owner_run_id_preflight.py \
+            tests/test_s5_live_contract.py tests/test_owner_wsl2_once.py \
+            tests/test_gui_owner_one_shot.py
+          echo S5_OWNER_RUN_ID_REGRESSION_PASS
+          echo S5_OWNER_PREFLIGHT_PASS_NO_GOAL
+          echo S5_OWNER_DIAGNOSTIC_CONTRACT_PASS
