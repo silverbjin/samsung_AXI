@@ -75,11 +75,13 @@ finish() {
   # The first failure marker is more useful than a later shutdown warning.
   sleep 0.15
   local first phase run_id owner_sha authorized sent
-  first="$(grep -Eo 'S5_BLOCKED_[A-Z0-9_]+|RESTAURANT_OWNER_BLOCKED_[A-Z0-9_]+|BLOCKED_[A-Z0-9_]+' "$RUN" | head -n 1 || :)"
+  first="$(grep -Eo 'S5_BLOCKED_[A-Z0-9_]+|RESTAURANT_OWNER_BLOCKED_[A-Z0-9_]+|NAV_GOAL_NOT_SUCCEEDED_[A-Z0-9_]+:[0-9]+|NAV_GOAL_TIMEOUT_[A-Z0-9_]+|NAV_SENSOR_STALE_DURING_GOAL_[A-Z0-9_]+|BLOCKED_[A-Z0-9_]+' "$RUN" | head -n 1 || :)"
   [[ -n "$first" ]] || { if [[ "$RC" == 0 || "$RC" == 130 || "$RC" == 143 ]]; then first=NONE; else first=OWNER_NONZERO_EXIT; fi; }
   phase=NONE
   if [[ "$first" != NONE ]]; then
-    if [[ "$first" == S5_BLOCKED_* || "$first" == RESTAURANT_OWNER_BLOCKED_* || "$first" == BLOCKED_* ]]; then
+    if [[ "$first" == NAV_GOAL_* || "$first" == NAV_SENSOR_STALE_DURING_GOAL_* ]]; then
+      phase=NAV2_ACTIVE_GOAL
+    elif [[ "$first" == S5_BLOCKED_* || "$first" == RESTAURANT_OWNER_BLOCKED_* || "$first" == BLOCKED_* ]]; then
       phase=OWNER_PRELAUNCH
     else
       phase=OWNER_RUNTIME
@@ -134,12 +136,15 @@ finish() {
       fi
     done
   fi
-  if [[ -d "$WORKSPACE/logs" ]]; then
-    find "$WORKSPACE/logs" -maxdepth 1 -type f -mmin -45 | sort | tail -n 8 | while read -r f; do
-      echo "==== $f ====" >> "$TMP/owner_tails.txt"
-      tail -n 120 "$f" >> "$TMP/owner_tails.txt" 2>/dev/null || :
-    done
-  fi
+  # Prior behavior mixed preceding runs' failures into this ZIP. Preserve
+  # only the exact Owner/Core logs whose absolute paths were emitted by THIS
+  # run.log; keep the compact prior-failure provenance out of fresh verdicts.
+  while IFS= read -r f; do
+    [[ -f "$f" && "$f" == "$WORKSPACE/logs/"* ]] || continue
+    echo "==== $f ====" >> "$TMP/owner_tails.txt"
+    tail -n 120 "$f" >> "$TMP/owner_tails.txt" 2>/dev/null || :
+  done < <(sed -n 's/^RESTAURANT_OWNER_LOG=//p' "$RUN" | sort -u)
+
   export EVIDENCE_DIR="$TMP" EVIDENCE_ZIP="$ZIP"
   python3 - <<'PY' || :
 import os,zipfile,pathlib
