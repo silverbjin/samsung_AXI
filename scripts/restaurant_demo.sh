@@ -98,6 +98,8 @@ python3 "$ROOT/scripts/prepare_nav2_params.py" --source "$NAV_SRC" --out "$ROOT/
 if [[ "$MODE" == navigation ]]; then
   echo 'RESTAURANT_S3_NAV_READY_CHECK_OWN_ROBOT_BEFORE_GOAL'
   ros2 launch restaurant_bringup navigation.launch.py robot_sdf:="$ROBOT_SDF" map:="$MAP" params_file:="$ROOT/generated/nav2_params.yaml" 2>&1 | tee -a "$RUNLOG"
+  # NO GOAL acceptance must never fall through to delivery_manager.
+  exit "${PIPESTATUS[0]}"
 fi
 [[ "$MENU" == NORMAL || "$MENU" == SOUP ]] || { echo 'MENU must be NORMAL or SOUP'; exit 2; }
 echo 'RESTAURANT_DEMO_STARTING: inspect empty Gazebo / real sensor before accepting goals.'

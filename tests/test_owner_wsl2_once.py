@@ -43,3 +43,13 @@ def test_world_uses_same_rgbd_overlay_as_ci():
     assert text.index('prepare_waffle_rgbd.py') < text.index('if [[ "$MODE" == world ]]')
     assert 'world.launch.py robot_sdf:="$ROBOT_SDF"' in text
     assert '45633014a14e8f438495b532a723e4ad45cbbd31' in text
+
+
+def test_navigation_no_goal_never_falls_through_to_demo():
+    script=CORE.read_text()
+    start=script.index('if [[ "$MODE" == navigation ]]')
+    end=script.index('[[ "$MENU" == NORMAL',start)
+    block=script[start:end]
+    assert 'exit "${PIPESTATUS[0]}"' in block
+    assert block.index('exit "${PIPESTATUS[0]}"') < block.index('fi')
+    assert block.count('ros2 launch') == 1
