@@ -14,7 +14,7 @@ def test_s5_pre_goal_stale_gate_is_not_weakened():
     src=SMOKE.read_text()
     assert "time.monotonic()-state['scan_t']>8 or time.monotonic()-state['odom_t']>8" in src
     assert "NAV_PREGOAL_SENSOR_STALE_" in src
-    assert "S5_OWNER_GOAL_CONFIRMATION_MISSING" in src
+    assert "S5_OWNER_GOAL_CONFIRMATION_MISSING" in (ROOT/'scripts/s5_owner_approval.py').read_text()
 
 
 def test_delayed_tty_confirmation_keeps_spin_callbacks_active():
