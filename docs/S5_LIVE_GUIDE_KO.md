@@ -13,7 +13,7 @@
 ```bash
 (
   set -Eeuo pipefail
-  PIN="<S5_L0_L2_GREEN_SHA>"
+  PIN="d0738c56716390c52710767e7a3ac7b42d1966b5"
   SCRIPT="$(mktemp --suffix=.sh)"
   trap 'rm -f "$SCRIPT"' EXIT
   curl -fL --retry 3 --connect-timeout 10 --max-time 90 \
@@ -34,8 +34,16 @@
 - `S4_MENU_NORMAL_SOUP_REAL_ODOM_SPEED_PASS`: 각각 실제 Odom p75, 유효 샘플 수와 속도 차이.
 - `S4_PHYSICAL_FIXTURE_LIDAR_POINTS` 및 `S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS`: 물리 Gazebo fixture + 실제 LiDAR + Collision Monitor STOP + 필터 결과/물리 정지.
 - `S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS`: **동일 세션에서 모든 증거가 성공한 경우에만** 발행.
-- JSON은 `generated/s5/s5_live_evidence.json`, 현장 ZIP에는 로그·RTF·GPU·ROS 정보·S5 JSON이 포함됩니다.
+- JSON은 `generated/s5/<UTC-run-id>/s5_live_evidence.json`, 현장 ZIP에는 로그·RTF·GPU·ROS 정보·S5 JSON이 포함됩니다.
 
 ### 실패 시
 
 `SAMSUNGAXI_DIAGNOSTIC_ZIP=...` 경로의 ZIP 한 파일을 첨부하십시오. `Ctrl+C`는 Goal 송신기의 ROS/Gazebo 자식 프로세스 그룹에 신호를 보내 정상 종료합니다. 강사 WSL2에서 실제 라이브 이동·정지·GUI 인수를 확인하기 전에는 `S5_LIVE_L3=NOT_RUN`입니다.
+
+## 확정 CI 출고 증거 (현장 L3와 구분)
+
+- [최종 통합 공개 CI #44673556772](https://github.com/silverbjin/samsung_AXI/actions/runs/44673556772), 검증 SHA `d0738c56716390c52710767e7a3ac7b42d1966b5`, L0/L1/L2 GREEN.
+- 실 Gazebo TABLE_3 NORMAL Odom **5.194m**, AMCL 오차 0.138m; PICKUP_RETURN SOUP Odom **5.021m**, AMCL 오차 0.267m. 실제 Odom p75 NORMAL 0.23m/s, SOUP 0.11m/s.
+- S4 기존 물리 원통과 실제 LiDAR 전방 29점, CM STOP 구역 29점, 공식 STOP 상태→/cmd_vel 필터 0→물리 /odom 정지 PASS.
+- [Compact Artifact #14601770464](https://github.com/silverbjin/samsung_AXI/actions/runs/44673556772/artifacts/14601770464) (ZIP 4,718 bytes, SHA256 `b3fdf4eacd0e13eafd0660239e8f817e428fb89c710f7e4cf39027cdd4b868d7`).
+- 새 경로의 소스는 L2에서 확인되었으나 **강사 WSL2의 실제 GUI 라이브 Goal은 NOT_RUN**입니다. ZIP에 기존 실행의 JSON이 혼입되지 않도록 S5 원샷은 UTC-run-id별 별도 증거 디렉터리를 사용합니다.
