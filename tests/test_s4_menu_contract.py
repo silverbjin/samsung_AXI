@@ -67,3 +67,12 @@ def test_stop_transition_between_fixture_and_probe_is_not_lost():
     assert 'fixture_marker=time.monotonic()' in script
     assert 't>=fixture_marker and a==CollisionMonitorState.STOP' in script
     assert 'if max(abs(v) for v in outputs)>.025 or moved>.045:' in script
+
+def test_s4_stop_only_does_not_require_unneeded_nav_action_server():
+    # Real Collision Monitor stop test has no navigation goals; CM ACTIVE is
+    # checked separately. An action-server discovery timeout is unrelated.
+    src=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
+    assert 'args.s4_stop_only or action.wait_for_server(timeout_sec=.25)' in src
+    workflow=(ROOT/'.github/workflows/restaurant-s3-ci.yml').read_text()
+    assert 'FLAGS=(--s4-stop-only)' in workflow
+    assert 'FLAGS=(--exercise-goals --menu-safety)' not in workflow

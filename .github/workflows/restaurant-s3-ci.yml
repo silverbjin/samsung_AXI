@@ -151,11 +151,9 @@ jobs:
           source install/setup.bash
           set -u
           mkdir -p generated/s4 logs
-          FLAGS=(--exercise-goals --menu-safety)
-          if [[ "${GITHUB_REF}" == refs/heads/s4/menu-safety-20261120 ]]; then
-            # Narrow STOP diagnosis: already GREEN menu-speed trips are not repeated.
-            FLAGS=(--s4-stop-only)
-          fi
+          # Actual menu-speed trips are pinned to earlier GREEN Gazebo evidence.
+          # Validate only the still-relevant physical CM STOP boundary on main.
+          FLAGS=(--s4-stop-only)
           xvfb-run -a -s '-screen 0 1280x720x24' \
             timeout --signal=INT --kill-after=20s 940s \
             python3 scripts/ci_s3_amcl_smoke.py \

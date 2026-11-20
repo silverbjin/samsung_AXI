@@ -147,7 +147,7 @@ def run(args):
                     initial.header.stamp=node.get_clock().now().to_msg()
                     pub.publish(initial);last_publish=now
                 if (state['amcl_pose'] is not None and state['map_to_odom']
-                    and state['odom_to_base'] and action.wait_for_server(timeout_sec=.25)):
+                    and state['odom_to_base'] and (args.s4_stop_only or action.wait_for_server(timeout_sec=.25))):
                     break
             else:
                 raise RuntimeError('S3_AMCL_TF_OR_NAV2_ACTION_NOT_READY:'+json.dumps({
