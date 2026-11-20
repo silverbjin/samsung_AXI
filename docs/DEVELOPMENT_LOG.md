@@ -76,3 +76,5 @@
 
 - 2026-11-20 S3-NAV-CI03: [연속 Nav2 2세션의 두 번째 Action 서버 타임아웃](reports/issues/2026-11-20_S3-NAV-CI03_duplicate_nav_session.md), Run #44644596110 RED. 한 세션으로 중복 제거하여 Run #44646024902 GREEN, 같은 센서/SLAM 유지.
 - 2026-11-20 **S3-NAV-02 CI·main PASS**: [PR #10](https://github.com/silverbjin/samsung_AXI/pull/10) main e2e7cf04; [Run #44646848087](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848087) 배달 Odom 5.257m / 오차 0.132m, 복귀 5.219m / 오차 0.126m, Nav2 Lifecycle/2 Action SUCCESS. S1/S2 회귀 [Run #44646848122](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848122) GREEN. [최종 보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md). WSL2 GUI 및 메뉴별 속도는 별도 인수.
+
+- 2026-11-20 S4-MENU-01 착수: 기존 정상 S2 지도·S3 실제 Nav2 배달/복귀 재사용. `/speed_limit` 토픽 Nav2 Controller 정합, NORMAL 0.23/SOUP 0.11m/s 실제 Odom 속도 비교, 공식 Collision Monitor LiDAR 기반 STOP 및 물리 Gazebo 단일 fixture L2. [작업 보고서](reports/tasks/2026-11-20_S4-MENU-01_speed_safety.md). 아직 CI 실제 GREEN 미확정.
