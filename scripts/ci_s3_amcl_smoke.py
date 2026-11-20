@@ -15,6 +15,9 @@ import time
 
 from s3_map_contract import validate_release
 from ci_s2_map_smoke import end_process
+from s2_map02_gt_pose import GazeboModelPose
+from s4_menu_contract import (NORMAL_LIMIT,SOUP_LIMIT,measured_speed,compare_speeds,
+                              fixture_sdf,front_obstacle_points)
 
 def run(args):
     import rclpy
@@ -27,6 +30,8 @@ def run(args):
     from rclpy.qos import QoSProfile,DurabilityPolicy,ReliabilityPolicy,qos_profile_sensor_data
     from rclpy.action import ActionClient
     from nav2_msgs.action import NavigateToPose
+    from nav2_msgs.msg import SpeedLimit, CollisionMonitorState
+    from geometry_msgs.msg import Twist
     from action_msgs.msg import GoalStatus
     from lifecycle_msgs.srv import GetState
     from lifecycle_msgs.msg import State
@@ -35,6 +40,10 @@ def run(args):
     contract=validate_release(repo)
     if not args.robot_sdf.is_file() or not args.params.is_file() or not args.map.is_file():
         raise RuntimeError('S3_REQUIRED_ROBOT_SDF_PARAMS_OR_MAP_MISSING')
+    if args.menu_safety and not args.exercise_goals:
+        raise RuntimeError('S4_MENU_REQUIRES_REAL_NAV_ACTIONS')
+    s4={'active_menu':None,'speed_samples':{'NORMAL':[],'SOUP':[]},
+        'scan':None,'cm_states':[],'cmd_in':[],'cmd_out':[]}
     state={'clock':False,'scan':0,'scan_t':0.,'odom':None,'odom_t':0.,
            'odom_track':[],'map':None,'amcl_pose':None,
            'amcl_cov':None,'map_to_odom':False,'odom_to_base':False}
@@ -45,12 +54,15 @@ def run(args):
     def odom(m):
         xy=(float(m.pose.pose.position.x),float(m.pose.pose.position.y))
         state['odom']=xy;state['odom_t']=time.monotonic()
+        if args.menu_safety and s4['active_menu'] is not None:
+            s4['speed_samples'][s4['active_menu']].append(float(m.twist.twist.linear.x))
         if not state['odom_track'] or math.dist(xy,state['odom_track'][-1])>.02:
             state['odom_track'].append(xy)
     def scan(m):
         if len(m.ranges)>10:
             state['scan']+=1
             state['scan_t']=time.monotonic()
+            if args.menu_safety:s4['scan']=m
     def amcl(m):
         pose=m.pose.pose
         state['amcl_pose']=(pose.position.x,pose.position.y)
@@ -93,6 +105,19 @@ def run(args):
             node.create_subscription(TFMessage,'/tf',tf,qos_profile_sensor_data)
             pub=node.create_publisher(PoseWithCovarianceStamped,'/initialpose',10)
             action=ActionClient(node,NavigateToPose,'navigate_to_pose')
+            s4_speed_pub=s4_probe=None
+            if args.menu_safety:
+                def on_cm(m):
+                    s4['cm_states'].append((time.monotonic(),int(m.action_type),m.polygon_name))
+                def on_input(m):
+                    s4['cmd_in'].append((time.monotonic(),float(m.linear.x)))
+                def on_output(m):
+                    s4['cmd_out'].append((time.monotonic(),float(m.linear.x)))
+                node.create_subscription(CollisionMonitorState,'/collision_monitor_state',on_cm,10)
+                node.create_subscription(Twist,'/cmd_vel_smoothed',on_input,10)
+                node.create_subscription(Twist,'/cmd_vel',on_output,10)
+                s4_speed_pub=node.create_publisher(SpeedLimit,'/speed_limit',10)
+                s4_probe=node.create_publisher(Twist,'/cmd_vel_smoothed',10)
             wait(lambda:state['clock'] and state['scan']>=3 and state['odom'] is not None
                  and state['map'] is not None,200,'CLOCK_SCAN_ODOM_RELEASED_MAP')
             m=state['map']
@@ -169,12 +194,30 @@ def run(args):
                 if not all(active.values()):
                     raise RuntimeError('S3_NAV_LIFECYCLE_NOT_ALL_ACTIVE:'+json.dumps(active))
                 print('S3_NAV02_LIFECYCLE_ACTIVE_PREGOAL='+','.join(managed),flush=True)
-                def goto(target,heading,label):
+                if args.menu_safety and s4_speed_pub.get_subscription_count()<1:
+                    raise RuntimeError('S4_NAV2_SPEED_LIMIT_SUBSCRIBER_ABSENT_NO_GOAL')
+                def goto(target,heading,label,menu=None):
                     if not (state['map_to_odom'] and state['odom_to_base'] and
                             state['amcl_pose'] is not None and state['scan']>=3):
                         raise RuntimeError('NAV_PREGOAL_NOT_READY_'+label)
                     if time.monotonic()-state['scan_t']>8 or time.monotonic()-state['odom_t']>8:
                         raise RuntimeError('NAV_PREGOAL_SENSOR_STALE_'+label)
+                    if args.menu_safety:
+                        if menu not in ('NORMAL','SOUP'):
+                            raise RuntimeError('S4_MISSING_MENU_ON_NAV_GOAL')
+                        s4['active_menu']=menu
+                        def send_speed_limit():
+                            msg_limit=SpeedLimit()
+                            msg_limit.header.stamp=node.get_clock().now().to_msg()
+                            msg_limit.percentage=False
+                            msg_limit.speed_limit=(NORMAL_LIMIT if menu=='NORMAL' else SOUP_LIMIT)
+                            s4_speed_pub.publish(msg_limit)
+                        send_speed_limit()
+                        last_limit=time.monotonic()
+                        # Drain callbacks so Controller Server applies the limit before Goal.
+                        for _ in range(6):spin_once(.15)
+                        print('S4_NAV2_ABSOLUTE_SPEED_LIMIT='+menu+' MPS='+
+                              str(NORMAL_LIMIT if menu=='NORMAL' else SOUP_LIMIT),flush=True)
                     start=state['odom']
                     scans_before=state['scan']
                     before=len(state['odom_track'])
@@ -197,6 +240,9 @@ def run(args):
                     deadline=time.monotonic()+280
                     while not completed.done() and time.monotonic()<deadline:
                         spin_once(.22)
+                        if args.menu_safety and time.monotonic()-last_limit>1.0:
+                            send_speed_limit()
+                            last_limit=time.monotonic()
                         if time.monotonic()-state['scan_t']>10 or time.monotonic()-state['odom_t']>10:
                             handle.cancel_goal_async()
                             raise RuntimeError('NAV_SENSOR_STALE_DURING_GOAL_'+label)
@@ -207,6 +253,7 @@ def run(args):
                     if response.status!=GoalStatus.STATUS_SUCCEEDED:
                         raise RuntimeError('NAV_GOAL_NOT_SUCCEEDED_'+label+':'+str(response.status))
                     for _ in range(5):spin_once(.20)
+                    if args.menu_safety:s4['active_menu']=None
                     traveled=max((math.dist(start,xy) for xy in state['odom_track'][before:]),default=0.)
                     if traveled<1.0:
                         raise RuntimeError('NAV_PHYSICAL_ODOM_INSUFFICIENT_'+label+':'+str(round(traveled,3)))
@@ -223,8 +270,10 @@ def run(args):
                     print('S3_NAV02_GOAL_SUCCEEDED='+label+' ODOM_M='+str(round(traveled,3))+
                           ' AMCL_ERROR_M='+str(round(error,3)),flush=True)
                     return evidence
-                legs=[goto(contract['table3_map_xy'],-math.pi/2,'TABLE_3'),
-                      goto(contract['pickup_map_xy'],0.,'PICKUP_RETURN')]
+                legs=[goto(contract['table3_map_xy'],-math.pi/2,'TABLE_3',
+                           menu='NORMAL' if args.menu_safety else None),
+                      goto(contract['pickup_map_xy'],0.,'PICKUP_RETURN',
+                           menu='SOUP' if args.menu_safety else None)]
                 # The preflight result is NO_GOAL only until the action legs finish.
                 result['kind']='s3_real_gazebo_navigation_delivery_return'
                 result['goal_sent']=True
@@ -232,6 +281,85 @@ def run(args):
                 result['delivery_return']=True
                 args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
                 print('RESTAURANT_S3_NAV02_REAL_GAZEBO_DELIVERY_RETURN_PASS',flush=True)
+                if args.menu_safety:
+                    normal=measured_speed('NORMAL',s4['speed_samples']['NORMAL'])
+                    soup=measured_speed('SOUP',s4['speed_samples']['SOUP'])
+                    measured=compare_speeds(normal,soup)
+                    result['s4_menu_speed']=measured
+                    result['kind']='s4_gazebo_menu_speed_pending_safety_stop'
+                    args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                    print('S4_MENU_NORMAL_SOUP_REAL_ODOM_SPEED_PASS N_P75_MPS='+
+                          str(normal['p75_mps'])+' S_P75_MPS='+str(soup['p75_mps']),flush=True)
+
+                    # Real Gazebo physical fixture and real LiDAR/CM output only.
+                    # A bounded 0.08 m/s CI probe into the *upstream* CM input
+                    # checks its actual STOP filtering, not an alternate robot controller.
+                    gt=GazeboModelPose()
+                    try:
+                        gt.start()
+                        wait(lambda:gt.fresh() and gt.samples>=2,12,'S4_GAZEBO_MODEL_POSE')
+                        rx,ry,ryaw=gt.pose
+                        if math.dist((rx,ry),(-2.60,-2.20))>.80:
+                            raise RuntimeError('S4_ROBOT_NOT_BACK_AT_PICKUP')
+                        fx=rx+.60*math.cos(ryaw)
+                        fy=ry+.60*math.sin(ryaw)
+                        fixture=args.evidence.parent/'s4_collision_fixture.sdf'
+                        fixture.write_text(fixture_sdf())
+                        created=subprocess.run(
+                            ['ros2','run','ros_gz_sim','create','-name','s4_collision_fixture',
+                             '-file',str(fixture),'-x',str(fx),'-y',str(fy),'-z','.25'],
+                            capture_output=True,text=True,timeout=28,check=False)
+                        if created.returncode!=0 or 'successful' not in created.stdout.lower():
+                            raise RuntimeError('S4_GAZEBO_FIXTURE_NOT_CREATED:'+
+                                               repr((created.stdout+created.stderr)[-350:]))
+                        initial_scan_count=state['scan']
+                        wait(lambda:state['scan']>=initial_scan_count+4 and
+                             front_obstacle_points(s4['scan'])>=4,18,
+                             'S4_PHYSICAL_FIXTURE_LIDAR_OBSERVATION')
+                        if s4_probe.get_subscription_count()<1:
+                            raise RuntimeError('S4_CM_UPSTREAM_TOPIC_SUBSCRIBER_MISSING')
+                        # Guarantee the robot has settled at the Nav2 return goal.
+                        start_xy=state['odom']
+                        start_t=time.monotonic()
+                        marker=time.monotonic()
+                        positive_probe=Twist()
+                        positive_probe.linear.x=.08
+                        while time.monotonic()-start_t<1.8:
+                            s4_probe.publish(positive_probe)
+                            spin_once(.12)
+                        s4_probe.publish(Twist())
+                        for _ in range(8):spin_once(.15)
+                        stopped=any(t>=marker and a==CollisionMonitorState.STOP
+                                    and name=='S4ForwardStop' for t,a,name in s4['cm_states'])
+                        outputs=[v for t,v in s4['cmd_out'] if t>=marker]
+                        positive_input=any(t>=marker and v>=.075 for t,v in s4['cmd_in'])
+                        moved=math.dist(start_xy,state['odom'])
+                        if not positive_input or not stopped or len(outputs)<3:
+                            raise RuntimeError('S4_CM_STOP_CHAIN_UNPROVEN:'+
+                                json.dumps({'input_seen':positive_input,'cm_stop':stopped,
+                                            'cmd_out_count':len(outputs),
+                                            'front_points':front_obstacle_points(s4['scan'])}))
+                        if max(abs(v) for v in outputs)>.025 or moved>.045:
+                            raise RuntimeError('S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED:'+
+                                json.dumps({'cmd_out_max':max(abs(v) for v in outputs),
+                                            'odom_motion_m':moved}))
+                        result['s4_safety_stop']={
+                            'fixture':'physical_gazebo_sdf_cylinder',
+                            'gazebo_fixture_world_xy':[round(fx,3),round(fy,3)],
+                            'scan_front_obstacle_points':front_obstacle_points(s4['scan']),
+                            'cm_state':'STOP','polygon':'S4ForwardStop',
+                            'upstream_positive_command_seen':True,
+                            'filtered_output_max_abs_mps':round(max(abs(v) for v in outputs),4),
+                            'physical_odom_motion_m':round(moved,4)}
+                        result['kind']='s4_real_gazebo_menu_speed_and_collision_stop'
+                        result['s4_complete']=True
+                        args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                        print('S4_COLLISION_MONITOR_REAL_SCAN_STOP_PASS',flush=True)
+                        print('RESTAURANT_S4_MENU01_REAL_GAZEBO_PASS',flush=True)
+                    finally:
+                        if s4_probe is not None:
+                            s4_probe.publish(Twist())
+                        gt.close()
     except Exception as exc:
         print('RESTAURANT_S3_AMCL_L2_BLOCKED='+str(exc),file=sys.stderr,flush=True)
         raise
@@ -258,6 +386,7 @@ def run(args):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--exercise-goals',action='store_true')
+    p.add_argument('--menu-safety',action='store_true')
     p.add_argument('--robot-sdf',type=Path,required=True)
     p.add_argument('--params',type=Path,required=True)
     p.add_argument('--map',type=Path,required=True)
