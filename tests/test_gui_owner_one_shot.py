@@ -13,7 +13,8 @@ def test_gui_owner_syntax_and_no_goal_self_test():
 def test_gui_owner_is_pinned_and_never_maps_or_sends_goals():
     src=OWNER.read_text()
     assert 'f39dc1757588b9f7cde1a56f73659f629c57e703' in src
-    assert '"$OWNER" navigation NORMAL' in src
+    assert 'OWNER_ARGS=(navigation NORMAL' in src
+    assert 'setsid bash "$OWNER" "${OWNER_ARGS[@]}" &' in src
     assert 'NO_GOAL' in src
     assert 'pkill' not in src and 'killall' not in src
     assert 'python3 - <<' in src

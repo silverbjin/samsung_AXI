@@ -10,14 +10,17 @@ REF="${SAMSUNG_AXI_REF:-main}"
 WORKSPACE="${SAMSUNG_AXI_WORKSPACE:-$HOME/samsung_AXI}"
 INSTALL_DEPS=1
 SELF_TEST=0
+LIVE_APPROVED=0
 
 usage() {
   cat <<'USAGE'
-Usage: bash owner_wsl2_once.sh [world|mapping|navigation|demo|doctor] [NORMAL|SOUP] [--ref <commit-sha-or-main>] [--workspace <directory>] [--no-install-deps]
+Usage: bash owner_wsl2_once.sh [world|mapping|navigation|demo|live|doctor] [NORMAL|SOUP] [--ref <commit-sha-or-main>] [--workspace <directory>] [--no-install-deps]
   world       Gazebo GUI + Waffle Pi + registered RGB-D + LiDAR (NO GOAL, default)
   mapping     Gazebo + official SLAM Toolbox, manual mapping (NO GOAL)
   navigation  Gazebo + existing saved map + Nav2, no automatic goal
-  demo        Real Nav2 delivery/return (requires an observed valid saved map)
+  demo        Legacy Nav2 delivery/return (requires an observed valid saved map)
+  live        S5 GUI: real Nav2 NORMAL out / SOUP return / physical CM STOP
+              requires --goals-approved AND terminal YES-S5-LIVE-GOALS
   doctor      Dependency/WSLg diagnostic, NO GOAL
   --self-test Syntax/runtime argument smoke only; does not install or launch ROS
 
@@ -34,15 +37,26 @@ while [[ $# -gt 0 ]]; do
     --ref) [[ $# -ge 2 ]] || { echo 'ERROR: --ref needs a value' >&2; exit 2; }; REF="$2"; shift 2 ;;
     --workspace) [[ $# -ge 2 ]] || { echo 'ERROR: --workspace needs a directory' >&2; exit 2; }; WORKSPACE="$2"; shift 2 ;;
     --no-install-deps) INSTALL_DEPS=0; shift ;;
+    --goals-approved) LIVE_APPROVED=1; shift ;;
     --self-test) SELF_TEST=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "ERROR: unknown argument $1" >&2; usage; exit 2 ;;
   esac
 done
-case "$MODE" in world|mapping|navigation|demo|doctor) ;; *) usage; exit 2 ;; esac
+case "$MODE" in world|mapping|navigation|demo|live|doctor) ;; *) usage; exit 2 ;; esac
 case "$MENU" in NORMAL|SOUP) ;; *) echo 'ERROR: menu must be NORMAL or SOUP' >&2; exit 2 ;; esac
 if [[ "$REF" != main && ! "$REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
   echo 'ERROR: --ref must be main or 40-character commit SHA' >&2; exit 2
+fi
+if [[ "$MODE" == live ]]; then
+  if (( ! LIVE_APPROVED )); then
+    echo 'S5_LIVE_BLOCKED_GOALS_APPROVAL_REQUIRED' >&2
+    exit 2
+  fi
+  export SAMSUNGAXI_S5_GOALS_APPROVED=YES-S5-LIVE-GOALS
+elif (( LIVE_APPROVED )); then
+  echo 'S5_GOAL_APPROVAL_ONLY_VALID_FOR_LIVE' >&2
+  exit 2
 fi
 if (( SELF_TEST )); then
   echo 'RESTAURANT_OWNER_WSL2_SELF_TEST_PASS_NO_ROS_NO_GOAL'
