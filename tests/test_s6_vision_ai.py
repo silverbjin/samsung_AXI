@@ -17,7 +17,7 @@ def test_training_provenance_and_real_prediction_contract(tmp_path):
     p0=tmp_path/'empty.ppm';p1=tmp_path/'stacked.ppm'
     ppm(p0,32,32,a);ppm(p1,32,32,b)
     model=ml.train(p0,p1,tmp_path/'model.json')
-    assert model['algorithm']=='supervised_two_prototype_rgb_grid'
+    assert model['algorithm']=='supervised_two_prototype_rgb_layers'
     assert ml.infer(model,a,32,32)['result']=='NOT_STACKED'
     pos=ml.infer(model,b,32,32)
     assert pos['result']=='STACKED'
