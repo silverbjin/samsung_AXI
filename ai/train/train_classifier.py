@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """C01: run one ResNet18 baseline (frozen) or one small fine-tuning phase.
 
-Never trains on B contract fixtures, official DACON generic structure images,
-or S7 STACKED/NOT_STACKED images. Run from repository root with python -m.
+Production training only accepts PHYSICS_OBSERVED. Explicit --demo-fixtures
+allows isolated B-generated MOCK_ONLY pipeline smoke, never a deployable model.
+Neither mode accepts DACON generic structures or S7 plate-presence labels.
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ def train(args):
     from PIL import Image
     from torch.utils.data import DataLoader, Dataset
 
-    rows = read_verified_split(args.split_manifest, args.root)
+    rows = read_verified_split(args.split_manifest, args.root, demo_fixtures=args.demo_fixtures)
     if args.phase == "finetune" and not args.init_checkpoint:
         raise ValueError("C_FINETUNE_BASELINE_CHECKPOINT_REQUIRED")
     random.seed(args.seed)
@@ -45,12 +46,17 @@ def train(args):
         for s in ("train", "val")
     }
     if args.phase == "frozen":
-        model = new_resnet18(pretrained=True)
+        model = new_resnet18(pretrained=not args.demo_fixtures)
         for name, param in model.named_parameters():
             param.requires_grad = name.startswith("fc.")
     else:
         from ai.evaluation.stability_model import load_checkpoint
-        model, _ = load_checkpoint(args.init_checkpoint)
+        import torch
+        metadata = torch.load(args.init_checkpoint, map_location="cpu", weights_only=True)
+        current_sha = hashlib.sha256(args.split_manifest.read_bytes()).hexdigest()
+        if metadata.get("split_manifest_sha256") != current_sha:
+            raise ValueError("C_FINETUNE_SPLIT_SHA_MISMATCH")
+        model, _ = load_checkpoint(args.init_checkpoint, allow_mock=args.demo_fixtures)
         for name, param in model.named_parameters():
             param.requires_grad = name.startswith(("layer4.", "fc."))
     model.to(args.device)
@@ -86,17 +92,22 @@ def train(args):
     args.out.parent.mkdir(parents=True, exist_ok=True)
     torch.save({"architecture": "resnet18_single_rgb", "labels": list(LABELS),
                 "image_size": IMAGE_SIZE, "mean": list(MEAN), "std": list(STD),
-                "data_scope": "PHYSICS_OBSERVED", "phase": args.phase,
+                "data_scope": "MOCK_ONLY" if args.demo_fixtures else "PHYSICS_OBSERVED",
+                "weight_init": "RANDOM_DEMO_ONLY" if args.demo_fixtures and args.phase == "frozen" else "PRETRAINED_OR_FINETUNED",
+                "phase": args.phase,
                 "split_manifest_sha256": hashlib.sha256(args.split_manifest.read_bytes()).hexdigest(),
                 "model_state_dict": best_state}, args.out)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     report = {"phase": args.phase, "seed": args.seed, "device": args.device,
+              "data_scope": "MOCK_ONLY" if args.demo_fixtures else "PHYSICS_OBSERVED",
+              "deployment_allowed": not args.demo_fixtures,
+              "training_evidence": "DEMO_PIPELINE_ONLY" if args.demo_fixtures else "REAL_TRAINING",
               "split_manifest_sha256": hashlib.sha256(args.split_manifest.read_bytes()).hexdigest(),
               "checkpoint_sha256": hashlib.sha256(args.out.read_bytes()).hexdigest(),
               "checkpoint": str(args.out), "dataset": summarize(rows),
               "epochs": history, "test_used_for_training": False}
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f'C_{args.phase.upper()}_TRAINED ' + json.dumps({
+    print(f'C_{"MOCK_ONLY_" if args.demo_fixtures else ""}{args.phase.upper()}_TRAINED ' + json.dumps({
         "checkpoint_sha256": report["checkpoint_sha256"], "val_loss": best_val}))
 
 
@@ -105,6 +116,8 @@ def main():
     p.add_argument("--split-manifest", type=Path, default=Path("ai/data/split_manifest.csv"))
     p.add_argument("--root", type=Path, default=Path("."))
     p.add_argument("--phase", choices=("frozen", "finetune"), required=True)
+    p.add_argument("--demo-fixtures", action="store_true",
+                   help="Opt-in B MOCK_ONLY samples; random init; never deployable")
     p.add_argument("--init-checkpoint", type=Path)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--report", type=Path, required=True)

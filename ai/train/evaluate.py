@@ -38,14 +38,14 @@ def classification_metrics(truth: list[str], pred: list[str]) -> dict:
 
 def evaluate(args):
     from PIL import Image
-    rows = read_verified_split(args.split_manifest, args.root)
+    rows = read_verified_split(args.split_manifest, args.root, demo_fixtures=args.demo_fixtures)
     checkpoint_sha = hashlib.sha256(args.checkpoint.read_bytes()).hexdigest()
     import torch
     metadata = torch.load(args.checkpoint, weights_only=True, map_location="cpu")
     manifest_sha = hashlib.sha256(args.split_manifest.read_bytes()).hexdigest()
     if metadata.get("split_manifest_sha256") != manifest_sha:
         raise ValueError("C_EVALUATION_SPLIT_SHA_MISMATCH")
-    model, model_version = load_checkpoint(args.checkpoint, device=args.device)
+    model, model_version = load_checkpoint(args.checkpoint, device=args.device, allow_mock=args.demo_fixtures)
     truth, pred, scores = [], [], []
     for row in rows:
         if row["split"] != "test":
@@ -58,10 +58,13 @@ def evaluate(args):
     report = {"model_version": model_version, "checkpoint_sha256": checkpoint_sha,
               "split_manifest_sha256": manifest_sha, "metrics": classification_metrics(truth, pred),
               "test_confidences": scores, "test_predictions": pred,
-              "data_scope": "PHYSICS_OBSERVED", "evaluation_scope": "INDEPENDENT_B_TEST"}
+              "data_scope": "MOCK_ONLY" if args.demo_fixtures else "PHYSICS_OBSERVED",
+              "evaluation_scope": "MOCK_ONLY_SANITY_CHECK" if args.demo_fixtures else "INDEPENDENT_B_TEST",
+              "performance_claim_allowed": not args.demo_fixtures}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print("C_INDEPENDENT_TEST_EVALUATED " + json.dumps(report["metrics"], sort_keys=True))
+    print(("C_MOCK_ONLY_TEST_EVALUATED " if args.demo_fixtures else "C_INDEPENDENT_TEST_EVALUATED ")
+          + json.dumps(report["metrics"], sort_keys=True))
     return report
 
 
@@ -72,6 +75,7 @@ def main():
     p.add_argument("--checkpoint", type=Path, required=True)
     p.add_argument("--report", type=Path, required=True)
     p.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    p.add_argument("--demo-fixtures", action="store_true", help="Opt-in MOCK_ONLY diagnostic metrics, not model performance")
     evaluate(p.parse_args())
 
 

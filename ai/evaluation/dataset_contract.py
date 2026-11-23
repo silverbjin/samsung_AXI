@@ -17,8 +17,11 @@ LABEL_MAP = {"STABLE": 0, "UNSTABLE": 1}
 SPLITS = ("train", "val", "test")
 
 
-def read_verified_split(manifest: Path, root: Path) -> list[dict[str, str]]:
-    """Fail closed on missing/empty/synthetic/unlicensed/cross-split images."""
+def read_verified_split(manifest: Path, root: Path, *, demo_fixtures: bool = False) -> list[dict[str, str]]:
+    """Validate a strict real-data or explicitly isolated B MOCK_ONLY fixture split.
+
+    A caller must opt into demo_fixtures. No mixed real/mock provenance is allowed.
+    """
     import json
     from PIL import Image
 
@@ -42,7 +45,10 @@ def read_verified_split(manifest: Path, root: Path) -> list[dict[str, str]]:
             raise ValueError("C_INVALID_LABEL")
         if row["split"] not in SPLITS:
             raise ValueError("C_INVALID_SPLIT")
-        if row["ground_truth"] != "PHYSICS_OBSERVED" or row["source"] not in ("GAZEBO_TRAY", "REAL_TRAY"):
+        if demo_fixtures:
+            if row["ground_truth"] != "MOCK_ONLY" or row["source"] != "CONTRACT_FIXTURE":
+                raise ValueError("C_DEMO_REQUIRES_B_MOCK_ONLY_FIXTURES")
+        elif row["ground_truth"] != "PHYSICS_OBSERVED" or row["source"] not in ("GAZEBO_TRAY", "REAL_TRAY"):
             raise ValueError("C_FIXTURE_OR_UNVERIFIED_GROUND_TRUTH")
         if row["license_status"] not in ("OWNED", "AUTHORIZED"):
             raise ValueError("C_DATA_LICENSE_NOT_APPROVED")
@@ -54,7 +60,12 @@ def read_verified_split(manifest: Path, root: Path) -> list[dict[str, str]]:
             cfg = json.loads(row["capture_config"])
         except (ValueError, TypeError) as exc:
             raise ValueError("C_INVALID_CAPTURE_CONFIG") from exc
-        if not isinstance(cfg, dict) or not cfg.get("physics_evidence"):
+        if not isinstance(cfg, dict):
+            raise ValueError("C_INVALID_CAPTURE_CONFIG")
+        if demo_fixtures:
+            if cfg.get("camera") != "synthetic_contract_only":
+                raise ValueError("C_DEMO_CAMERA_NOT_B_FIXTURE")
+        elif not cfg.get("physics_evidence"):
             raise ValueError("C_PHYSICS_EVIDENCE_REFERENCE_MISSING")
         rel = Path(row["image_path"])
         if rel.is_absolute() or ".." in rel.parts:

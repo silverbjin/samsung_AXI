@@ -30,7 +30,7 @@ def new_resnet18(*, pretrained: bool):
     return model
 
 
-def load_checkpoint(path: Path, device: str = "cpu"):
+def load_checkpoint(path: Path, device: str = "cpu", *, allow_mock: bool = False):
     import torch
 
     if not path.is_file():
@@ -41,7 +41,7 @@ def load_checkpoint(path: Path, device: str = "cpu"):
             checkpoint.get("image_size") != IMAGE_SIZE or
             tuple(checkpoint.get("mean", [])) != MEAN or
             tuple(checkpoint.get("std", [])) != STD or
-            checkpoint.get("data_scope") != "PHYSICS_OBSERVED"):
+            checkpoint.get("data_scope") != ("MOCK_ONLY" if allow_mock else "PHYSICS_OBSERVED")):
         raise ValueError("C_MODEL_CONTRACT_MISMATCH")
     model = new_resnet18(pretrained=False)
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
