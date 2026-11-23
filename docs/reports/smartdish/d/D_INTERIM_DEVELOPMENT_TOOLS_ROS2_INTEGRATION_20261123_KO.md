@@ -106,7 +106,7 @@ flowchart LR
 | 6 | `/collection/stability` | **C → D Manager** | `request_id, capture_id, status, confidence, model_version` | STABLE/UNKNOWN/UNSTABLE 결과 |
 | 7 | `/collection/staff_confirm` | **D UI → D Manager** | `request_id, action` | 직원 APPROVE_CONTINUE/ABORT |
 
-위 내용은 [실제 D 계약 fixture](../../integration/smartdish_d_contract_fixtures_v1.json)와 [A 계약 파서](https://github.com/silverbjin/samsung_AXI/blob/feat/smartdish-a-robot/src/smartdish_robot/smartdish_robot/contract.py)에 근거합니다.
+위 내용은 [실제 D 계약 fixture](../../../integration/smartdish_d_contract_fixtures_v1.json)와 [A 계약 파서](https://github.com/silverbjin/samsung_AXI/blob/feat/smartdish-a-robot/src/smartdish_robot/smartdish_robot/contract.py)에 근거합니다.
 
 ### 5.1 A에게 발행하는 Goal의 실제 예시
 
@@ -232,6 +232,6 @@ ros2 action info /navigate_to_pose
 | [D05 실행기](D05_WSL2_FAIL_FAST_RUNNER_EDU_KO.md), [D-DBG-003](D_DBG_003_GIT_WORKSPACE_COLLISION_EDU_KO.md), [D-DBG-004](D_DBG_004_CI_REMOTE_HEAD_RACE_EDU_KO.md) | Git 충돌·Fail-Fast·CI race |
 | [D07 UI QA](D07_UI_LAYOUT_CLIP_DEBUG_EDU_KO.md) | 시각 오류 수정·11개 회귀·사용자 실제 QA |
 | [A-09 WSL2 인수](../../tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md) | A만 실제 로봇 단독 3구간 검증 |
-| [E 핸드오프](../../handoff/D_HANDOFF.md) | 실제 A+D 연결 시 확인할 실행 SHA·로그·증거 |
+| [E 핸드오프](../../../handoff/D_HANDOFF.md) | 실제 A+D 연결 시 확인할 실행 SHA·로그·증거 |
 
 **변경 범위:** 이번 중간보고서 작성 자체는 문서·인계 상태만 수정합니다. D 서비스·A 로봇·Nav2·Gazebo 코드를 변경하지 않으며, 기존 성공 CI/실제 주행 증거를 보존합니다. 수정 후 새 Docs-only 커밋의 CI는 별도 확인하여 경계가 바뀌지 않았는지만 점검합니다.
