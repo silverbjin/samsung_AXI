@@ -30,4 +30,14 @@
 3. Nav2가 너무 빨리 시작되는 부하를 줄이기 위해 10초를 지연하면 무엇이 증명되나요? 아직 없습니다. CI의 실제 런타임 근거가 필요합니다.
 
 ## 상태 (개발 직후)
-코드/교육 보고서 커밋 완료. G09 신규 L0/L1/L2 = NOT_RUN, WSL2 L3 = NOT_RUN. Main 병합 HOLD.
+코드/교육 보고서 커밋 완료. G09 신규 L0/L1/L2=PASS(같은 기능 시나리오의 CI 실증). WSL2 L3=NOT_RUN. Main 병합 HOLD.
+
+## GREEN — 새 SHA의 실제 Gazebo L2 원본 확인 (2026-11-23)
+- L0 최초 `966029e...`는 test 파일의 Python 문자열 인용 오류로 실패. 최소 수정 `9d402a991d1ee0a1c46027abe91a55266b69d9bd` 후 정적 L0 PASS.
+- [실제 Gazebo S6 Run #45106929216](https://github.com/silverbjin/samsung_AXI/actions/runs/45106929216), 검증 런타임 SHA **`9d402a991d1ee0a1c46027abe91a55266b69d9bd`**. L0/L1/L2 모두 SUCCESS.
+- TABLE_3 Action SUCCEEDED 5.137m, AMCL error 0.206m, Scan 241개 추가; 실제 도착 후 정지 확인 다음 RGB 320×240 **3프레임** 수신.
+- Vision `STACKED`, confidence `0.6652`, image SHA256 `4922a3f48d75ceb8206e67b20c54b35b54595a2eb51649f5566f827d6454e7a5`; 이 판정 뒤에만 PICKUP_RETURN Goal 전송.
+- PICKUP_RETURN Action SUCCEEDED 5.054m, AMCL error 0.160m; NORMAL/SOUP p75 = 0.23/0.11m/s.
+- LiDAR 장애물 29점 → CM STOP, 필터링 `/cmd_vel` 최대 0.0m/s(68개 표본), 정지 중 Odom 이동 0.0m. `S6_VISION_REAL_GAZEBO_L2_INTEGRATED_PASS` 및 `S6_REAL_GAZEBO_TABLE_VISION_RETURN_L2_PASS` 확인.
+- [원본 Artifact #14787673933](https://github.com/silverbjin/samsung_AXI/actions/runs/45106929216/artifacts/14787673933) ZIP SHA256 `a9ee749ef91586b27a19de04e6e2cc902176701d3f66971c4225ab1a96cd528c`; 생성된 `nav2.yaml` BT `default_server_timeout=200`, Local Costmap scan-only, CM cmd_vel_smoothed→cmd_vel 증명.
+- 제한: 해당 1회 실증 PASS는 OpenGL/NVIDIA/WSLg 직접 검증이 아니며 첫 두 실패가 장기적으로 절대 재발하지 않는다는 통계적 증거도 아닙니다. 그러나 기존 실패 경계가 없는 완전한 실제 L2 주행 성공을 확보했습니다.
