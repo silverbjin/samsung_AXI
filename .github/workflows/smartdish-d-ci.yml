@@ -44,7 +44,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           apt-get update -qq
-          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-yaml python3-tk
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-yaml python3-tk python3-pytest git
           set +u
           source /opt/ros/jazzy/setup.bash
           set -u
@@ -70,3 +70,13 @@ jobs:
           rclpy.shutdown()
           print('SMARTDISH_D_L1_STEADY_TIMER_API_PASS_NO_GOAL')
           PY
+
+      - name: Real Jazzy D05 published runner verify (separate worktree, NO_GOAL)
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          SMARTDISH_D_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          bash scripts/smartdish_d_wsl2_one_shot.sh --verify
+          echo SMARTDISH_D05_L1_REAL_ROS_RUNNER_PASS_NO_GOAL
