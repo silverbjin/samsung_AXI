@@ -112,6 +112,13 @@ ros2 topic pub --once /collection/nav_goal std_msgs/msg/String \
 
 위 /odom 수치는 **누적 주행거리 아닌 시작점 대비 최대 변위**입니다. 프로젝트 JSON 두 토픽 및 기존 Map/AMCL/Collision Monitor 경로를 실제로 사용했습니다. D UI의 10초/5초 대기와 최종 `COMPLETED`는 **NOT_RUN**으로 구분하고 A/D 통합 단계에서 확인해야 합니다.
 
+### 운영 YAML 직접 사용 최종 R04 실증
+
+- [운영 SHA `5b063a0` 기반 Gazebo L2 Run #45125551884](https://github.com/silverbjin/samsung_AXI/actions/runs/45125551884) **PASS**: 3 Nav2 SUCCEEDED, odom 최대 변위 **5.148/6.462/1.958m**, AMCL 오차 **0.189/0.142/0.235m**.
+- [R04 증거 Artifact #14795667913](https://github.com/silverbjin/samsung_AXI/actions/runs/45125551884/artifacts/14795667913): `l2_evidence.json`, `smartdish_a_gazebo.log`.
+- [A-06 교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-06_return_pose_release_EDU_KO.md)에서 후보→운영 좌표 승격과 이력을 확인할 수 있습니다.
+- D/E 통합자는 반드시 **A 브랜치의 실제 사용 SHA 및 `table_poses.yaml`**을 함께 고정하십시오. A 단독 실제 주행 성공은 D UI `COMPLETED`의 증거가 아닙니다.
+
 ## 6. 증거·디버깅·버전
 
 ```bash
@@ -128,7 +135,8 @@ ros2 topic echo /odom --once
 
 - [원격 A L0 25 PASS + ROS Jazzy L1 PASS #45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792), 실행 SHA `e069a13`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`.
 - [CLI 디버깅 수정 후 L0 26 PASS #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), 실행 SHA `bae0c36`. ROS Jazzy L1 빌드·실행 엔트리포인트 **PASS**. 후속 보고서 커밋은 문서만 변경됨.
-- [실제 Gazebo 3-leg L2 #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004): `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS`, 3 × SUCCEEDED, 3개 odom 변위와 AMCL 오차 기록. D UI 완료만 **NOT_RUN**.
+- [후보 YAML 실제 L2 #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004): `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS`, 3 × SUCCEEDED.
+- [운영 YAML 실제 L2 #45125551884](https://github.com/silverbjin/samsung_AXI/actions/runs/45125551884): **최종 출고 SHA 5b063a0**, 3 × SUCCEEDED와 odom/AMCL, A `ROBOT_ONLY` PASS. D UI 완료만 **NOT_RUN**.
 
 ## 8. 보고서 이력과 남은 경계
 

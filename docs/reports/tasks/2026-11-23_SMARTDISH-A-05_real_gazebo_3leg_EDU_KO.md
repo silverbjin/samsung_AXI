@@ -1,7 +1,7 @@
 # SMARTDISH-A-05 — Gazebo 실제 3구간 Nav2/odom 교육용 인수 보고서
 
 - 날짜: 2026-11-23 KST
-- 현재 상태: **A-05 실제 Gazebo 3-leg L2 PASS / R03 #45124877004**, 후속 D 통합 NOT_RUN. 앞선 R01/R02 RED는 하단에 별도 보존.
+- 현재 상태: **A-05 실제 Gazebo 3-leg L2 PASS / R03 후보 및 R04 운영 YAML 동일 3/3 SUCCEEDED**, 후속 D 통합 NOT_RUN. 앞선 R01/R02 RED는 하단에 별도 보존.
 - 기준 S7 main: `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`
 - A 후보: `map (-1.15,1.60,-1.57079632679)`, S2-MAP-03 실제 World surveyed waypoint #5
 - A 개발 브랜치: `feat/smartdish-a-robot`
@@ -69,3 +69,20 @@ TTY 승인 함수를 ROS 독립 모듈로 이동한 뒤 기존 `test_smartdish_a
 3구간 종료 마커: `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS`, `SMARTDISH_A_REAL_GAZEBO_L2_EVIDENCE_VERIFIED`. 각 /odom 값은 **구간 시작점 대비 최대 위치 변화**입니다(누적 주행 길이 아님). L2 JSON 및 Gazebo 로그는 해당 Run의 GitHub Actions Artifact `smartdish-a-l2-evidence-45124877004`에 보존되었습니다.
 
 **판정 경계:** A 단독 로봇 이동만 `ROBOT_ONLY_REAL_GAZEBO_L2_PASS`. D 서비스 UI의 실제 `COMPLETED`, 대기시간 10초/5초, AI ON 판정은 검증하지 않았습니다. 실제 현장 WSL2 L3도 재실행하지 않았습니다.
+
+## 9. R04 — 운영 YAML 자체로 재실행한 최종 L2 GREEN
+
+- **실행 SHA:** `5b063a0076a78f624171e401f8041fce86d36a4e` (실제 운영 `table_poses.yaml`에 DISH_RETURN 좌표가 반영된 코드).
+- **CI:** [#45125551884](https://github.com/silverbjin/samsung_AXI/actions/runs/45125551884), L0 정적 지도/TTY 회귀 **6 PASS**, 실제 Gazebo L2 Job **PASS**.
+- **증거 아티팩트:** [smartdish-a-l2-evidence-45125551884](https://github.com/silverbjin/samsung_AXI/actions/runs/45125551884/artifacts/14795667913) — `l2_evidence.json` 및 `smartdish_a_gazebo.log`.
+- **상관관계:** `request_id=SMARTDISH-A-CI-L2-001`, 세 구간 각각 실제 `/collection/nav_goal`과 `/collection/nav_result` (모두 `SUCCEEDED`, `reason=""`).
+
+| 구간 | Nav2 Action | odom 최대 변위 (m) | odom 표본 | scan 표본 | AMCL 오차 (m) |
+|---|---|---:|---:|---:|---:|
+| HOME→T03 | SUCCEEDED | 5.148 | 669 | 134 | 0.189 |
+| T03→DISH_RETURN | SUCCEEDED | 6.462 | 925 | 185 | 0.142 |
+| DISH_RETURN→HOME | SUCCEEDED | 1.958 | 571 | 114 | 0.235 |
+
+`A_L2_REAL_GAZEBO_PREFLIGHT_PASS_NO_GOAL` → `SMARTDISH_A_OPERATOR_APPROVED` → `SMARTDISH_A_READY` → 3개 목표 실제 이동 → `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS` → `SMARTDISH_A_REAL_GAZEBO_L2_EVIDENCE_VERIFIED`.
+
+**R03↔R04 비교 해석:** 본 작업의 목적은 반복 성능 수치 개선이 아니라 **후보 파일로 검증한 좌표가 운영 파일에서도 실제 작동하는지** 확인하는 것입니다. odom 값은 누적 이동거리 아님. Nav2 성공과 실제 관측만을 근거로 A `ROBOT_ONLY_REAL_GAZEBO_L2_PASS`로 판정하며, D의 사용자 타이머와 UI `COMPLETED`는 별도 통합 인수입니다.
