@@ -72,7 +72,8 @@ jobs:
           set -u
           mkdir -p generated/s6
           MODEL="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
-          python3 scripts/prepare_waffle_rgbd.py --source "$MODEL"             --out generated/s6/waffle.sdf --rgbd-rate-hz 2
+          python3 scripts/prepare_waffle_rgbd.py --source "$MODEL"             --out generated/s6/waffle.sdf --rgbd-rate-hz 2 \
+            --vision-camera-offset-z 0.65
       - name: Collect real images from empty and stacked table
         shell: bash
         run: |
