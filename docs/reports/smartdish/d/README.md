@@ -33,3 +33,9 @@ D05는 기존 `~/samsung_AXI`를 보존하며 전용 worktree로 검증합니다
 - [D07 UI 잘림 원인·수정·검증 교육 보고서](D07_UI_LAYOUT_CLIP_DEBUG_EDU_KO.md)
 - 코드: `355d12ab807daff986072355d9d733894c47cd09` / UI 입력을 1열 세로 배치하고 Canvas를 동적으로 축소
 - 검증 경계: L0/ROS Jazzy L1과 강사 WSLg 화면 시각검수는 별개; WSLg 현장 NOT_RUN
+
+## D 중간 개발 회고 — 도구·ROS 2 연동·실제 UI 승인 (2026-11-23)
+
+- [D 중간 개발 보고서: 도구 선정→코드→FSM/ROS→A 통합](D_INTERIM_DEVELOPMENT_TOOLS_ROS2_INTEGRATION_20261123_KO.md)
+- [D07 화면 결함·수정 근거](D07_UI_LAYOUT_CLIP_DEBUG_EDU_KO.md): **사용자 IDLE 화면 시각 QA PASS (2026-11-23)**, 실제 동적 UI와 A+D 주행은 NOT_RUN
+- 사용자 제공 `image(20261123-073249).png` (1219×769, SHA-256 `60a0cc670e1a7349cb4306c8f456cfd5dc6a75566674a58c03b22deefa933c08`) — 화면 이미지 원본은 채팅 첨부, GitHub에는 증거 해시·검수 판정만 기록

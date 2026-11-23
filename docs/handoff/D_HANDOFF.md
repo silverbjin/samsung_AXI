@@ -119,3 +119,14 @@ ros2 topic echo /collection/status std_msgs/msg/String
 ### D07 CI 검증 증거
 - 기준 SHA `7684a142dd3a5a79a552c93594b4ac8eb1374d0e`: [Push #45128054346](https://github.com/silverbjin/samsung_AXI/actions/runs/45128054346), [PR #45128060613](https://github.com/silverbjin/samsung_AXI/actions/runs/45128060613) 모두 L0 51 PASS / ROS Jazzy L1 PASS.
 - 사용자 WSLg 실제 화면 재검은 NOT_RUN이며 자동 CI 게이트가 아닙니다.
+
+## D 중간 인계 — 최신 증거 기준 (2026-11-23)
+
+> **본 절이 위의 과거 `DISH_RETURN=null`, D 화면 `NOT_RUN` 표기보다 최신입니다.** 앞선 문장은 과거 기록이므로 최초 오류/개발 이력으로 보존합니다.
+
+- **D 코드/CI 기준:** `4cc64bbc05f769c06d93ba055f03a12e75a601de`, [Push #45128345725](https://github.com/silverbjin/samsung_AXI/actions/runs/45128345725), [PR #45128351119](https://github.com/silverbjin/samsung_AXI/actions/runs/45128351119), Python L0 51 PASS + Jazzy L1 PASS.
+- **D UI IDLE 사용자 시각 QA:** **PASS**, 제출 파일 `image(20261123-073249).png` 1219×769, SHA-256 `60a0cc670e1a7349cb4306c8f456cfd5dc6a75566674a58c03b22deefa933c08`. 동적 화면은 NOT_RUN.
+- **A DISH_RETURN 좌표 미확정 이슈:** **해소됨.** A 운영 `table_poses.yaml`에는 `(-1.15,1.60,-1.57079632679)`가 들어 있으며, [A-09 WSL2 L3 실제 인수 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md)에 A_ROBOT_ONLY_WSL2_L3_PASS 증거가 있습니다.
+- **실제 남은 작업:** A Adapter의 `SMARTDISH_A_READY`/TTY·nav_goal 구독을 확보한 뒤 D Manager/UI와 **동일 request_id의 3개 실제 결과 + 10/5초 + UI COMPLETED** 통합 증거 확보. A 단독 one-shot 3-leg PASS와 구분합니다.
+- **교육용 중간 회고·7-topic JSON 계약·상세 흐름:** [D 중간 개발 보고서](../reports/smartdish/d/D_INTERIM_DEVELOPMENT_TOOLS_ROS2_INTEGRATION_20261123_KO.md).
+- D Draft PR #38 유지, `main` 병합 금지. 기존 S7/A/B/C 소스 변경 없음.

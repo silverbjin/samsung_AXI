@@ -121,3 +121,12 @@ python3 -m pytest -q tests/test_smartdish_d_ui.py tests/test_smartdish_d_service
 - **Gazebo 실제 3-leg NOT_RUN(D 변경 범위)**. Navigation Adapter와 A의 기존 실주행 증거는 수정하지 않았습니다.
 
 **인수 경계:** 코드 수정과 CI 회귀 성공은 검증 완료. 사용자의 동일 화면 조건에서 잘림 해소는 실제 시각 확인 후에만 최종 PASS로 처리합니다.
+
+## 9. 사용자 실제 WSLg 시각 재검수 최종 판정 (2026-11-23)
+
+- **사용자 직접 확인:** 수정 후 UI 화면을 다시 제출하고 “실제 화면 검수도 문제없다”고 승인했습니다.
+- 증거: `image(20261123-073249).png` / 실제 PNG `1219×769` / SHA-256 `60a0cc670e1a7349cb4306c8f456cfd5dc6a75566674a58c03b22deefa933c08`.
+- **PASS (범위 한정):** IDLE 화면의 오른쪽 시간 레이블·두 Spinbox 잘림 해소, T03 선택 가능 표시, 테이블/주방/HOME/RETURN 영역 및 안내 표시.
+- **NOT_RUN (유지):** UI의 실제 T03 클릭 후 서비스/카운트다운/직원 승인 동적 표시, A+D 실제 3구간 주행. 이번 정지 화면만으로 확장 판정하지 않습니다.
+- 4절·7절의 ‘사용자 현장 NOT_RUN’은 **이 검수 이전 기록**입니다. 현재 IDLE 화면의 최종 시각 상태는 본 9절로 갱신합니다.
+- 개발 도구 및 A/D ROS 계약 설명은 [D 중간 개발 보고서](D_INTERIM_DEVELOPMENT_TOOLS_ROS2_INTEGRATION_20261123_KO.md)를 참조합니다.

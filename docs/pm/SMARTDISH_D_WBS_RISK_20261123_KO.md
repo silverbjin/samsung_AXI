@@ -50,3 +50,10 @@
 
 ## 5. 변경 요청 정책
 토픽·필드·enum/QoS 변경 시 공통 계약 관리자 D가 \`docs/integration/CONTRACT_CHANGE_REQUEST.md\`로 변경 전후 JSON/영향(A,B,C,D)/검증을 작성하고 **E 승인 전** 임의 변경하지 않습니다. 이번 개발에서 계약 자체의 버전 변경은 없으며 내부 입력 검증만 강화했습니다.
+
+## 6. 2026-11-23 후속 실제 증거 반영(최신 상태)
+
+- D07 사용자 제공 실제 WSLg **IDLE 화면 시각 검수 PASS**. 원본 PNG SHA-256 `60a0cc670e1a7349cb4306c8f456cfd5dc6a75566674a58c03b22deefa933c08`. 코드 `355d12ab`, 최종 D 소스 검증 `4cc64bbc`, L0 51 PASS/ROS L1 PASS.
+- **R-D1 과거 BLOCKED 해소:** A의 `DISH_RETURN` 운영 map Pose 확정, A 실제 WSL2 ROS+Gazebo 3-leg 단독 L3 PASS. [A-09 증거](../reports/tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md). 앞의 `null` 기록은 최초 계획 당시 스냅샷으로 보존합니다.
+- **현재 실제 차단은 A+D 통합 증거 부족:** D UI/Manager의 10/5초 및 COMPLETED를 A 실제 결과·odom과 같은 요청 ID로 묶은 E 통합 인수는 NOT_RUN.
+- 상세 도구·개발 절차·ROS2 인터페이스: [D 중간 보고서](../reports/smartdish/d/D_INTERIM_DEVELOPMENT_TOOLS_ROS2_INTEGRATION_20261123_KO.md).
