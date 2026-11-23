@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: s6-scene-${{ github.ref >>
+  group: s6-scene-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   l0:
@@ -35,10 +35,10 @@ jobs:
     env:
       ROS_DISTRO: jazzy
       ROS_DOMAIN_ID: '91'
-      GZ_PARTITION: s6_scene_${{ github.run_id >>_${{ github.run_attempt >>
+      GZ_PARTITION: s6_scene_${{ github.run_id }}_${{ github.run_attempt }}
       LIBGL_ALWAYS_SOFTWARE: '1'
       GALLIUM_DRIVER: llvmpipe
-      RESTAURANT_ROOT: ${{ github.workspace >>
+      RESTAURANT_ROOT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
       - name: Install official Gazebo Harmonic and ROS Jazzy
@@ -88,7 +88,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: s6-00-camera-real-image-${{ github.run_id >>
+          name: s6-00-camera-real-image-${{ github.run_id }}
           path: generated/s6/scene/
           if-no-files-found: ignore
           retention-days: 14
