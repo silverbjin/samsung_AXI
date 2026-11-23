@@ -143,3 +143,45 @@ def test_physics_reference_must_be_real_nonempty_independent(tmp_path):
     with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_EMPTY'):
         collect(image,tmp_path,manifest,'STABLE','s','g','GAZEBO_TRAY','OWNED',str(blank),'tray')
     assert load_manifest(manifest) == []
+
+
+def _physical_manifest(tmp_path):
+    image = tmp_path / 'camera.png'
+    Image.new('RGB', (320, 240), (22, 44, 77)).save(image)
+    evidence = tmp_path / 'settle_pose.log'
+    evidence.write_text('POSE_BEFORE_AND_AFTER=RECORDED', encoding='utf-8')
+    manifest = tmp_path / 'manifest.csv'
+    write_csv(manifest, [], FIELDS)
+    collect(image, tmp_path, manifest, 'STABLE', 'scene_1', 'stack_1',
+            'GAZEBO_TRAY', 'OWNED', str(evidence), '/smartdish/tray/image_raw')
+    return manifest, evidence
+
+
+def test_physics_evidence_reaudit_pass(tmp_path):
+    manifest, evidence = _physical_manifest(tmp_path)
+    report = validate(load_manifest(manifest), tmp_path)
+    assert report['evidence_hash_verified'] == 1
+
+
+def test_physics_evidence_changed_same_size_rejected(tmp_path):
+    manifest, evidence = _physical_manifest(tmp_path)
+    evidence.write_bytes(b'X' * evidence.stat().st_size)
+    with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_SHA_MISMATCH'):
+        validate(load_manifest(manifest), tmp_path)
+
+
+def test_physics_evidence_missing_rejected(tmp_path):
+    manifest, evidence = _physical_manifest(tmp_path)
+    evidence.unlink()
+    with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_MISSING'):
+        validate(load_manifest(manifest), tmp_path)
+
+
+def test_physics_evidence_metadata_corrupted_rejected(tmp_path):
+    manifest, _ = _physical_manifest(tmp_path)
+    rows = load_manifest(manifest)
+    config = json.loads(rows[0]['capture_config'])
+    del config['physics_evidence_sha256']
+    rows[0]['capture_config'] = json.dumps(config)
+    with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_METADATA_INVALID'):
+        validate(rows, tmp_path)

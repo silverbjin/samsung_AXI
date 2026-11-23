@@ -37,9 +37,13 @@ python3 ai/scripts/prepare_dataset.py --root . \
 
 **주의**: 위 `--image` / `--physics-evidence` 경로는 예시이며 현재 실제 파일은 없습니다. B-06부터 `--physics-evidence`는 실제 존재하는 독립·비어 있지 않은 파일이어야 하고 SHA-256 및 크기를 기록합니다. 파일의 진위와 물리 안정성은 자동 인증하지 않으므로 C가 학습하기 전 사람이 라벨/증거를 검토해야 합니다. 원본 `images/`·`private/`는 Git 무시 대상입니다. ROS 이미지 1장 캡처 절차는 [`B_TRAY_CAPTURE_GUIDE_KO.md`](B_TRAY_CAPTURE_GUIDE_KO.md)에 정리했습니다.
 
+### B-07 인계 직전 근거 재감사
+
+수집 시 저장한 근거 파일의 SHA/크기를 **데이터 준비 시에도** 대조합니다. 관측 로그를 삭제·수정한 경우 무조건 PASS로 승격하지 않으며, 원본을 복구하고 다시 검증해야 합니다. 실행 명령은 기존 `prepare_dataset.py` 그대로이며 실제 카메라·물리 관측은 별도의 선행 조건입니다.
+
 ## 3. 결과 읽기와 디버깅
 
-- `B_INVALID_LABEL`: `STACKED` 등 틀린 라벨 → 물리 판정이 있는 `STABLE/UNSTABLE`만 등록
+- `B_PHYSICS_EVIDENCE_MISSING` / `B_PHYSICS_EVIDENCE_SHA_MISMATCH`: 등록 당시 관측 파일이 유실/변조됐습니다.\n- `B_PHYSICS_EVIDENCE_METADATA_INVALID`: 관측 참조 또는 SHA/크기 필드 누락/형식 오류입니다.\n- `B_INVALID_LABEL`: `STACKED` 등 틀린 라벨 → 물리 판정이 있는 `STABLE/UNSTABLE`만 등록
 - `B_IMAGE_MISSING` / `B_IMAGE_CORRUPT`: 경로/원본 파일 점검
 - `B_DUPLICATE_IMAGE`: 해시 동일 → 연속 프레임 중복 제거
 - `B_SCENE_SPANS_STACKS`: scene_id 하나가 여러 적재 배치를 나타냄 → 배치마다 scene_id 분리

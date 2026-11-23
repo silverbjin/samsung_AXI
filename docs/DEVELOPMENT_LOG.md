@@ -87,3 +87,5 @@
 
 - 2026-11-23 **B-06 / 물리 근거 파일 무결성 RED→GREEN**: [작업 보고서](reports/tasks/2026-11-23_B-06_physics_evidence_integrity.md), [B-DEBUG-02](reports/issues/2026-11-23_B-DEBUG-02_unverified_evidence_reference.md) — 미존재 증거 이전 오수용 재현, 최소 수정·로컬 재검 PASS, 물리 라벨 NOT_RUN.
 - 2026-11-23 **B-05 / 트레이 RGB 무라벨 캡처 도구**: [작업 보고서](reports/tasks/2026-11-23_B-05_tray_rgb_readonly_capture.md), [초심자 실행 가이드](../ai/docs/B_TRAY_CAPTURE_GUIDE_KO.md) — RGB/BGR 이미지 계약 테스트 PASS, 실제 ROS/Gazebo 카메라 NOT_RUN.
+
+- 2026-11-23 **B-07 물리 증거 재검/DRIFT 차단**: [개발 보고서](reports/tasks/2026-11-23_B-07_evidence_reaudit.md), [RED→GREEN B-DEBUG-03](reports/issues/2026-11-23_B-DEBUG-03_evidence_drift.md). 로컬 19 PASS, 실제 트레이 NOT_RUN. GitHub CI 결과는 PR #37에서 추적.

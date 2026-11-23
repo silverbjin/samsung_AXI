@@ -9,6 +9,7 @@ import argparse
 import csv
 import hashlib
 import json
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
@@ -37,6 +38,7 @@ def validate(rows: list[dict], root: Path, allow_fixtures: bool = False) -> dict
     root = root.resolve()
     seen_id, seen_sha = set(), {}
     counts, scenes, stacks = Counter(), Counter(), defaultdict(set)
+    verified_evidence = 0
     for i, row in enumerate(rows, start=2):
         prefix = f'row={i}'
         if any(not str(row.get(k, '')).strip() for k in FIELDS):
@@ -68,6 +70,37 @@ def validate(rows: list[dict], root: Path, allow_fixtures: bool = False) -> dict
         full = (root / rel).resolve()
         if not full.is_relative_to(root) or not full.is_file():
             raise ValueError(f'B_IMAGE_MISSING {prefix} path={rel}')
+        if row['ground_truth'] == 'PHYSICS_OBSERVED':
+            # B-07: re-audit the actual evidence bytes at every dataset preparation.
+            # A stored path or JSON field alone is not a verified physical observation.
+            required = ('camera', 'physics_evidence', 'physics_evidence_sha256',
+                        'physics_evidence_size_bytes')
+            if (any(key not in config for key in required)
+                    or not all(isinstance(config[key], str) and config[key].strip()
+                               for key in required[:3])
+                    or not isinstance(config['physics_evidence_size_bytes'], int)
+                    or isinstance(config['physics_evidence_size_bytes'], bool)
+                    or config['physics_evidence_size_bytes'] <= 0
+                    or re.fullmatch(r'[0-9a-f]{64}', config['physics_evidence_sha256']) is None):
+                raise ValueError(f'B_PHYSICS_EVIDENCE_METADATA_INVALID {prefix}')
+            evidence = Path(config['physics_evidence']).expanduser()
+            if not evidence.is_absolute():
+                evidence = root / evidence
+            evidence = evidence.resolve()
+            if not evidence.is_file():
+                raise ValueError(f'B_PHYSICS_EVIDENCE_MISSING {prefix}')
+            if evidence == full:
+                raise ValueError(f'B_PHYSICS_EVIDENCE_NOT_INDEPENDENT {prefix}')
+            digest, size = hashlib.sha256(), 0
+            with evidence.open('rb') as stream:
+                while chunk := stream.read(1024 * 1024):
+                    digest.update(chunk)
+                    size += len(chunk)
+            if size != config['physics_evidence_size_bytes']:
+                raise ValueError(f'B_PHYSICS_EVIDENCE_SIZE_MISMATCH {prefix}')
+            if digest.hexdigest() != config['physics_evidence_sha256']:
+                raise ValueError(f'B_PHYSICS_EVIDENCE_SHA_MISMATCH {prefix}')
+            verified_evidence += 1
         sha = hashlib.sha256(full.read_bytes()).hexdigest()
         if sha != row['image_sha256']:
             raise ValueError(f'B_IMAGE_SHA_MISMATCH {prefix}')
@@ -95,7 +128,7 @@ def validate(rows: list[dict], root: Path, allow_fixtures: bool = False) -> dict
     if mixed_scenes:
         raise ValueError(f'B_SCENE_SPANS_STACKS scene_id={mixed_scenes[0]}')
     return {'samples': len(rows), 'classes': dict(counts), 'scenes': dict(scenes),
-            'stack_groups': len(stacks), 'duplicate_images': 0,
+            'stack_groups': len(stacks), 'evidence_hash_verified': verified_evidence, 'duplicate_images': 0,
             'corrupt_images': 0, 'class_imbalance': (
                 max(counts.values()) / min(counts.values()) if len(counts) == 2
                 else None), 'data_scope': 'MOCK_ONLY' if allow_fixtures else 'PHYSICS_OBSERVED'}

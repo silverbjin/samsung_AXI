@@ -44,6 +44,8 @@ DACON 설명은 `open.zip` 아래 `train/{id}/{front.png,top.png,simulation.mp4}
 - 중복 판정: 포맷 변환된 PNG의 SHA256, 완전히 동일한 이미지가 별도 행이면 실패. 근접 중복은 **미구현/수동 검토**.
 - 데이터/라이선스 검증: `license_status`는 `OWNED` 또는 `AUTHORIZED`; 증거 없는 외부 소스 불허.
 
+**B-07 데이터 재감사:** `PHYSICS_OBSERVED` 행은 B-06 수집기에서 기록한 `physics_evidence_sha256`과 `physics_evidence_size_bytes`를 `prepare_dataset.validate()` 실행 때마다 원본 파일과 비교합니다. 품질 JSON의 `evidence_hash_verified`는 성공한 파일 검사 건수일 뿐 물리 안전성이 확인된 건수가 아닙니다. 원본 유실·변조는 `B_PHYSICS_EVIDENCE_MISSING/SHA_MISMATCH/SIZE_MISMATCH`로 차단합니다.
+
 ## 5. 실물 데이터 수집 의존성 및 한계
 
 A의 별도 트레이 지향 카메라(토픽 `/smartdish/tray/image_raw`)와 실제 물리 적재 장면이 없으므로 **실제 이미지 수집·분할/성능 평가 NOT_RUN**. B-05는 ROS 2의 `/smartdish/tray/image_raw`를 1회 읽고 **라벨 없이 `ai/data/private`에 저장하는 선택형 루틴**을 추가했습니다. 이 기능의 ROS/Gazebo 실제 수신은 여전히 NOT_RUN입니다. `collect_tableware.py`는 운영자가 물리 상태를 **별도로 관측**하고 증거 파일을 제공한 경우에만 CSV를 등록합니다. 단색 fixture 6장은 실제 물리 표본으로 전환 금지.
