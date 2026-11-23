@@ -65,8 +65,34 @@ def read_verified_split(manifest: Path, root: Path, *, demo_fixtures: bool = Fal
         if demo_fixtures:
             if cfg.get("camera") != "synthetic_contract_only":
                 raise ValueError("C_DEMO_CAMERA_NOT_B_FIXTURE")
-        elif not cfg.get("physics_evidence"):
-            raise ValueError("C_PHYSICS_EVIDENCE_REFERENCE_MISSING")
+        else:
+            # B-06 records both a separate physical-observation file and its
+            # SHA256/size. A typed CSV field alone is NOT evidence of physics.
+            # This checks file integrity only; a human must still judge labels.
+            evidence_name = cfg.get("physics_evidence")
+            if not isinstance(evidence_name, str) or not evidence_name.strip():
+                raise ValueError("C_PHYSICS_EVIDENCE_REFERENCE_MISSING")
+            expected_sha = cfg.get("physics_evidence_sha256")
+            expected_size = cfg.get("physics_evidence_size_bytes")
+            if (not isinstance(expected_sha, str) or len(expected_sha) != 64 or
+                    any(c not in "0123456789abcdef" for c in expected_sha.lower()) or
+                    type(expected_size) is not int or expected_size <= 0):
+                raise ValueError("C_PHYSICS_EVIDENCE_INTEGRITY_METADATA_MISSING")
+            evidence_path = Path(evidence_name).expanduser()
+            if not evidence_path.is_absolute():
+                evidence_path = root / evidence_path
+            if not evidence_path.is_file():
+                raise ValueError("C_PHYSICS_EVIDENCE_FILE_MISSING")
+            if evidence_path.resolve() == (root / row["image_path"]).resolve():
+                raise ValueError("C_PHYSICS_EVIDENCE_NOT_INDEPENDENT")
+            if evidence_path.stat().st_size != expected_size:
+                raise ValueError("C_PHYSICS_EVIDENCE_SIZE_MISMATCH")
+            digest = hashlib.sha256()
+            with evidence_path.open("rb") as physics_file:
+                for chunk in iter(lambda: physics_file.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != expected_sha:
+                raise ValueError("C_PHYSICS_EVIDENCE_SHA_MISMATCH")
         rel = Path(row["image_path"])
         if rel.is_absolute() or ".." in rel.parts:
             raise ValueError("C_UNSAFE_IMAGE_PATH")

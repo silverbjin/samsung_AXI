@@ -136,9 +136,17 @@ def physical_rows(tmp_path):
             name=f'{label}_{n}.png'
             path=tmp_path/name
             Image.new('RGB',(224,224),(n*30+10,50 if label=='STABLE' else 100,90)).save(path)
+            # This fixture is test-only metadata and does NOT represent actual
+            # observed physics; it must never be used as training data.
+            evidence=tmp_path / f'evidence_{label}_{n}.txt'
+            evidence.write_text(f'FAKE_TEST_METADATA_ONLY {label} {n}')
+            evidence_bytes=evidence.read_bytes()
             rows.append({"sample_id":f'{label}-{n}',"scene_id":f'{label}-{n}',
                          "stack_id":f'{label}-{n}',"label":label,"image_path":name,
-                         "source":"GAZEBO_TRAY", "capture_config":json.dumps({"physics_evidence":"TEST_ONLY"}),
+                         "source":"GAZEBO_TRAY", "capture_config":json.dumps({
+                             "physics_evidence": str(evidence),
+                             "physics_evidence_sha256": hashlib.sha256(evidence_bytes).hexdigest(),
+                             "physics_evidence_size_bytes": len(evidence_bytes)}),
                          "license_status":"OWNED","ground_truth":"PHYSICS_OBSERVED",
                          "image_sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"split":split})
     return rows
