@@ -111,7 +111,8 @@ def test_ci_d04_dirty_workspace(w):
 
 def test_ci_d05_unknown_branch(w):
     r, out = execute(w, SMARTDISH_D_TEST_BRANCH="not-a-branch")
-    assert r.returncode != 0 and "VERIFY_PASS" not in out
+    assert r.returncode != 0 and "REMOTE_BRANCH_NOT_FOUND" in out
+    assert "VERIFY_PASS" not in out
 
 
 def test_ci_d06_missing_test(w):
@@ -168,3 +169,11 @@ def test_ci_d12_remote_advance_blocks_without_merge(w):
     r, out = execute(w)
     assert r.returncode != 0 and "REMOTE_HEAD_CHANGED" in out
     assert not (w[2] / "README.md").exists()
+
+
+def test_ci_d13_default_mode_is_safe_verify(w):
+    p = call("bash", str(SCRIPT), env=w[3])
+    output = p.stdout + p.stderr
+    assert p.returncode == 0, output
+    assert "SMARTDISH_D_MODE=--verify" in output
+    assert "SMARTDISH_D_VERIFY_PASS_NO_GOAL" in output

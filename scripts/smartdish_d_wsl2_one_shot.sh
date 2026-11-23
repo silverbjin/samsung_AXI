@@ -81,11 +81,15 @@ if [[ -e "$WORKDIR" ]]; then
   if [[ ! -e "$WORKDIR/.git" ]]; then
     [[ -z "$(find "$WORKDIR" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
       fail EXISTING_NON_GIT_DIRECTORY "Preserve existing files; inspect $WORKDIR"
+    git ls-remote --exit-code --heads "$REPO_URL" "refs/heads/$BRANCH" >/dev/null ||
+      fail REMOTE_BRANCH_NOT_FOUND "Check the network and remote branch before clone"
     git clone --single-branch --branch "$BRANCH" "$REPO_URL" "$WORKDIR"
   fi
 else
   mkdir -p "$(dirname "$WORKDIR")"
-  git clone --single-branch --branch "$BRANCH" "$REPO_URL" "$WORKDIR"
+  git ls-remote --exit-code --heads "$REPO_URL" "refs/heads/$BRANCH" >/dev/null ||
+      fail REMOTE_BRANCH_NOT_FOUND "Check the network and remote branch before clone"
+    git clone --single-branch --branch "$BRANCH" "$REPO_URL" "$WORKDIR"
 fi
 [[ "$(git -C "$WORKDIR" rev-parse --is-inside-work-tree)" == true &&
    "$(realpath -m "$(git -C "$WORKDIR" rev-parse --show-toplevel)")" == "$WORKDIR" ]] ||

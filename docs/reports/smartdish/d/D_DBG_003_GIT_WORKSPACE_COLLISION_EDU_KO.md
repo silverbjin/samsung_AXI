@@ -88,3 +88,7 @@ CI 전용 fixture는 `tmp_path`에서 bare remote와 전용 worktree를 생성�
 3. `colcon list --names-only` 결과가 0개인데 `colcon build`가 0으로 끝났다면 무엇을 PASS로 평가하면 안 되나요?
 4. `source`는 환경변수를 설정하지만 실제 소스 트리의 패키지를 만들어 주지 않는다는 점을 설명하세요.
 5. 기존 팀원의 브랜치를 변경하는 방법과 별도 worktree로 격리하는 방법 중 어떤 것이 교육용 반복 인수에 안전한지 토론하세요.
+
+### 추가 최소 수정: clone 이전 원격 브랜치 검사
+
+처음 clone하는 단계에서도 원격 브랜치 유무를 사전에 검사해, Git clone 오류 하나로 원인 파악이 끝나지 않도록 `SMARTDISH_D_BLOCKED=REMOTE_BRANCH_NOT_FOUND`를 지정했습니다. 기존 저장소와 로컬 소스는 변경하지 않으며, 임시 Git fixture로 회귀검증합니다.

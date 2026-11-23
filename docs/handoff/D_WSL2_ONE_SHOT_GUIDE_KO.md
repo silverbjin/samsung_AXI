@@ -17,7 +17,7 @@
 ~/.local/state/smartdish-d/  ← D 테스트·빌드·설치·로그 (Git 밖)
 ```
 
-기존 D 전용 폴더에 미커밋 소스가 있거나 원격 브랜치보다 HEAD가 뒤/앞선 상태면 자동 merge/rebase 하지 않고 **사람에게 먼저 검토**를 요청합니다.
+원격 D 브랜치가 없으면 `REMOTE_BRANCH_NOT_FOUND`를 출력하고 clone 전에 중단합니다. 기존 D 전용 폴더에 미커밋 소스가 있거나 원격 브랜치보다 HEAD가 뒤/앞선 상태면 자동 merge/rebase 하지 않고 **사람에게 먼저 검토**를 요청합니다.
 
 ## 2. 저장소를 clone한 사용자 — 로컬 실행
 

@@ -107,3 +107,7 @@ NEXT_ACTION=Keep local files; commit or stash manually, never reset/clean
 - WSL2/WSLg DISPLAY 및 Tk 실제 화면은 강사 환경에서 별도 수행: `NOT_RUN`.
 - A의 DISH_RETURN 좌표가 미확정이므로 A+D 실제 3구간 운행: `BLOCKED/NOT_RUN`.
 - CI용 temp Git fixture는 사용자 홈 디렉터리를 실제로 수정하거나 ROS Goal을 전송하지 않습니다.
+
+## 9. CI 정적 리뷰의 추가 보강
+
+브랜치가 원격에 없을 때 Git 자체 오류만 표시되는 경로를 개선해 clone 이전에 `git ls-remote --exit-code --heads`로 검사하고 `REMOTE_BRANCH_NOT_FOUND`를 출력하게 했습니다. `--verify` 생략 시 기본 모드가 실제로 적용되는지를 검증하는 테스트도 추가했습니다. 해당 변경은 CI 검증 후에만 최종 PASS로 기록합니다.
