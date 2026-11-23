@@ -313,6 +313,7 @@ def main(argv=None):
             self.root.destroy()
 
         def run(self):
+            self.root.after_idle(lambda: print("SMARTDISH_D_UI_READY", flush=True))
             self.root.mainloop()
 
     rclpy.init(args=ros_args)
