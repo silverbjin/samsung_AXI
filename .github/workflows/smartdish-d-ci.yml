@@ -39,6 +39,8 @@ jobs:
       RMW_IMPLEMENTATION: rmw_fastrtps_cpp
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # local bare immutable SHA push must have full history
       - name: Install toolchain and build D package without touching S7
         shell: bash
         run: |

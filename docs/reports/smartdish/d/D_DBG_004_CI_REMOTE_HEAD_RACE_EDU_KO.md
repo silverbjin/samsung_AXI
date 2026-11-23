@@ -69,3 +69,12 @@ SMARTDISH_D_SOURCE_SHA="$GITHUB_SHA" \
 - **금지:** 로컬 WSL2의 Git 보호를 해제하거나 `git config --global --add safe.directory '*'`로 모든 디렉터리를 신뢰하지 않습니다.
 - 테스트: 같은 SHA의 Git bare fixture 생성→actual Jazzy `--verify`가 종료코드 0과 `SMARTDISH_D05_L1_PINNED_COMMIT_REAL_ROS_PASS_NO_GOAL`을 출력해야 GREEN입니다.
 - 이 수정으로 처음 사용자에게 보고된 clone 오류, S7/A/B/C 소스 및 실제 로봇 제어 경로는 변경되지 않았습니다.
+
+## CI-DBG-004C — Shallow checkout의 bare remote 전송 제한
+
+- 추가 재검 RED: [Actions #45125448028](https://github.com/silverbjin/samsung_AXI/actions/runs/45125448028), L0 40 PASS, ROS Jazzy 패키지 자체는 PASS, 고정 bare 생성 단계 FAIL.
+- 원본 첫 오류: `! [remote rejected] <sha> -> feat/smartdish-d-service (shallow update not allowed)`.
+- 근본 원인: `actions/checkout@v4` 기본 `fetch-depth: 1`은 현재 commit만 있는 shallow checkout입니다. 이 shallow 소스를 새 bare remote에 그대로 push할 때 원격 측에서 역사를 온전히 표현할 수 없어 전송을 거부합니다.
+- 수정: **L1 작업에만** `actions/checkout@v4 with: fetch-depth: 0`을 적용하고, 이후 동일한 명령으로 임시 로컬 bare remote를 생성합니다. 실제 ROS 2 코드는 변경하지 않습니다.
+- 검증: 해당 CI commit의 immutable repo를 clone하여 `SMARTDISH_D_SOURCE_SHA=GITHUB_SHA`가 일치한 상태에서 실제 Jazzy `--verify` 실행/NO_GOAL 마커로 판정합니다.
+- 교육 포인트: GitHub Actions 자체 checkout은 성공해도, 그 복제본을 **다른 bare remote로 재배포**할 때는 shallow 이력 제약이 별도 문제입니다.
