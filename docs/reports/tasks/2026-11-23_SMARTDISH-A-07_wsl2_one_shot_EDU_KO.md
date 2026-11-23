@@ -113,3 +113,7 @@ YES-SMARTDISH-A-GOALS
 ## 8. 후속 교육용 디버깅 보고 규칙
 
 WSL2 인수 과정의 최초 실패가 발생하면 `smartdish_a_owner_evidence.tar.gz`에 든 `summary.json`의 `first_error`를 기준으로 가장 작은 실패 경계를 분리합니다. 기존 S7 주행 CI PASS를 신규 현장 PASS로 대체하지 않으며, 원인·최소수정·재검 SHA·성공/실패 결과를 `docs/reports/issues/`에 별도 신규 문서로 보존합니다.
+
+## 9. A-08 단일 명령 출고 (후속)
+
+[A-08 배포 교육 보고서](2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md)의 한 줄 부트스트랩이 본 A-07 원샷 실행기를 안전하게 클론·갱신한 뒤 실행합니다. A-07의 직접 TTY 승인·실제 ROS 3구간·증거 압축 코드는 그대로 재사용합니다.

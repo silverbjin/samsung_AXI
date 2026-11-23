@@ -45,7 +45,19 @@ HOME은 기존 S3 `pickup`이며 **S7 `PICKUP_RETURN`은 SmartDish DISH_RETURN�
 - 단일 active/pending, 이전 `request_id`/구간 중복 거부, 임의 재전송 없음. D는 자체적으로 현재 `request_id`·`leg`가 맞는 결과만 수용합니다.
 - A의 SUCCEEDED는 공식 Nav2 완료와 실제 0.05m 이상 odom 관찰 이후에만 전송하며, D의 타이머는 A 성공 이후부터 시작합니다.
 
-## 4. WSL2 단일 인수 — A-07 (권장)
+## 4. WSL2 **한 줄 배포·실행** — A-08 (최신 권장)
+
+WSL2 Ubuntu 24.04 대화형 터미널에서 별도의 Git clone/checkout 없이 **한 줄**만 입력하십시오. 고정된 GitHub 커밋의 부트스트랩을 먼저 다운로드한 뒤 로컬 파일로 실행하여 TTY를 보존합니다.
+
+```bash
+curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/cd99c59f90d26f80b247c2a3763b0b4a0ff981c2/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh" --headless
+```
+
+화면을 열어 확인하려면 끝의 `--headless`만 `--gui`로 바꿉니다. 이미 `~/samsung_AXI_A`가 있으면 **로컬 수정 없는 경우에만** Fast-forward 갱신하며, 절대 reset/삭제하지 않습니다. 실제 Goal은 사용자 터미널에서 `YES-SMARTDISH-A-GOALS`를 직접 입력할 때만 시작됩니다.
+
+상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). A의 실제 WSL2 L3는 **현장 증거 전까지 NOT_RUN**입니다.
+
+## 4A. 기존 A-07 코드 다운로드 후 실행 (대안)
 
 과거의 3터미널 수동 시연 대신 아래 단일 실행기를 권장합니다. **실제 사용자 승인**과 로그 저장을 포함합니다.
 
