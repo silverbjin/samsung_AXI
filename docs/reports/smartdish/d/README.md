@@ -25,3 +25,5 @@
 - [D05 실제 Jazzy 원샷 CI](https://github.com/silverbjin/samsung_AXI/actions/runs/45124624797)
 
 D05는 기존 `~/samsung_AXI`를 보존하며 전용 worktree로 검증합니다. CI 모의 Git/ROS 테스트를 Gazebo 실주행 인수로 승격하지 않습니다.
+
+- [D-DBG-004 CI Git SHA race/고정 원격 수정](D_DBG_004_CI_REMOTE_HEAD_RACE_EDU_KO.md) — 실패한 CI의 최초 로그와 immutable SHA 기반 재검증 방식

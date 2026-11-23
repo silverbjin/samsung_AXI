@@ -71,12 +71,21 @@ jobs:
           print('SMARTDISH_D_L1_STEADY_TIMER_API_PASS_NO_GOAL')
           PY
 
-      - name: Real Jazzy D05 published runner verify (separate worktree, NO_GOAL)
+      - name: Real Jazzy D05 runner pinned to this workflow commit (NO_GOAL)
         if: github.event_name == 'push'
         shell: bash
         env:
           SMARTDISH_D_SOURCE_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
+          # Freeze an immutable local bare remote at THIS CI commit.
+          # The public feature branch can advance while jobs are queued.
+          git init --bare -q /tmp/smartdish_d_ci_remote.git
+          git push -q /tmp/smartdish_d_ci_remote.git             "$GITHUB_SHA:refs/heads/feat/smartdish-d-service"
+          export SMARTDISH_D_TEST_MODE=1
+          export SMARTDISH_D_TEST_REPO_URL=file:///tmp/smartdish_d_ci_remote.git
+          export SMARTDISH_D_TEST_WORKDIR=/tmp/smartdish_d_ci_worktree
+          export SMARTDISH_D_TEST_STATE_DIR=/tmp/smartdish_d_ci_state
+          export SMARTDISH_D_TEST_ROS_SETUP=/opt/ros/jazzy/setup.bash
           bash scripts/smartdish_d_wsl2_one_shot.sh --verify
-          echo SMARTDISH_D05_L1_REAL_ROS_RUNNER_PASS_NO_GOAL
+          echo SMARTDISH_D05_L1_PINNED_COMMIT_REAL_ROS_PASS_NO_GOAL
