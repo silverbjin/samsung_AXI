@@ -6,14 +6,14 @@ usage() {
   cat <<'HELP'
 SmartDish A WSL2 one-shot bootstrap
 Usage: bash smartdish_a_wsl2_bootstrap.sh [--headless|--gui|--help]
---headless  Default: actual Gazebo/Nav2, no GUI.
---gui       Optional WSLg Gazebo/RViz.
+--gui       Default: WSLg Gazebo/RViz plus actual Nav2 three-leg test.
+--headless  Explicit fallback: real Gazebo/Nav2 with no GUI.
 --help      Show help without changing any local files.
 Preserves existing edits, rejects wrong origin/divergence, never resets.
 Goals need explicit YES-SMARTDISH-A-GOALS input at /dev/tty.
 HELP
 }
-MODE=--headless
+MODE=--gui
 if [[ $# -gt 1 ]]; then usage >&2; exit 2; fi
 if [[ $# -eq 1 ]]; then MODE="$1"; fi
 case "$MODE" in

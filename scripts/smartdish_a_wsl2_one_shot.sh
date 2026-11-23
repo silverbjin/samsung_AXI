@@ -2,14 +2,15 @@
 # SmartDish A-07 — WSL2 owner real Gazebo Nav2 3-leg, operator TTY consent.
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
-MODE=--headless
+MODE=--gui
 if [[ $# -gt 0 ]]; then MODE="$1"; fi
 case "$MODE" in
  --headless) GUI_ARG="" ;;
  --gui) GUI_ARG=--gui ;;
  -h|--help)
-   echo 'Usage: bash scripts/smartdish_a_wsl2_one_shot.sh [--headless|--gui]'
-   echo 'Real Gazebo 3-leg test; YES-SMARTDISH-A-GOALS entered by operator /dev/tty.'
+   echo 'Usage: bash scripts/smartdish_a_wsl2_one_shot.sh [--gui|--headless]'
+   echo 'Default: WSLg --gui. Fallback: --headless. Real Gazebo 3-leg test.'
+   echo 'YES-SMARTDISH-A-GOALS entered by operator /dev/tty.'
    exit 0 ;;
  *) echo "INVALID_OPTION=$MODE"; exit 2 ;;
 esac

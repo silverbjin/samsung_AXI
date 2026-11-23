@@ -13,6 +13,7 @@ def test_syntax_and_help_without_cloning():
     assert r.returncode == 0
     assert "--gui" in r.stdout and "--headless" in r.stdout
     assert "/dev/tty" in r.stdout
+    assert "Default: WSLg" in r.stdout
 
 
 def test_linux_ci_preflight_never_downloads_or_drives():
@@ -26,6 +27,8 @@ def test_linux_ci_preflight_never_downloads_or_drives():
 def test_only_owner_branch_ff_update_and_human_gate():
     text = BOOT.read_text()
     assert "feat/smartdish-a-robot" in text
+    assert "\nMODE=--gui\n" in text
+    assert "--headless  Explicit fallback" in text
     assert "https://github.com/silverbjin/samsung_AXI.git" in text
     assert 'TARGET="$HOME/samsung_AXI_A"' in text
     assert 'git -C "$TARGET" merge --ff-only FETCH_HEAD' in text

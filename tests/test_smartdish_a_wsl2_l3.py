@@ -47,6 +47,7 @@ def test_script_syntax_and_help_never_start_gazebo():
     assert result.returncode == 0
     assert "--headless" in result.stdout
     assert "--gui" in result.stdout
+    assert "Default: WSLg --gui" in result.stdout
 
 
 def test_owner_runner_cannot_be_used_on_linux_ci():
