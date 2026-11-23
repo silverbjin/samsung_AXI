@@ -1,0 +1,6 @@
+# Explicitly empty until B supplies PHYSICS_OBSERVED real tray dataset and C trains it.
+smartdish_stability_inference:
+  ros__parameters:
+    model_path: ''
+    confidence_min: 0.80
+    max_image_age_s: 2.0

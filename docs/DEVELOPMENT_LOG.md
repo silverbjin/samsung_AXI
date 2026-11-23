@@ -80,3 +80,5 @@
 - 2026-11-20 S4-MENU-01 착수: 기존 정상 S2 지도·S3 실제 Nav2 배달/복귀 재사용. `/speed_limit` 토픽 Nav2 Controller 정합, NORMAL 0.23/SOUP 0.11m/s 실제 Odom 속도 비교, 공식 Collision Monitor LiDAR 기반 STOP 및 물리 Gazebo 단일 fixture L2. [작업 보고서](reports/tasks/2026-11-20_S4-MENU-01_speed_safety.md). 아직 CI 실제 GREEN 미확정.
 
 - 2026-11-23 **SmartDish C01 PARTIAL / 학습 BLOCKED**: B PR #37에 실제 물리 검증 이미지 0건, ResNet18 frozen/fine-tuning·독립 test 평가 실행기 구현 및 mock-only 20건 계약 검증. [개발 보고서](reports/tasks/2026-11-23_C01_TRAIN_EVAL_EDU_KO.md), [데이터 차단 원인](reports/issues/2026-11-23_C_ISSUE_01_B_DATA_BLOCKED_KO.md). 실제 Training/Accuracy/F1 NOT_RUN.
+
+- 2026-11-23 **SmartDish C02 L0 계약 PASS / ROS LIVE NOT_RUN**: `/smartdish/tray/image_raw` + `/collection/ai_check_request` → `/collection/stability` JSON, 요청 1건에 응답 최대 1건, stale/저신뢰/모델 누락 UNKNOWN 처리. [교육 보고서](reports/tasks/2026-11-23_C02_ROS_INFERENCE_EDU_KO.md). 실제 ROS/Gazebo 통합은 미실행.
