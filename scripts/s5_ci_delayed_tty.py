@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--approval-delay-sec',type=float,default=12.0)
     parser.add_argument('--s6-vision',action='store_true')
     parser.add_argument('--s6-model',type=Path)
+    parser.add_argument('--s7-scenario',choices=['stacked','empty'],default='')
+    parser.add_argument('--s7-world',type=Path)
     args=parser.parse_args()
     if os.environ.get('CI','').lower()!='true':
         raise SystemExit('S5_CI_TTY_HARNESS_ONLY_IN_CI')
@@ -38,11 +40,19 @@ def main():
          '--robot-sdf',str(args.robot_sdf),'--map',str(args.map),
          '--params',str(args.params),'--log',str(args.log),
          '--evidence',str(args.evidence)]
+    if args.s7_scenario and not args.s6_vision:
+        raise SystemExit('S7_REQUIRES_S6_VISION_NO_GOAL')
+    if args.s7_scenario and (not args.s7_world or not args.s7_world.is_file()):
+        raise SystemExit('S7_MISSING_GENERATED_WORLD_NO_GOAL')
     if args.s6_vision:
         if not args.s6_model or not args.s6_model.is_file():
             raise SystemExit('S6_CI_MODEL_MISSING_NO_GOAL')
-        cmd.extend(['--s6-vision','--s6-scene-fixture',
-                    '--s6-model',str(args.s6_model.resolve())])
+        cmd.extend(['--s6-vision','--s6-model',str(args.s6_model.resolve())])
+        if args.s7_scenario:
+            cmd.extend(['--s7-scenario',args.s7_scenario,
+                        '--s7-world',str(args.s7_world.resolve())])
+        else:
+            cmd.append('--s6-scene-fixture')
     env=os.environ.copy()
     env['SAMSUNGAXI_S5_GOALS_APPROVED']='YES-S5-LIVE-GOALS'
     p=subprocess.Popen(cmd,stdin=slave,stdout=subprocess.PIPE,

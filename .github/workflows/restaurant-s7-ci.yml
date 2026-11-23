@@ -1,0 +1,199 @@
+name: SAMSUNGAXI S7 startup dish and empty-table fail-closed real Gazebo
+on:
+  push:
+    branches: [feature/s7-startup-dishes-negative-teaching-20261123]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: samsungaxi-s7-accept-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  l0:
+    name: S7 L0 / world-at-start, real empty negative evidence and original S6
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+      - name: Verify junior tests and pinned training provenance
+        run: |
+          set -Eeuo pipefail
+          python3 -m compileall -q scripts src tests
+          bash -n scripts/*.sh
+          python3 -m pytest -q tests/test_s6_camera_contract.py \
+            tests/test_s6_vision_ai.py tests/test_s6_flow_contract.py \
+            tests/test_s5_live_contract.py tests/test_s4_menu_contract.py \
+            tests/test_s6_wslg_first_failure.py tests/test_s6_wslg_gl_probe.py \
+            tests/test_s6_wslg_launch_contract.py tests/test_s6_nav2_controlplane.py \
+            tests/test_s7_scene.py tests/test_s7_integration.py tests/test_s7_negative.py
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          sys.path.insert(0,'scripts')
+          from s6_vision_ai import validate
+          m=validate(json.loads(Path('models/s6_dish_prototype.json').read_text()))
+          assert m['training_examples']['NOT_STACKED']=='75c778d30d1e57050fe0aa0406a93321c056132eff4ed08bf7fca62baa2daf75'
+          assert m['training_examples']['STACKED']=='f2d595afea1b914a656aea1d8cfde8dc34d12b994cb4a2f9757e10cd3585afa8'
+          print('S6_REAL_GAZEBO_RGB_TRAINING_PROVENANCE_L0_PASS')
+          PY
+          echo S7_STARTUP_AND_NEGATIVE_L0_PASS
+  l2:
+    name: S7 L2 / preloaded dishes TABLE3→RGB→RETURN→STOP and empty NO_RETURN
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 58
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DISTRO: jazzy
+      ROS_DOMAIN_ID: '92'
+      GZ_PARTITION: s6_integrated_${{ github.run_id }}_${{ github.run_attempt }}
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      RESTAURANT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Official ROS Jazzy and Gazebo Harmonic/Nav2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git python3-colcon-common-extensions python3-yaml \
+            xvfb xauth mesa-utils ros-jazzy-ros-base ros-jazzy-ros-gz \
+            ros-jazzy-ros-gz-image ros-jazzy-nav2-bringup \
+            ros-jazzy-navigation2 ros-jazzy-slam-toolbox \
+            ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+      - name: Reviewed original Waffle Pi source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p src/upstream
+          git clone -q --depth 1 -b jazzy https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git src/upstream/turtlebot3_simulations
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          if [[ "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" != "$PIN" ]]; then
+            git -C src/upstream/turtlebot3_simulations fetch -q --depth 1 origin "$PIN"
+            git -C src/upstream/turtlebot3_simulations checkout -q --detach "$PIN"
+          fi
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+      - name: Build S6 opt-in robot, frozen map and official scan-only Nav2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-up-to restaurant_world restaurant_bringup restaurant_delivery
+          set +u
+          source install/setup.bash
+          set -u
+          mkdir -p generated/s6 generated/s7 logs
+          python3 scripts/s7_scene.py --source src/restaurant_world/worlds/restaurant.sdf --out generated/s7/restaurant_stacked.sdf --scenario stacked
+          python3 scripts/s7_scene.py --source src/restaurant_world/worlds/restaurant.sdf --out generated/s7/restaurant_empty.sdf --scenario empty
+          MODEL="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
+          python3 scripts/prepare_waffle_rgbd.py --source "$MODEL" \
+            --out generated/s6/waffle.sdf --rgbd-rate-hz 2 --vision-camera-offset-z 0.65
+          NAV="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+          python3 scripts/prepare_nav2_params.py --source "$NAV" \
+            --out generated/s6/nav2.yaml --auto-initial-pose --s6-bt-ack-ms 200
+          python3 - <<'PY'
+          import yaml
+          from xml.etree import ElementTree as ET
+          v=yaml.safe_load(open('generated/s6/nav2.yaml'))['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
+          assert v['observation_sources']=='scan' and 'rgbd' not in v
+          assert yaml.safe_load(open('generated/s6/nav2.yaml'))['bt_navigator']['ros__parameters']['default_server_timeout']==200
+          s=ET.parse('generated/s6/waffle.sdf')
+          assert s.findtext(".//sensor[@name='restaurant_registered_rgbd']/pose")=='0 0 0.650 0 0 0'
+          assert s.findtext(".//sensor[@name='hls_lfcd_lds']/update_rate")=='10'
+          print('S6_SAFETY_SCAN_ONLY_AND_CAMERA_OPT_IN_L1_PASS')
+          PY
+      - name: S7 stacked real Gazebo at start with TTY and two Goals and CM STOP
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=25s 1250s \
+            python3 scripts/s5_ci_delayed_tty.py \
+              --s7-scenario stacked --s7-world "$PWD/generated/s7/restaurant_stacked.sdf" \
+              --s6-vision --s6-model "$PWD/models/s6_dish_prototype.json" \
+              --approval-delay-sec 12 \
+              --robot-sdf "$PWD/generated/s6/waffle.sdf" \
+              --map "$PWD/maps/candidates/s2_map03/restaurant_map.yaml" \
+              --params "$PWD/generated/s6/nav2.yaml" \
+              --log "$PWD/logs/s6_real_gazebo.log" \
+              --evidence "$PWD/generated/s6/real_vision_evidence.json"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib
+          d=json.loads(Path('generated/s6/real_vision_evidence.json').read_text())
+          assert d['s6_integrated'] is True
+          assert d['s7_scene']['scenario']=='stacked'
+          assert d['s7_scene']['fixture_preloaded_at_world_start'] is True
+          assert d['s7_scene']['dynamic_fixture_spawn_requested'] is False
+          assert d['s6_vision']['fixture_seeded_for_demo'] is False
+          assert d['s6_return_goal_sent'] is True
+          assert d['s6_vision']['authorized'] is True
+          assert d['s6_vision']['prediction']['result']=='STACKED'
+          assert d['s6_vision']['prediction']['reason']=='REAL_RGB_MODEL_INFERENCE'
+          assert d['s6_vision']['image']['frames']>=2
+          assert len(d['real_nav_legs'])==2 and d['delivery_return'] is True
+          assert d['s4_safety_stop']['filtered_output_max_abs_mps']<=.025
+          assert d['s4_safety_stop']['physical_odom_motion_m']<=.045
+          import sys
+          sys.path.insert(0,'scripts')
+          from s6_vision_ai import read_ppm
+          w,h,rgb=read_ppm('generated/s6/s6_table_rgb.ppm')
+          assert hashlib.sha256(rgb).hexdigest()==d['s6_vision']['image']['image_sha256']
+          print('S7_STARTUP_STACKED_TABLE_VISION_RETURN_L2_PASS')
+          PY
+      - name: S7 empty table real RGB expected HOLD and zero return Goal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+          export ROS_DOMAIN_ID=93
+          export GZ_PARTITION=s7_empty_${{ github.run_id }}_${{ github.run_attempt }}
+          set +e
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=25s 1250s \
+            python3 scripts/s5_ci_delayed_tty.py \
+              --s7-scenario empty --s7-world "$PWD/generated/s7/restaurant_empty.sdf" \
+              --s6-vision --s6-model "$PWD/models/s6_dish_prototype.json" \
+              --approval-delay-sec 12 \
+              --robot-sdf "$PWD/generated/s6/waffle.sdf" \
+              --map "$PWD/maps/candidates/s2_map03/restaurant_map.yaml" \
+              --params "$PWD/generated/s6/nav2.yaml" \
+              --log "$PWD/logs/s7_empty_gazebo.log" \
+              --evidence "$PWD/generated/s7/empty_vision_evidence.json" \
+              > "$PWD/logs/s7_empty_console.log" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          PYTHONPATH=scripts python3 scripts/s7_negative_contract.py \
+             --evidence generated/s7/empty_vision_evidence.json \
+             --ppm generated/s7/s6_table_rgb.ppm \
+             --log logs/s7_empty_console.log
+          echo S7_EMPTY_NEGATIVE_ACTUAL_GAZEBO_NO_RETURN_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: s7-startup-empty-no-return-${{ github.run_id }}
+          path: |
+            generated/s6/
+            generated/s7/
+            logs/s7_empty_console.log
+            logs/ci-s3-summary.txt
+          if-no-files-found: ignore
+          retention-days: 14
