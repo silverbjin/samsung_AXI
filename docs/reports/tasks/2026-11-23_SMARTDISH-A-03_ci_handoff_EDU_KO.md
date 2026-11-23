@@ -4,7 +4,7 @@
 - 브랜치: `feat/smartdish-a-robot` / 기준 S7 main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`
 - 작업 커밋: 본 보고서와 workflow, handoff 문서가 들어 있는 커밋
 - 출고 범위: 계약 L0 + ROS 빌드 L1 후보, 기존 S7 코어 수정 0건
-- 상태: **L0 25 PASS / L1 ROS build PASS** (원본 SHA `e069a13`), **A-DBG-01 수정 후 L0 26 PASS** (SHA `bae0c36`), 신규 3-leg Gazebo NOT_RUN
+- 상태: **L0 25 PASS / L1 ROS build PASS** (원본 SHA `e069a13`), **A-DBG-01 수정 후 L0 26 + ROS L1 PASS** (SHA `bae0c36`), 신규 3-leg Gazebo NOT_RUN
 
 ## 1. 목표·설계 판단
 
@@ -28,7 +28,7 @@ ros2 pkg executables smartdish_robot
 
 - 기대 L0: 세 쌍의 목적지 계약, 잘못된 입력 거부, null 목적지 실패, 패키지 구조 확인.
 - 기대 L1: `smartdish_robot navigation_adapter` 발견.
-- **실제 L0/L1 Run/판정:** [#45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792) L0 `25 passed in 0.04s`, PASS; L1 `Summary: 1 package finished`, `smartdish_robot navigation_adapter`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`. 이후 [#45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312) L0 **26 passed in 0.04s**, L1 재검 진행 중 (소스 코드는 이전 L1 성공 버전과 동일).
+- **실제 L0/L1 Run/판정:** [#45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792) L0 `25 passed in 0.04s`, PASS; L1 `Summary: 1 package finished`, `smartdish_robot navigation_adapter`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`. 이후 [#45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), SHA `bae0c36bff32e50abd818711bca8c13737d835ec`: **L0 26 passed in 0.04s + L1 ROS Jazzy build/entrypoint PASS**. 이 뒤의 문서 갱신 커밋에서는 실행 소스/테스트를 변경하지 않았습니다.
 - L2 Gazebo 3-leg: `DISH_RETURN`의 실제 map Pose를 현장에서 검증하기 전 **NOT_RUN**.
 
 ## 4. 주니어 개발자를 위한 판단·질문

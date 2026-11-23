@@ -84,3 +84,4 @@
 - 2026-11-23 SMARTDISH-A-DBG-01 — [CLI JSON escaping 오류](reports/issues/2026-11-23_SMARTDISH-A-DBG-01_cli_json_escaping_EDU_KO.md), 정적 JSONDecodeError → 한 줄 수정 + L0 26 PASS [#45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), RESOLVED.
 
 - 2026-11-23 SMARTDISH-A-COORD-01 — [DISH_RETURN 좌표 미검증 HOLD](reports/issues/2026-11-23_SMARTDISH-A-COORD-01_return_pose_HOLD_EDU_KO.md), 신규 3-leg L2 NOT_RUN.
+- 2026-11-23 SMARTDISH-A-CI-FINAL — [A-03 실행/인계 보고서](reports/tasks/2026-11-23_SMARTDISH-A-03_ci_handoff_EDU_KO.md), [Run #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312): L0 26 PASS · L1 ROS Jazzy PASS (SHA bae0c36), SmartDish 3-leg L2 HOLD.

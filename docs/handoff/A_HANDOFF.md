@@ -123,7 +123,7 @@ ros2 topic echo /odom --once
 ## 7. 공개 CI 증거와 판정
 
 - [원격 A L0 25 PASS + ROS Jazzy L1 PASS #45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792), 실행 SHA `e069a13`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`.
-- [CLI 디버깅 수정 후 L0 26 PASS #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), 실행 SHA `bae0c36`. ROS L1 재검 진행 중; 코드 변경은 문서·테스트로 한정됨.
+- [CLI 디버깅 수정 후 L0 26 PASS #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), 실행 SHA `bae0c36`. ROS Jazzy L1 빌드·실행 엔트리포인트 **PASS**. 후속 보고서 커밋은 문서만 변경됨.
 - `/collection/nav_goal` 실제 publish → Nav2 Goal, `/odom` 3구간, UI 완료 **NOT_RUN**. L0/L1 결과를 새 L2로 승격 금지.
 
 ## 8. 보고서 이력과 남은 경계
