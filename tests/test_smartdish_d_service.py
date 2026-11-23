@@ -79,7 +79,7 @@ def test_old_or_wrong_leg_and_duplicate_are_ignored():
     {"table_id": "T02"}, {"table_wait_s": 0},
     {"table_wait_s": 121}, {"dropoff_wait_s": 61},
     {"ai_enabled": "false"}, {"request_id": ""},
-    {"table_wait_s": True},
+    {"table_wait_s": True}, {"request_id": " REQ-1 "},
 ])
 def test_invalid_request_fails_closed(bad):
     m = MissionManager(clock=Clock())
@@ -129,8 +129,8 @@ def test_ai_on_unstable_requires_matching_staff_approval():
     events = m.drain()
     capture = next(v["capture_id"] for t, v in events if t == "/collection/ai_check_request")
     assert m.state == "AI_CHECK"
-    assert not m.on_stability({"request_id": "REQ-1", "capture_id": "OLD", "status": "STABLE"})
-    assert m.on_stability({"request_id": "REQ-1", "capture_id": capture, "status": "UNSTABLE"})
+    assert not m.on_stability({"request_id": "REQ-1", "capture_id": "OLD", "status": "STABLE", "confidence": 0.9, "model_version": "fixture-v1"})
+    assert m.on_stability({"request_id": "REQ-1", "capture_id": capture, "status": "UNSTABLE", "confidence": 0.6, "model_version": "fixture-v1"})
     assert m.state == "NEEDS_CONFIRMATION"
     assert not m.on_staff_confirm({"request_id": "OLD", "action": "APPROVE_CONTINUE"})
     assert not goals(m.drain())
@@ -163,12 +163,12 @@ def test_stale_ai_and_new_mission_after_completion():
     m = MissionManager(clock=clk, ai_available=True)
     assert not m.handle_request(request(ai=True)) is False
     m.drain()
-    assert not m.on_stability({"request_id":"REQ-1", "capture_id":"x", "status":"STABLE"})
+    assert not m.on_stability({"request_id":"REQ-1", "capture_id":"x", "status":"STABLE", "confidence":0.9, "model_version":"fixture-v1"})
     m.on_nav_result(result("REQ-1","TO_TABLE"))
     clk.add(10);m.tick()
     capture = m.capture_id
     m.drain()
-    assert m.on_stability({"request_id":"REQ-1", "capture_id":capture, "status":"STABLE"})
+    assert m.on_stability({"request_id":"REQ-1", "capture_id":capture, "status":"STABLE", "confidence":0.9, "model_version":"fixture-v1"})
     m.drain()
     m.on_nav_result(result("REQ-1","TO_RETURN"))
     clk.add(5);m.tick()
@@ -179,3 +179,26 @@ def test_stale_ai_and_new_mission_after_completion():
     assert m.state == "TO_TABLE"
     assert not m.on_nav_result(result("REQ-1","TO_TABLE"))
     assert not m.handle_request(request("REQ-1"))
+
+
+def test_ai_stable_without_provenance_never_advances():
+    clk = Clock()
+    m = MissionManager(clock=clk, ai_available=True)
+    assert m.handle_request(request(ai=True))
+    m.drain()
+    m.on_nav_result(result("REQ-1", "TO_TABLE"))
+    clk.add(10)
+    m.tick()
+    capture = m.capture_id
+    m.drain()
+    assert not m.on_stability({"request_id": "REQ-1", "capture_id": capture,
+                              "status": "STABLE"})
+    assert not m.on_stability({"request_id": "REQ-1", "capture_id": capture,
+                              "status": "STABLE", "confidence": None,
+                              "model_version": "none"})
+    assert m.state == "AI_CHECK"
+    assert not goals(m.drain())
+    clk.add(5)
+    m.tick()
+    assert m.state == "NEEDS_CONFIRMATION"
+    assert not goals(m.drain())

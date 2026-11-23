@@ -84,7 +84,8 @@ class MissionManager:
         if not isinstance(data, dict):
             return False
         rid = data.get("request_id")
-        if not isinstance(rid, str) or not (1 <= len(rid) <= 128):
+        if (not isinstance(rid, str) or not (1 <= len(rid) <= 128)
+                or rid.strip() != rid):
             return False
         if data.get("table_id") != "T03":
             return False
@@ -195,6 +196,21 @@ class MissionManager:
                 or data.get("status") not in VALID_STABILITY):
             return False
         status = data["status"]
+        # The v1.0 contract requires confidence and model_version. A missing
+        # or fabricated STABLE must never authorize motion; wait for timeout.
+        if "confidence" not in data or "model_version" not in data:
+            return False
+        confidence = data["confidence"]
+        if confidence is not None and (
+                type(confidence) not in (int, float)
+                or not math.isfinite(confidence)
+                or not 0.0 <= confidence <= 1.0):
+            return False
+        model = data["model_version"]
+        if not isinstance(model, str) or not model:
+            return False
+        if status == "STABLE" and (confidence is None or model == "none"):
+            return False
         if status == "STABLE":
             self._begin_leg("TO_RETURN")
         else:
