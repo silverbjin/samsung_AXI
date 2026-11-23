@@ -78,3 +78,6 @@
 - 2026-11-20 **S3-NAV-02 CI·main PASS**: [PR #10](https://github.com/silverbjin/samsung_AXI/pull/10) main e2e7cf04; [Run #44646848087](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848087) 배달 Odom 5.257m / 오차 0.132m, 복귀 5.219m / 오차 0.126m, Nav2 Lifecycle/2 Action SUCCESS. S1/S2 회귀 [Run #44646848122](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848122) GREEN. [최종 보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md). WSL2 GUI 및 메뉴별 속도는 별도 인수.
 
 - 2026-11-20 S4-MENU-01 착수: 기존 정상 S2 지도·S3 실제 Nav2 배달/복귀 재사용. `/speed_limit` 토픽 Nav2 Controller 정합, NORMAL 0.23/SOUP 0.11m/s 실제 Odom 속도 비교, 공식 Collision Monitor LiDAR 기반 STOP 및 물리 Gazebo 단일 fixture L2. [작업 보고서](reports/tasks/2026-11-20_S4-MENU-01_speed_safety.md). 아직 CI 실제 GREEN 미확정.
+- 2026-11-23 SMARTDISH-A-01 — [Map Pose·JSON contract](reports/tasks/2026-11-23_SMARTDISH-A-01_contract_and_map_EDU_KO.md); A-01 commit `9542cf265265652a6910f04b660eacca35b632f7`; Gazebo 3-leg NOT_RUN.
+- 2026-11-23 SMARTDISH-A-02 — [Nav2 Adapter·TTY 경계](reports/tasks/2026-11-23_SMARTDISH-A-02_navigation_adapter_EDU_KO.md); A-02 commit `aa63757c9a034589ece6f0dfbc609545c61d3af1`; ROS L1 후속 확인.
+- 2026-11-23 SMARTDISH-A-03 — [전용 CI/팀 인계](reports/tasks/2026-11-23_SMARTDISH-A-03_ci_handoff_EDU_KO.md); [A handoff](handoff/A_HANDOFF.md); 3-leg L2 NOT_RUN.
