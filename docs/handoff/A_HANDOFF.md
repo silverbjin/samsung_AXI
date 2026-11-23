@@ -55,7 +55,7 @@ curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent
 
 **기본 모드가 GUI(WSLg Gazebo/RViz)**입니다. 화면을 사용하지 않으려면 명령 맨 끝에 `--headless`를 붙입니다. 이미 `~/samsung_AXI_A`가 있으면 **로컬 수정 없는 경우에만** Fast-forward 갱신하며, 절대 reset/삭제하지 않습니다. 실제 Goal은 사용자 터미널에서 `YES-SMARTDISH-A-GOALS`를 직접 입력할 때만 시작됩니다.
 
-이번 실행의 실제 GUI WSL2 L3 주행 3/3 **PASS** 근거: [A-09 현장 원본 증거 검수 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md). 최신 GUI 기본값 변경은 실행기 인자 변경만이므로 이후 L0 검증 결과와 구분합니다. 상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). [출고 L0 45 PASS + ROS Jazzy L1 PASS #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662). A 실제 WSL2 GUI L3는 **A-09 원본 증거로 3/3 PASS**입니다.
+[GUI 기본값 변경 후 CI L0 45 PASS / Jazzy L1 PASS #45132140083](https://github.com/silverbjin/samsung_AXI/actions/runs/45132140083). 이번 실행의 실제 GUI WSL2 L3 주행 3/3 **PASS** 근거: [A-09 현장 원본 증거 검수 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md). 최신 GUI 기본값 변경은 실행기 인자 변경만이므로 이후 L0 검증 결과와 구분합니다. 상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). [출고 L0 45 PASS + ROS Jazzy L1 PASS #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662). A 실제 WSL2 GUI L3는 **A-09 원본 증거로 3/3 PASS**입니다.
 
 ## 4A. 기존 A-07 코드 다운로드 후 실행 (대안)
 

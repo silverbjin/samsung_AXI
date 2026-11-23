@@ -39,3 +39,11 @@ curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent
 - `bash -n`으로 두 셸 문법 확인, 실제 Jazzy L1로 기존 Adapter 빌드 불변 확인.
 - 현장 **A-09 GUI 3-leg 실주행 PASS**를 보존합니다. 단순 기본 인자 수정 때문에 전 과정 실주행을 재실행하지 않습니다.
 - D UI`COMPLETED` 검증은 A-10의 일부가 아니며, 별도 E 통합에서 진행합니다.
+
+## 5. 최종 GitHub CI 검증 완료
+
+- [GUI 기본값 적용 + 교육 문서 기준 Actions #45132140083](https://github.com/silverbjin/samsung_AXI/actions/runs/45132140083), CI 소스 SHA `267c9f83ca56ed10eeb3437d5f43cafdf39542d0`.
+- L0 **45 PASS**: Bash 두 실행기 `bash -n`, `--help` 기본값 문구, `MODE=--gui` 계약, 수동 `--headless` 대체, 안전 차단, 기존 A 계약 전부 통과.
+- ROS Jazzy L1 **PASS**: `Summary: 1 package finished`, `smartdish_robot navigation_adapter`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS` 로그 확인.
+- 출고 이후 보고서·A→E 인계 계획만 개정. 실행기 기본값 코드는 검증된 SHA `7d110ece...`와 동일.
+- 현장 실제 GUI L3는 **A-09 이전 운영 코드에서 3/3 PASS**. 후속 변경은 CLI 기본값·보고서뿐이므로 실물 재주행은 생략. D 통합 L3는 NOT_RUN.
