@@ -46,3 +46,12 @@ B가 사람 검토 물리 라벨·실제 이미지·원본 SHA와 `stack_id` 기
 ### 교육 포인트
 
 종종 오류를 '고쳐서 PASS'로 만드는 것보다 **의도적인 가드가 정상 작동하며 다음 단계가 실제로 차단됨을 입증**하는 것이 더 중요합니다. 개발자는 의존성 미해결과 코드 결함을 구분해야 합니다.
+
+
+## 2026-11-23 후속 조치 (C04/C05)
+
+- **원래 문제의 실학습 블로커는 OPEN 유지**: B 물리 관측·사용권 확인된 이미지 0건이기 때문입니다.
+- 더미 개발용 의존성만 우회: B `CONTRACT_FIXTURE/MOCK_ONLY`를 `--demo-fixtures`로만 허용, 운영 model loader는 mock `.pt`를 거부함을 로컬 확인했습니다.
+- 로컬 결과: `27 passed` / ResNet18 CPU mock frozen→finetune→2장 mock 평가 실행 / `production_runtime_mock_rejected=true`. B 원본 checkout GitHub CI는 별도 Run으로 검증합니다.
+- **차단 상태 분리**: `C_DUMMY_PIPELINE=PASS`(로컬 shim), `C_REAL_TRAINING=BLOCKED`, `C_ROS_LIVE=NOT_RUN`.
+- 실데이터가 출고되면 ground truth 원본 근거와 SHA/권리를 확인하고 `--demo-fixtures` 없는 동일 학습·평가 경계를 검증할 때만 이 티켓을 `RESOLVED` 처리합니다.

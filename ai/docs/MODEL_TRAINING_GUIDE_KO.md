@@ -9,10 +9,10 @@ git clone https://github.com/silverbjin/samsung_AXI.git
 cd samsung_AXI
 git switch feat/smartdish-c-stability
 python3 -m pip install pytest pillow numpy  # 정적/계약 테스트
-python3 -m pytest -q tests/test_c_stability.py
+python3 -m pytest -q tests/test_c_stability.py tests/test_c_mock_pipeline.py
 ```
 
-기대: `20 passed`. 이는 실제 모델 성능이나 Gazebo 시연이 아니라 **CONTRACT_PASS_ONLY**입니다. B의 분할 manifest는 main에 아직 없으므로 AI 학습을 시도하지 않습니다.
+기대: 기존 20개 + 더미 분리 7개, 총 `27 passed`. 이는 실제 모델 성능이나 Gazebo 시연이 아니라 **CONTRACT_PASS_ONLY**입니다. B의 분할 manifest는 main에 아직 없습니다. 실학습은 불가하지만 **별도 더미 모드**로 학습 루프를 검증할 수 있습니다.
 
 ## 1. B와 C를 연결하는 이유
 
@@ -91,3 +91,29 @@ ros2 topic pub --once /collection/ai_check_request std_msgs/msg/String \
 2. 시험 결과 혼동행렬에서 행/열의 의미는 무엇입니까?
 3. `capture_id`가 다른 두 요청에 동일 이미지가 쓰이면 어떤 오류가 생길까요?
 4. 왜 트레이 전용 카메라 없이 TABLE_3 전방 카메라를 사용해서는 안 될까요?
+
+
+## 6. B 더미로 오늘 실습하기 (C04/C05 신설)
+
+B 브랜치를 별도 checkout으로 받아 **실제 B 생성기 코드를 읽기 전용으로 실행**합니다. 로컬 파일을 복제하거나 main에 병합하지 않습니다.
+
+```bash
+# C 브랜치 체크아웃 상태, 저장소 루트에서
+python3 -m pip install pytest pillow numpy torch torchvision
+python3 -m pytest -q tests/test_c_stability.py tests/test_c_mock_pipeline.py
+
+git clone https://github.com/silverbjin/samsung_AXI.git /tmp/smartdish-b-readonly
+git -C /tmp/smartdish-b-readonly checkout --detach   4c63d8a88297b7418efccb6e933c25275d9807ce
+
+OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 python3 -m ai.train.demo_fixture_pipeline   --b-script /tmp/smartdish-b-readonly/ai/scripts/prepare_dataset.py   --b-ref 4c63d8a88297b7418efccb6e933c25275d9807ce   --output /tmp/smartdish-c-mock-only --epochs 1
+```
+
+기대: `B_MOCK_ONLY_FIXTURES_CREATED` → `B_DATASET_CONTRACT_PASS` → `C_MOCK_ONLY_FROZEN_TRAINED` → `C_MOCK_ONLY_FINETUNE_TRAINED` → `C_MOCK_ONLY_TEST_EVALUATED` → `C_B_MOCK_ONLY_PIPELINE_PASS`. 숫자는 임의 fixture에서 변동 가능하며 실제 테스트 성능을 뜻하지 않습니다. 자동 원본/테스트 SHA, 분할, 모델 메타데이터, 안전 배포 거부 증거는 `/tmp/smartdish-c-mock-only/c_pipeline_result_MOCK_ONLY.json`에서 확인합니다.
+
+더미 체크포인트는 `src/smartdish_ai/config/model.yaml`의 `model_path`로 지정하지 마십시오. 운영 노드가 거부하고 `UNKNOWN`으로 처리하는 것이 **정상**입니다. 학습 weights는 디스크 용량을 차지하므로 검수 후 `/tmp/smartdish-c-mock-only/`를 수동 정리할 수 있습니다.
+
+## 7. 실제 물리 데이터 도착 후 그대로 전환
+
+B 자료를 먼저 병합하거나 동일 버전 파일을 읽기 전용으로 연결한 후 `ai/data/split_manifest.csv` 및 PNG 이미지 경로가 존재하는지 확인합니다. 데이터 수집자는 `PHYSICS_OBSERVED`의 근거 자료와 사용 허가를 사람 눈으로 검토합니다. 이전 2절의 **기존 명령을 `--demo-fixtures` 없이** 다시 실행하십시오. `baseline.pt`, `finetuned.pt`는 새 작업 디렉터리에 생성하고 더미 체크포인트를 절대로 `--init-checkpoint`로 전달하지 마십시오.
+
+실제로 훈련된 모델만 `PHYSICS_OBSERVED` 체크포인트가 되어 운영 ROS 노드에서 읽을 수 있습니다. 별도 실제 Gazebo RGB 수신과 D AI ON 경로를 확인하기 전에는 **AI_ON_OPTIONAL_PASS라고 주장하지 않습니다**.

@@ -1,6 +1,6 @@
-# SmartDish C — 식기 적재 안정성 모델 카드 v0.1
+# SmartDish C — 식기 적재 안정성 모델 카드 v0.2 — 더미 격리 개발 단계
 
-- 작성일: 2026-11-23 / 담당 C / 상태: **TRAINING_NOT_RUN**, **ROS_IMAGE_LIVE_NOT_RUN**
+- 작성일: 2026-11-23 / 담당 C / 상태: **MOCK_ONLY_TRAINING_TESTED** / **REAL_TRAINING_NOT_RUN** / **ROS_IMAGE_LIVE_NOT_RUN**
 - GitHub: `silverbjin/samsung_AXI`, 기반 `main@2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`, C `feat/smartdish-c-stability` (코드 SHA는 PR의 최종 HEAD 확인)
 - 소비자: D Mission Manager (`/collection/stability`), 입력 카메라: A `/smartdish/tray/image_raw` (선택).
 
@@ -58,3 +58,13 @@ flowchart LR
 2. `UNKNOWN`을 세 번째 학습 클래스로 추가하지 않은 이유는 무엇입니까?
 3. 왜 이미지 SHA, stack_id 누수, 모델 version SHA를 각기 기록합니까?
 4. 테스트 accuracy가 100%여도 ROS 화면 시연 PASS가 아닌 이유는 무엇입니까?
+
+
+## 6. 2026-11-23 C04/C05 — 더미 기반 경로 추가 및 실데이터 전환
+
+- B 원본 pinned SHA: `4c63d8a88297b7418efccb6e933c25275d9807ce`; 원본 Data Card의 `manifest.csv`/`split_manifest.csv`는 여전히 **실물 0건**입니다. GitHub CI는 B 코드를 별도 checkout하여 합성 fixture 원본 경로를 검증합니다.
+- 로컬 6장 mock dataset 실험: Python + torch/torchvision CPU, frozen 1 epoch, finetune 1 epoch, 독립 *더미* test 2장. `MOCK_ONLY_SANITY_CHECK`, 정확도/F1 수치는 실제 모델 성능으로 사용 금지. 로컬은 **B 생성기 규격을 복제한 shim으로 실행**했으며 원본 B 직접 실행 증거와 구별합니다.
+- 체크포인트 `data_scope=MOCK_ONLY`, `weight_init=RANDOM_DEMO_ONLY` (초기 단계)이며 운영 ROS loader는 `data_scope=PHYSICS_OBSERVED` 이외 모델을 `C_MODEL_CONTRACT_MISMATCH`로 거부합니다. 이 checkpoint는 GitHub에 업로드하지 않습니다.
+- `--demo-fixtures`는 B `CONTRACT_FIXTURE/MOCK_ONLY`를 명시적으로 받는 실습 모드입니다. 플래그 없는 기본 운영 학습/평가 경로는 과거처럼 mock을 거부합니다. 실물 검증 데이터 준비 후 코드를 변경하지 않고 정상 실학습 CLI를 실행합니다.
+- 물리 관측/사용 권한의 실제 검토 책임은 B/평가 담당에 있으며 CSV에 `PHYSICS_OBSERVED`라고 적었다는 이유만으로 실제 물리 검증이 된 것은 아닙니다.
+- 후속 검사: 실제 이미지·ground truth/권한 확보, pretrained 학습, 독립 test, A tray RGB, D 상태 머신 AI ON, Jazzy rclpy는 모두 **NOT_RUN**입니다.
