@@ -94,3 +94,11 @@ ros2 topic echo /collection/status std_msgs/msg/String
 
 ## 7. 개발 문서만으로 되짚기
 \`docs/reports/smartdish/d/README.md\` → D01 → D02 → D03 → D-DBG-001 → D-DBG-002 → D04 검증 → 이 인계서 순서로 읽습니다. 원격 Actions URL과 커밋 SHA를 함께 비교하면 수정 이유와 검증 범위를 추적할 수 있습니다.
+
+## D05 — 재실행 안전성 개선 인계 (2026-11-23)
+
+- D05 코드 SHA: `ffa8cc8ee0750ed540534566a8c4176e6376c049` (최초 L0 작업 이전)
+- 최신 CI/가이드: `docs/reports/smartdish/d/D05_WSL2_FAIL_FAST_RUNNER_EDU_KO.md`, `docs/handoff/D_WSL2_ONE_SHOT_GUIDE_KO.md`
+- 기존 `~/samsung_AXI`는 보존, 전용 `~/samsung_AXI_d_service` 사용.
+- 기본 `bash scripts/smartdish_d_wsl2_one_shot.sh --verify`는 NO_GOAL.
+- 기존 `main`/A/B/C 소스 변경 없음. D05 Git·빌드 검증은 실제 Gazebo 3구간 주행의 대체 근거가 아닙니다.

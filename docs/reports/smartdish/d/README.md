@@ -15,3 +15,13 @@
 시험 결과와 실제 사용 환경을 혼동하지 않습니다. D FSM 테스트의 3개 \`SUCCEEDED\`는 테스트용 입력이며 Nav2 이동 증거가 아닙니다. S7의 기존 실제 2-leg PASS를 SmartDish 신규 3-leg PASS로 재사용하지 않습니다.
 
 표준 로그 기재: 기준 SHA → 최초 실패 입력/로그 → 불변 조건 → 수정 함수/근거 → 재검 명령·run ID → 사실/미검증·차단사항.
+
+## D05 — Git 작업환경 Fail-Fast 실행기 (2026-11-23)
+
+- [D-DBG-003 사용자 원본 오류/근본 원인](D_DBG_003_GIT_WORKSPACE_COLLISION_EDU_KO.md)
+- [D05 원샷 실행기 개발·테스트 보고서](D05_WSL2_FAIL_FAST_RUNNER_EDU_KO.md)
+- [WSL2 초심자용 실행 가이드](../../../handoff/D_WSL2_ONE_SHOT_GUIDE_KO.md)
+- [D05 Git fixture/L0 CI](https://github.com/silverbjin/samsung_AXI/actions/runs/45124460216)
+- [D05 실제 Jazzy 원샷 CI](https://github.com/silverbjin/samsung_AXI/actions/runs/45124624797)
+
+D05는 기존 `~/samsung_AXI`를 보존하며 전용 worktree로 검증합니다. CI 모의 Git/ROS 테스트를 Gazebo 실주행 인수로 승격하지 않습니다.
