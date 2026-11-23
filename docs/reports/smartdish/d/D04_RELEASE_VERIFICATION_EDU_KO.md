@@ -14,11 +14,11 @@
 | D02 ROS 통신 | e8b559be | JSON fixture·ament·교육 보고서 커밋 |
 | D03 GUI + CI | f6aaecbe | Actions #45121462007 L0 **24 PASS**, Jazzy L1 **PASS** |
 | D-DBG-001 | b3e9bfdb | request ID 스키마·AI 필수필드 정렬 |
-| D-DBG 재검 | b3e9bfdb | Actions #45121672872 L0 **26 PASS**. 동일 run의 L1 판정은 PR 최신 상태 확인 |
+| D-DBG 재검 | b3e9bfdb | Actions #45121672872 L0 **26 PASS**, Jazzy L1 **PASS** |
 
 ## 2. 검증 실행과 명령
 - [D03 소스 기준 공개 GitHub Actions #45121462007](https://github.com/silverbjin/samsung_AXI/actions/runs/45121462007): L0 Python 24 PASS, Jazzy L1 성공.
-- [D-DBG 수정 후 공개 GitHub Actions #45121672872](https://github.com/silverbjin/samsung_AXI/actions/runs/45121672872): L0 Python 26 PASS; ROS L1 최종 상태는 Actions 원본 참조.
+- [D-DBG 수정 후 공개 GitHub Actions #45121672872](https://github.com/silverbjin/samsung_AXI/actions/runs/45121672872): L0 Python **26 PASS**, ROS Jazzy L1 **PASS**.
 - L0 명령: \`python3 -m compileall -q src/smartdish_service tests/test_smartdish_d_service.py tests/test_smartdish_d_ui.py\` 및 \`python3 -m pytest -q tests/test_smartdish_d_service.py tests/test_smartdish_d_ui.py tests/test_s7_scene.py tests/test_s7_negative.py\`.
 - L1 명령: ROS Jazzy 환경 \`colcon build --packages-select smartdish_service --symlink-install\` 후 \`ros2 pkg executables smartdish_service\`, Python 모듈 import 검사.
 
@@ -26,7 +26,7 @@
 | 수준 | 의미 | 결과 |
 |---|---|---|
 | D L0 | FSM에 모의 nav_result를 넣어 조건·대기시간 검증 | PASS, **MOCK_ONLY** |
-| D L1 | ROS 패키지 설치·Python import/엔트리포인트 | 첫 CI PASS, 수정 후 CI 확인 |
+| D L1 | ROS 패키지 설치·Python import/엔트리포인트 | 첫 CI PASS, 디버깅 수정 후 CI도 PASS |
 | E/A L2 | 실제 Gazebo 3-leg, Nav2 SUCCEEDED, odom | NOT_RUN |
 | WSL2 L3 | 사용자 환경 UI+Gazebo 시연 및 원본 증거 | NOT_RUN |
 
@@ -50,3 +50,7 @@ ROS 2 패키지 성공만으로 pub/sub 실제 전달과 실제 주행 성공을
 - 왜 로봇 전용 \`table_poses.yaml\`을 D GUI 좌표로 대체하면 안 되나요?
 - \`D-DBG-001\`을 통합 후 발견했다면 어떤 문제가 생기며, 사전 계약 검사가 절약한 비용은 무엇인가요?
 - E 단계에서 \`request_id\` 하나로 로그를 묶으면 디버깅이 쉬워지는 이유는 무엇인가요?
+
+
+## 7. 수정 후 ROS L1 근거 확인
+\`#45121672872\`의 ROS Jazzy Job은 \`Finished <<< smartdish_service\`, \`Summary: 1 package finished\`, \`smartdish_service smartdish_manager\`, \`smartdish_service smartdish_ui\`, \`SMARTDISH_D_L1_ROS_PACKAGE_IMPORT_PASS_NO_GOAL\`을 실제 출력했습니다. 이 확인은 실행 파일 설치 및 import 검증이며, Nav2 전송·UI 가시성 또는 Gazebo 주행을 의미하지 않습니다.

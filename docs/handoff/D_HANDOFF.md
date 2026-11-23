@@ -6,7 +6,7 @@
 - **Draft PR #38**: https://github.com/silverbjin/samsung_AXI/pull/38 (main 미병합)
 - 최종 *기능 코드* 수정 SHA: \`b3e9bfdb80b96607faf5f5f121429370f36ec1d6\`
 - 문서 보강 후 정확한 HEAD: Draft PR의 \`head_sha\`/ \`git rev-parse HEAD\`에서 확인 (자기 SHA를 자기 문서에 기록하지 않음)
-- 기능 판정: **D L0 MOCK_ONLY PASS, ROS Jazzy L1 PASS 여부는 PR 최신 CI 확인, REAL GAZEBO NOT_RUN**
+- 기능 판정: **D L0 26 PASS (MOCK_ONLY), ROS Jazzy L1 패키지 빌드 PASS, REAL GAZEBO NOT_RUN**
 
 ## 1. 소유 파일
 \`\`\`text
@@ -64,7 +64,7 @@ ros2 topic echo /collection/status std_msgs/msg/String
 | 단계 | 기대 근거 | 현재 |
 |---|---|---|
 | D Python L0 | 3-leg 합성 결과·10/5초·BUSY·실패·AI 분기 | PASS (MOCK_ONLY) |
-| D ROS L1 | Jazzy ament build·console_scripts·import | GitHub CI 결과 참조 |
+| D ROS L1 | Jazzy ament build·console_scripts·import | [#45121672872](https://github.com/silverbjin/samsung_AXI/actions/runs/45121672872) PASS |
 | D Tk GUI 시각 | T03 클릭·상태·색상·버튼 | 실제 WSLg NOT_RUN (시각은 사용자 검수) |
 | A+D AI OFF 실제 | 3개의 A SUCCEEDED + /odom + UI COMPLETED/동일 ID | **BLOCKED / NOT_RUN** |
 | A+C+D AI ON | tray RGB 실제 프레임 + C 결과 + D 직원 승인 | OPTIONAL / NOT_RUN |
@@ -77,6 +77,11 @@ ros2 topic echo /collection/status std_msgs/msg/String
 5. \`WAIT_LOADING\` 10초, \`WAIT_UNLOADING\` 5초의 단조시간 경과 및 \`/collection/status\`.
 6. UI 최종 \`COMPLETED\`, 사용자 시각 검수(자동 게이트 아님).
 7. 최초 실패가 있으면 \`D-DBG-NNN\` 형태로 첫 오류·원인·수정·재검증을 별도 기록.
+
+### 공개 CI 재검증 증거
+- D03 기준 [#45121462007](https://github.com/silverbjin/samsung_AXI/actions/runs/45121462007): Python 24 PASS / ROS Jazzy L1 PASS.
+- D-DBG-001 기준 [#45121672872](https://github.com/silverbjin/samsung_AXI/actions/runs/45121672872): Python **26 PASS** / ROS Jazzy L1 PASS.
+- 최신 Draft PR 소스 SHA의 전체 CI 판정은 PR Checks에서 별도 확인합니다. 기능 변경 마지막 SHA는 `b3e9bfdb`이고 이후 문서 추가만 발생했습니다.
 
 ## 6. 현재 차단 사항과 다음 액션
 - **최우선:** A가 \`DISH_RETURN\` 실제 map Pose/통로 도달성을 확정할 것.
