@@ -117,3 +117,40 @@ OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 python3 -m ai.train.demo_fixture_pipeline   
 B 자료를 먼저 병합하거나 동일 버전 파일을 읽기 전용으로 연결한 후 `ai/data/split_manifest.csv` 및 PNG 이미지 경로가 존재하는지 확인합니다. 데이터 수집자는 `PHYSICS_OBSERVED`의 근거 자료와 사용 허가를 사람 눈으로 검토합니다. 이전 2절의 **기존 명령을 `--demo-fixtures` 없이** 다시 실행하십시오. `baseline.pt`, `finetuned.pt`는 새 작업 디렉터리에 생성하고 더미 체크포인트를 절대로 `--init-checkpoint`로 전달하지 마십시오.
 
 실제로 훈련된 모델만 `PHYSICS_OBSERVED` 체크포인트가 되어 운영 ROS 노드에서 읽을 수 있습니다. 별도 실제 Gazebo RGB 수신과 D AI ON 경로를 확인하기 전에는 **AI_ON_OPTIONAL_PASS라고 주장하지 않습니다**.
+
+## 8. C06 — 실제 물리 데이터 출고 여부를 한 명령으로 확인
+
+다음은 B 소스를 덮어쓰지 않는 read-only 점검입니다. **현재 B 최신 브랜치에는 실제 물리 라벨 이미지가 0장**이므로 `BLOCKED` 종료 코드 2가 예상 결과입니다. 코드가 망가진 것이 아닙니다.
+
+```bash
+# C 전용 브랜치 작업 위치에서 실행
+B_SHA=1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d
+git clone https://github.com/silverbjin/samsung_AXI.git /tmp/smartdish-b-readonly || true
+git -C /tmp/smartdish-b-readonly fetch origin "$B_SHA"
+git -C /tmp/smartdish-b-readonly checkout --detach "$B_SHA"
+python3 -m ai.train.check_real_data_readiness \
+  --split-manifest /tmp/smartdish-b-readonly/ai/data/split_manifest.csv \
+  --root /tmp/smartdish-b-readonly --b-ref "$B_SHA" \
+  --report /tmp/smartdish-c-real-readiness.json
+# 정상적인 현재 상태: C_TRAINING_NOT_RUN_NO_REAL_DATA, verdict=BLOCKED, rc=2
+```
+
+실제 데이터가 나오면 `split_manifest.csv`의 각 PNG와 `capture_config.physics_evidence`가 **C 호스트에서 열리는지**, 파일 크기와 SHA256이 맞는지 검증합니다. `CONTRACT_READY_HUMAN_REVIEW_REQUIRED`가 나오더라도 사람이 전도/낙하·접촉 관측 근거와 사용권을 승인한 후에만 2절의 frozen → finetune → independent test 명령을 실행합니다. `--demo-fixtures`는 이 단계에 절대 추가하지 않습니다.
+
+새 오류 예시: `C_PHYSICS_EVIDENCE_FILE_MISSING`(실물 기록 파일 미전달), `C_PHYSICS_EVIDENCE_INTEGRITY_METADATA_MISSING`(B-06 SHA 필드 미등록), `C_PHYSICS_EVIDENCE_SHA_MISMATCH`(증거 파일 변경 또는 손상), `C_PHYSICS_EVIDENCE_SIZE_MISMATCH`(전송 누락/변형). 이때 **주관적 정상 판정으로 넘어가지 말고 원본을 보존**합니다.
+
+## 9. C07 — D Mission Manager와 AI 모의 응답 연결 테스트
+
+C는 D의 코드를 수정하지 않고, GitHub Actions에서 B, D 브랜치를 **각각 정확한 SHA로 별도 checkout**한 후 C→D 응답을 JSON으로 연결합니다. ROS 2 설치가 없어도 `UNKNOWN→NEEDS_CONFIRMATION→직원 승인` 흐름과 AI OFF 독립성이 검사됩니다. 다만 D의 가짜 Nav2 성공 이벤트를 테스트에 주입하므로 이는 `MOCK_ONLY`이고 실제 3구간 주행 증거가 아닙니다.
+
+```bash
+D_SHA=195a8ee0758e7734bb6be627ab16461893355be9
+git clone https://github.com/silverbjin/samsung_AXI.git /tmp/smartdish-d-readonly || true
+git -C /tmp/smartdish-d-readonly fetch origin "$D_SHA"
+git -C /tmp/smartdish-d-readonly checkout --detach "$D_SHA"
+SMARTDISH_D_READONLY=/tmp/smartdish-d-readonly python3 -m pytest -q \
+  tests/test_c_stability.py tests/test_c_mock_pipeline.py \
+  tests/test_c_real_readiness.py tests/test_c_d_cross_branch.py
+```
+
+D 체크아웃이 없으면 D 교차 테스트 파일은 로컬에서 `SKIP`됩니다. CI에서는 checkout을 필수로 만들었으므로 `SKIP`가 계약 인수를 의미하지 않습니다. 실행 후에는 각 Job의 실제 SHA와 테스트 수를 C07 개발 보고서에 기록합니다.

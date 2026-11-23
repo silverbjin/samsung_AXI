@@ -44,5 +44,12 @@ B에서 독립 `train/val/test` 별 실제 식기 이미지와 물리 관측, �
 - 실제 데이터 준비 조건: B의 승인된 물리 근거/원본 이미지/권리 확인 → `PHYSICS_OBSERVED` manifest 분할 → 일반 학습 CLI(더미 플래그 없음) → 독립 테스트 → A tray camera → D 상태/승인 연결. B를 C 브랜치에 복제/병합하지 않습니다.
 - 개발 보고서: `C04_B_MOCK_DATA_PIPELINE_EDU_KO.md`, `C05_DEMO_REVIEW_REAL_SWITCH_EDU_KO.md`. GitHub PR #39는 Draft이며 main 병합 금지.
 
-### C05 GitHub 증거 추가 (실측)
-- C Source SHA `e69ec3c65dae7ccacc2e51b825a3623b75f4a933`: [Push CI PASS](https://github.com/silverbjin/samsung_AXI/actions/runs/45124539981), [PR CI PASS](https://github.com/silverbjin/samsung_AXI/actions/runs/45124546580). B pinned source checkout 뒤 27 pytest PASS·6장 mock split 계약 PASS. CI에서는 Torch 학습/ROS 실행 NOT_RUN.
+## C06/C07 — 최신 B·D 계약 인계 및 실제 데이터 대기
+
+- B latest: `feat/smartdish-b-dataset@1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d`; B-05 무라벨 RGB 수신기와 B-06 실제 파일 SHA·크기 검증이 추가됨. 이전 B SHA는 C05 재현용으로 유지. 실제 라벨 데이터 = **0건**.
+- D latest read-only: `feat/smartdish-d-service@195a8ee0758e7734bb6be627ab16461893355be9`; D `MissionManager` 원본을 checkout해 C `InferenceCore` 응답 소비를 테스트합니다. D의 서비스·ROS 코드를 C 브랜치에 복사하거나 변경하지 않습니다.
+- C 추가 `ai/train/check_real_data_readiness.py`는 B split의 모델 학습 준비 여부만 판정하며 `BLOCKED`의 종료 코드는 2입니다. 실제 데이터가 있는 경우에도 `CONTRACT_READY_HUMAN_REVIEW_REQUIRED`까지이며 **물리 안전 검증 PASS 아님**.
+- 실제 데이터에는 B-06의 `physics_evidence_sha256`, `physics_evidence_size_bytes`, 별도 증거 파일이 필수입니다. C가 파일의 무결성을 읽기 전용으로 다시 계산하고, 운영자가 레이블과 사용권을 확인한 뒤에만 ResNet18 real 학습을 진행합니다.
+- C07 계약 범위: `UNKNOWN/UNSTABLE`에서 직원 확인 대기, timeout/stale capture ID 안전, 승인 전 다음 `/collection/nav_goal` 금지, 명시적 승인 후만 진행, AI OFF의 C 비의존성. 이는 **합성 Nav 결과를 사용하는 Python 계약 검사**이고 실제 A Nav2/L2·ROS 네트워크·모델 실영상 인수가 아닙니다.
+- 새로운 작업 보고서: `docs/reports/tasks/2026-11-23_C06_REAL_DATA_READINESS_EDU_KO.md`, `2026-11-23_C07_D_CROSS_BRANCH_CONTRACT_EDU_KO.md`; 결함 이력: `docs/reports/issues/2026-11-23_C_ISSUE_02_PHYSICS_EVIDENCE_GUARD_EDU_KO.md`.
+- 실제 전환 시: B 승인된 물리 이미지/별도 증거 같은 호스트 접근 → C readiness → 사람 실물 검토 → Frozen pretrained → Finetune → independent test → Model Card → A tray RGB 한 장 → D AI ON. AI OFF 필수 3-leg 인수는 본 작업과 무관합니다.

@@ -68,3 +68,11 @@ flowchart LR
 - `--demo-fixtures`는 B `CONTRACT_FIXTURE/MOCK_ONLY`를 명시적으로 받는 실습 모드입니다. 플래그 없는 기본 운영 학습/평가 경로는 과거처럼 mock을 거부합니다. 실물 검증 데이터 준비 후 코드를 변경하지 않고 정상 실학습 CLI를 실행합니다.
 - 물리 관측/사용 권한의 실제 검토 책임은 B/평가 담당에 있으며 CSV에 `PHYSICS_OBSERVED`라고 적었다는 이유만으로 실제 물리 검증이 된 것은 아닙니다.
 - 후속 검사: 실제 이미지·ground truth/권한 확보, pretrained 학습, 독립 test, A tray RGB, D 상태 머신 AI ON, Jazzy rclpy는 모두 **NOT_RUN**입니다.
+
+## 8. C06/C07 — B-06 증거 무결성과 D 실제 FSM 교차계약 (2026-11-23)
+
+- 최신 B 참조 SHA: `1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d` (Draft PR #37, **물리 라벨 0건**). 이전 SHA는 C04/C05 역사 기록으로만 남깁니다. D 소스 검수 참조 SHA: `195a8ee0758e7734bb6be627ab16461893355be9` (Draft PR #38).
+- 물리 데이터 입력에서는 `capture_config.physics_evidence`에 지정된 별도 파일이 존재하고 비어 있지 않으며, B-06이 기록한 `physics_evidence_sha256`/`physics_evidence_size_bytes`와 실제 파일이 일치하는지 확인합니다. 이미지와 같은 파일을 물리 증거로 사용하는 것은 거절합니다. B가 보관하는 절대 경로에 C 실행 호스트가 접근할 수 없다면 **BLOCKED** 처리하고 이미지/물리 증거를 같이 전달받아야 합니다. 파일 해시의 일치는 라벨의 물리적 진실을 인증하지 않습니다.
+- `python3 -m ai.train.check_real_data_readiness --split-manifest ... --root ... --b-ref ... --report ...`는 실학습을 시작하지 않는 **read-only** 전처리 진단입니다. `BLOCKED` 또는 `CONTRACT_READY_HUMAN_REVIEW_REQUIRED`만 출력합니다. 후자는 **사람의 관측·라벨·권리 승인 전에는 학습 승인 판정이 아닙니다**.
+- 교차계약 테스트에서는 C의 `InferenceCore`와 D의 현재 실제 `MissionManager` 파일을 각각 원래 브랜치 SHA에서 읽어 `UNKNOWN/UNSTABLE`, 캡처 ID 불일치, timeout, 명시적 직원 승인 및 AI OFF 독립을 확인합니다. 고정 응답을 주입하는 테스트는 `MOCK_ONLY`; Nav2/ROS/Gazebo/물리 정확도는 `NOT_RUN`.
+- 배포 경계 변경 없음: `MOCK_ONLY` 체크포인트는 운영 ROS 노드에서 항상 거절하며, 실제 실데이터 학습도 아직 미실행입니다.

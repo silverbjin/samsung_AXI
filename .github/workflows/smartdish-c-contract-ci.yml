@@ -9,6 +9,8 @@ on:
       - 'src/smartdish_ai/**'
       - 'tests/test_c_stability.py'
       - 'tests/test_c_mock_pipeline.py'
+      - 'tests/test_c_real_readiness.py'
+      - 'tests/test_c_d_cross_branch.py'
       - 'docs/reports/tasks/*C*'
       - 'docs/reports/issues/*C*'
       - '.github/workflows/smartdish-c-contract-ci.yml'
@@ -20,6 +22,8 @@ on:
       - 'src/smartdish_ai/**'
       - 'tests/test_c_stability.py'
       - 'tests/test_c_mock_pipeline.py'
+      - 'tests/test_c_real_readiness.py'
+      - 'tests/test_c_d_cross_branch.py'
       - '.github/workflows/smartdish-c-contract-ci.yml'
 permissions:
   contents: read
@@ -32,20 +36,35 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: silverbjin/samsung_AXI
-          ref: 4c63d8a88297b7418efccb6e933c25275d9807ce
+          ref: 1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d
           path: b-read-only
+      - uses: actions/checkout@v4
+        with:
+          repository: silverbjin/samsung_AXI
+          ref: 195a8ee0758e7734bb6be627ab16461893355be9
+          path: d-read-only
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: python -m pip install pytest pillow numpy
       - name: C syntax and isolated ROS-free JSON protocol / dataset guard
         run: |
-          python -m compileall -q ai/train ai/evaluation src/smartdish_ai tests/test_c_stability.py tests/test_c_mock_pipeline.py
-          python -m pytest -q tests/test_c_stability.py tests/test_c_mock_pipeline.py
+          test -f d-read-only/src/smartdish_service/smartdish_service/mission_manager.py
+          python -m compileall -q ai/train ai/evaluation src/smartdish_ai tests/test_c_stability.py tests/test_c_mock_pipeline.py tests/test_c_real_readiness.py tests/test_c_d_cross_branch.py
+          SMARTDISH_D_READONLY=d-read-only python -m pytest -q tests/test_c_stability.py tests/test_c_mock_pipeline.py tests/test_c_real_readiness.py tests/test_c_d_cross_branch.py
+          python -m ai.train.check_real_data_readiness --help >/dev/null
+          # Current B manifest contains only a header; this MUST remain blocked.
+          if python -m ai.train.check_real_data_readiness \
+              --split-manifest b-read-only/ai/data/split_manifest.csv \
+              --root b-read-only --b-ref 1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d \
+              --report "${RUNNER_TEMP}/c-b-real-readiness.json"; then
+            echo 'C_UNEXPECTED_REAL_DATA_READY' >&2; exit 1
+          fi
+          grep -q '"verdict": "BLOCKED"' "${RUNNER_TEMP}/c-b-real-readiness.json"
           python -m ai.train.train_classifier --help >/dev/null
           python -m ai.train.evaluate --help >/dev/null
           python -m ai.train.demo_fixture_pipeline \
             --b-script b-read-only/ai/scripts/prepare_dataset.py \
-            --b-ref 4c63d8a88297b7418efccb6e933c25275d9807ce \
+            --b-ref 1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d \
             --output "${RUNNER_TEMP}/smartdish-c-fixtures" --contract-only
-          echo 'SMARTDISH_C_L0_AND_B_MOCK_CONTRACT_PASS_ONLY' 
+          echo 'SMARTDISH_C_L0_B_MOCK_D_CONTRACT_PASS_ONLY' 

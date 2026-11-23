@@ -129,7 +129,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--b-script', type=Path, required=True,
                    help='Read-only B checkout ai/scripts/prepare_dataset.py')
-    p.add_argument('--b-ref', default='4c63d8a88297b7418efccb6e933c25275d9807ce')
+    p.add_argument('--b-ref', default='1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d')
     p.add_argument('--output', type=Path, default=Path('/tmp/smartdish-c-mock-only'))
     p.add_argument('--epochs', type=int, default=1)
     p.add_argument('--contract-only', action='store_true', help='Check B data split without torch')
