@@ -1,0 +1,22 @@
+name: S7 educational instructor student evidence contract L0
+on:
+  push:
+    branches: [docs/s7-instructor-student-lab-20261123]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  teaching-l0:
+    name: S7 teacher answer and student fail-closed L0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic educational contract tests
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest
+          python3 -m compileall -q education/s7
+          python3 -m pytest -q tests/test_s7_teaching.py
+          echo S7_TEACHING_01_L0_PASS
