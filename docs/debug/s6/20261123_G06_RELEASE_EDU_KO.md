@@ -1,3 +1,5 @@
+> **역사적 G06 보고서:** G06 당시 실행한 SHA 611ac7...은 G09에서 교체됐습니다. `samsungaxi_s6_wslg_reaccept_once.sh`의 현재 유효 런타임은 9d402a...이며, 공식 인수 명령은 [단일 실행 가이드](../../S6_OFFICIAL_OWNER_ENTRY_KO.md)를 참조하십시오. 아래 NOT_RUN 표기는 G06 작성 시점 기록입니다.
+
 # S6 G06 — WSL2 최종 현장 재인수 원샷 출고 및 주니어 교육 보고서
 
 ## 범위

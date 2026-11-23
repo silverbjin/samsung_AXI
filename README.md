@@ -1,3 +1,7 @@
+# SmartDish S6 — 공식 실행기 하나로 통일
+
+**현재 공식 S6 실행 명령/버전/증거:** [S6 단일 WSL2 실행 가이드](docs/S6_OFFICIAL_OWNER_ENTRY_KO.md). G06 및 최초 S6 실행기는 과거 개발 이력용이며 인수에 사용하지 않습니다. 최종 G09 런타임 SHA `9d402a991d1ee0a1c46027abe91a55266b69d9bd`의 L2/L3 성공을 보존하고, 사용자 시각 검수는 자동 기능 게이트에서 제외합니다.
+
 # Restaurant Robot MVP — 강사 독립 실습 기준선 (개발 후보)
 
 **2026-11-20 S5-PERF-01 현장 실행 오류 점검/재배포:** 새로 제출된 강사 GUI baseline 5Hz 증거에서 `NavigateToPose TABLE_3 ABORTED(status 6)`가 발생하여 **이번 성능 A/B 현장 검수는 HOLD**입니다. 기존 S5 기능 L3 성공은 보존하되, 새로운 시도까지 성공으로 승격하지 않습니다. [원인 경계·RED→GREEN 보고서](docs/reports/issues/2026-11-20_S5_PERF01_NAV2_GOAL_ABORT_KO.md) / [새 SHA 고정 원샷 가이드](docs/S5_PERF_01_OWNER_AB_GUIDE_KO.md). 실제 RTF 기록기를 동시에 켠 공식 Gazebo baseline 5Hz [공개 L2 #44697440947](https://github.com/silverbjin/samsung_AXI/actions/runs/44697440947)은 기능 GREEN, **강사 WSL2 재인수 및 이동 중 RTF ≥0.90은 아직 HOLD**입니다.
