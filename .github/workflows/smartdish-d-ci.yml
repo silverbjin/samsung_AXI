@@ -81,7 +81,8 @@ jobs:
           # Freeze an immutable local bare remote at THIS CI commit.
           # The public feature branch can advance while jobs are queued.
           git init --bare -q /tmp/smartdish_d_ci_remote.git
-          git push -q /tmp/smartdish_d_ci_remote.git             "$GITHUB_SHA:refs/heads/feat/smartdish-d-service"
+          git -c safe.directory="$GITHUB_WORKSPACE" push -q \
+            /tmp/smartdish_d_ci_remote.git "$GITHUB_SHA:refs/heads/feat/smartdish-d-service"
           export SMARTDISH_D_TEST_MODE=1
           export SMARTDISH_D_TEST_REPO_URL=file:///tmp/smartdish_d_ci_remote.git
           export SMARTDISH_D_TEST_WORKDIR=/tmp/smartdish_d_ci_worktree

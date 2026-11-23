@@ -59,3 +59,13 @@ SMARTDISH_D_SOURCE_SHA="$GITHUB_SHA" \
 2. 동일 소스를 대상으로 테스트해야 할 때 mutable branch 대신 immutable commit을 사용해야 하는 이유는?
 3. `SOURCE_PIN_MISMATCH`을 로컬 모드에서 없애면 어떤 데이터 손상 위험이 생길까요?
 4. 리포지토리 변경 없이 CI 입력 고정만으로 이 문제를 해결할 수 있는 이유는?
+
+## CI-DBG-004B — CI 컨테이너 체크아웃 소유권 경계 (추가 RED)
+
+- 최초 재검 실패: [Actions #45125230558](https://github.com/silverbjin/samsung_AXI/actions/runs/45125230558), L0 40 PASS / 기존 ROS Jazzy package build PASS / 고정 remote 생성 단계 FAIL.
+- **실제 첫 오류:** `fatal: detected dubious ownership in repository at '/__w/samsung_AXI/samsung_AXI'`.
+- 원인: GitHub-hosted runner에서 컨테이너 볼륨으로 가져온 checkout의 파일 소유자와 컨테이너 프로세스가 다를 수 있습니다. 안전 디렉터리 예외 없이 `git push`는 해당 경로를 사용할 수 없었습니다.
+- 최소 수정: `git -c safe.directory="$GITHUB_WORKSPACE" push ...`로 **이 명령 한 번에 한하여** CI checkout 경로를 신뢰합니다.
+- **금지:** 로컬 WSL2의 Git 보호를 해제하거나 `git config --global --add safe.directory '*'`로 모든 디렉터리를 신뢰하지 않습니다.
+- 테스트: 같은 SHA의 Git bare fixture 생성→actual Jazzy `--verify`가 종료코드 0과 `SMARTDISH_D05_L1_PINNED_COMMIT_REAL_ROS_PASS_NO_GOAL`을 출력해야 GREEN입니다.
+- 이 수정으로 처음 사용자에게 보고된 clone 오류, S7/A/B/C 소스 및 실제 로봇 제어 경로는 변경되지 않았습니다.
