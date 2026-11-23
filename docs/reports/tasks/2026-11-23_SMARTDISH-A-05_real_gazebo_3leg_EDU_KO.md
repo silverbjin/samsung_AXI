@@ -48,3 +48,7 @@ Actions URL, 최초 RED, 원인·수정 및 마지막 L2 판정은 실제 CI 로
 ## 6. R02 — Gazebo 사전검사 PASS, TTY 승인 경계 첫 실패
 
 [Run #45124267209](https://github.com/silverbjin/samsung_AXI/actions/runs/45124267209)에서 실제 Gazebo/AMCL/Nav2와 scan/odom은 준비됐으나, 승인 함수의 `os.fdopen(fd,"r+")` 비탐색 스트림 오류로 Goal 전송 전에 실패했습니다. 원인/로컬 최소 재현/수정과 테스트를 [A-L2-DBG-02](../issues/2026-11-23_SMARTDISH-A-L2-DBG-02_tty_rplus_EDU_KO.md)에 기록했습니다. **실물 3-leg 성공은 여전히 미확인**이며 새 Run으로 재검합니다.
+
+## 7. 문서·테스트 교차 QA
+
+TTY 승인 함수를 ROS 독립 모듈로 이동한 뒤 기존 `test_smartdish_a_package.py`의 **정적 문자열 검사 위치도 함께 변경**했습니다. 단순 문자열 검사가 실제 TTY 동작을 대신하지 않도록 `test_smartdish_a_tty.py`에서 프로세스와 pseudo-TTY로 승인/거절을 별도로 실행합니다.

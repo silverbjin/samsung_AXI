@@ -37,7 +37,10 @@ def test_adapter_never_bypasses_collision_monitor():
     assert '"/collection/nav_result"' in source
     assert 'create_publisher(String, "/collection/nav_result"' in source
     assert '"/cmd_vel"' not in source
-    assert "OPERATOR_TTY_REQUIRED_NO_GOAL" in source
+    # A-L2-DBG-02 moved real TTY I/O to a ROS-independent helper.
+    tty_source = (PKG / "smartdish_robot/tty_approval.py").read_text()
+    assert "OPERATOR_TTY_REQUIRED_NO_GOAL" in tty_source
+    assert "require_operator_approval()" in source
     assert "ODOM_MOVEMENT_NOT_PROVEN" in source
 
 
