@@ -52,7 +52,7 @@ OMP_NUM_THREADS=2 python3 -m ai.train.demo_fixture_pipeline \
 | 테스트/관측 | 근거 | 판정 |
 |---|---|---|
 | C 기존+신규 pytest | `27 passed in 0.18s` (로컬) | PASS: ROS 없는 L0 계약 |
-| B 스키마를 재현한 로컬 shim으로 6이미지 생성 | `MOCK_ONLY`, 분할 각 클래스 train/val/test 1장 | PASS: 로컬 shim, **B 원본 실검은 CI 확인 필요** |
+| B 스키마를 재현한 로컬 shim으로 6이미지 생성 | `MOCK_ONLY`, 분할 각 클래스 train/val/test 1장 | PASS: 로컬 shim, **B 원본 CI #45124546580 PASS** |
 | ResNet18 random init/frozen, layer4+fc finetune | 로컬 PyTorch CPU / 1 epoch | PASS: 코드 경로 실행에 한정 |
 | 분리 test 결과 | 총 2장; `MOCK_ONLY_SANITY_CHECK` | 성능 결과로 **사용 불가** |
 | 운영 모델 로더 mock checkpoint 거부 | `C_MODEL_CONTRACT_MISMATCH`, `production_runtime_mock_rejected=true` | PASS: 오프라인 fail-closed |
@@ -74,3 +74,9 @@ OMP_NUM_THREADS=2 python3 -m ai.train.demo_fixture_pipeline \
 ### 후속
 
 C05 문서·B 원본 CI 확인, B 물리 데이터의 승인 후 실학습. `main` merge 금지; C Draft PR #39 유지.
+
+## CI 후속 증거 (실제 B 소스 검증 완료)
+
+- 정확한 B `4c63d8a88297b7418efccb6e933c25275d9807ce` checkout 확인: https://github.com/silverbjin/samsung_AXI/actions/runs/45124546580
+- B 원본 `B_MOCK_ONLY_FIXTURES_CREATED`, `B_DATASET_CONTRACT_PASS`, C `C_B_MOCK_ONLY_PIPELINE_PASS`, `27 passed in 0.26s`, `SMARTDISH_C_L0_AND_B_MOCK_CONTRACT_PASS_ONLY`: **PASS**.
+- CI는 `--contract-only`이므로 PyTorch 학습, ROS/Gazebo는 실행하지 않았습니다. 로컬 CPU dummy end-to-end와 GitHub B 원본 계약 CI는 별도 증거입니다.

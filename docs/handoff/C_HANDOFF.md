@@ -43,3 +43,6 @@ B에서 독립 `train/val/test` 별 실제 식기 이미지와 물리 관측, �
 - dummy frozen+finetune+평가 결과 `MOCK_ONLY`, weights 운영 배포 거부 확인. 강사 로컬 shim 실험은 B 원본 소스 검증과 구분하여 문서화했습니다. 프로젝트 원래 AI OFF 실주행과 무관합니다.
 - 실제 데이터 준비 조건: B의 승인된 물리 근거/원본 이미지/권리 확인 → `PHYSICS_OBSERVED` manifest 분할 → 일반 학습 CLI(더미 플래그 없음) → 독립 테스트 → A tray camera → D 상태/승인 연결. B를 C 브랜치에 복제/병합하지 않습니다.
 - 개발 보고서: `C04_B_MOCK_DATA_PIPELINE_EDU_KO.md`, `C05_DEMO_REVIEW_REAL_SWITCH_EDU_KO.md`. GitHub PR #39는 Draft이며 main 병합 금지.
+
+### C05 GitHub 증거 추가 (실측)
+- C Source SHA `e69ec3c65dae7ccacc2e51b825a3623b75f4a933`: [Push CI PASS](https://github.com/silverbjin/samsung_AXI/actions/runs/45124539981), [PR CI PASS](https://github.com/silverbjin/samsung_AXI/actions/runs/45124546580). B pinned source checkout 뒤 27 pytest PASS·6장 mock split 계약 PASS. CI에서는 Torch 학습/ROS 실행 NOT_RUN.

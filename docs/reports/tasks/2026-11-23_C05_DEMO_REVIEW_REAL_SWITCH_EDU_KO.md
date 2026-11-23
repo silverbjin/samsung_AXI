@@ -3,7 +3,7 @@
 - 날짜: 2026-11-23 / 브랜치 `feat/smartdish-c-stability` / Draft PR #39 (미병합)
 - 기준: C04 계약 모드·체크포인트 분리, B pinned `4c63d8a88297b7418efccb6e933c25275d9807ce`.
 - 변경: `ai/docs/MODEL_CARD_KO.md`, `MODEL_TRAINING_GUIDE_KO.md`, `docs/handoff/C_HANDOFF.md`, C 전용 CI, 디버깅 이슈 갱신 및 본 보고서.
-- 상태: **C dummy L0/local end-to-end PASS; B 원본 checkout CI는 Run 결과 확인 후 확정; 물리 검증 NOT_RUN**.
+- 상태: **C dummy L0/local end-to-end PASS; B 원본 checkout GitHub CI #45124546580 PASS; 물리 검증 NOT_RUN**.
 
 ## 1. 처음부터 끝까지 어디까지 연결했습니까?
 
@@ -47,3 +47,10 @@ GitHub Actions job은 B 원본 소스의 **정확한 SHA를 checkout**한 뒤 B�
 - 깃허브 CI가 6장 mock 검사 PASS일 때 실제 ROS 2에서 STABLE을 출력해도 됩니까?
 
 **결론:** 데이터 의존성은 더미 개발 단계에서 제거되었지만, 물리 검증 모델·실영상·실 ROS 연동은 계속 `BLOCKED/NOT_RUN`입니다.
+
+## 6. GitHub CI 실측 후속 기록 (코드 SHA `e69ec3c65dae7ccacc2e51b825a3623b75f4a933`)
+
+- C Push CI: https://github.com/silverbjin/samsung_AXI/actions/runs/45124539981 — **SUCCESS**.
+- C Draft PR CI: https://github.com/silverbjin/samsung_AXI/actions/runs/45124546580 — **SUCCESS**, `27 passed in 0.26s`, pinned B 원본 이미지 6개 생성·B group split·C real-path rejection 검증.
+- 전체 Restaurant MVP CI: https://github.com/silverbjin/samsung_AXI/actions/runs/45124546591 — L0 PASS, L1/L2는 이 기록 시점 실행 중. 이는 **C 모델 실영상 인수 증거가 아닙니다**.
+- 이 후속 기록은 시험 코드가 성공한 동일 SHA의 로그를 확인한 뒤 문서만 보강한 것입니다. 본 문서의 모델 성능 `PHYSICS_OBSERVED` 결과는 여전히 NOT_RUN입니다.
