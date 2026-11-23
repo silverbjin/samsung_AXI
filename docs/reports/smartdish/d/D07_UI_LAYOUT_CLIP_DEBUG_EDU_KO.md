@@ -110,3 +110,14 @@ python3 -m pytest -q tests/test_smartdish_d_ui.py tests/test_smartdish_d_service
 - 화면 재검: **NOT_RUN**, 사용자 직접 확인
 - Gazebo/AMCL/odom: D UI 변경 범위 밖이며 기존 A 인수 증거 보존
 - 신규 CI 실행 URL/정확한 PASS 건수: Actions 결과 확인 후 PR 본문에 기록
+
+## 8. GitHub CI 실제 검증 결과
+
+- 코드·보고서 기준 SHA: `7684a142dd3a5a79a552c93594b4ac8eb1374d0e`.
+- [Push Actions #45128054346](https://github.com/silverbjin/samsung_AXI/actions/runs/45128054346): **SUCCESS**, Python L0 **51 PASS**, ROS Jazzy L1 **PASS** (build, entrypoints, Steady Timer, D05 one-shot NO_GOAL).
+- [Draft PR Actions #45128060613](https://github.com/silverbjin/samsung_AXI/actions/runs/45128060613): **SUCCESS**, L0 및 L1 검증 완료.
+- 기존 L0 40개에서 11개가 증가했습니다. 신규 케이스는 Canvas 5개 크기, 유효하지 않은 크기 3개, 오른쪽 선배치, 1열 Spinbox, ROS 요청 계약 보존입니다.
+- **강사 WSLg 실제 화면 시각 재검수 NOT_RUN**. L0 정적 테스트 및 L1 패키지 빌드를 GUI 화면 확인으로 승격하지 않습니다.
+- **Gazebo 실제 3-leg NOT_RUN(D 변경 범위)**. Navigation Adapter와 A의 기존 실주행 증거는 수정하지 않았습니다.
+
+**인수 경계:** 코드 수정과 CI 회귀 성공은 검증 완료. 사용자의 동일 화면 조건에서 잘림 해소는 실제 시각 확인 후에만 최종 PASS로 처리합니다.

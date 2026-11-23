@@ -115,3 +115,7 @@ ros2 topic echo /collection/status std_msgs/msg/String
 - 코드 커밋 `355d12ab807daff986072355d9d733894c47cd09`: 오른쪽 패널 우선 할당, 입력 1열화, 캔버스 비례 재배치, T03 강조.
 - [교육용 원인/디버깅 보고서](../reports/smartdish/d/D07_UI_LAYOUT_CLIP_DEBUG_EDU_KO.md).
 - 실제 현장 GUI 시각 재검수는 사용자 담당 `NOT_RUN`, D 메시지 계약·기존 S7 안전 제어 불변.
+
+### D07 CI 검증 증거
+- 기준 SHA `7684a142dd3a5a79a552c93594b4ac8eb1374d0e`: [Push #45128054346](https://github.com/silverbjin/samsung_AXI/actions/runs/45128054346), [PR #45128060613](https://github.com/silverbjin/samsung_AXI/actions/runs/45128060613) 모두 L0 51 PASS / ROS Jazzy L1 PASS.
+- 사용자 WSLg 실제 화면 재검은 NOT_RUN이며 자동 CI 게이트가 아닙니다.
