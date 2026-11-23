@@ -2,7 +2,7 @@
 
 - 날짜: 2026-11-23 / 상태 **PARTIAL (코드 L0 확인; 실제 데이터 학습 BLOCKED)**
 - 저장소/기준: `silverbjin/samsung_AXI`, `main@2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`
-- C 작업 브랜치: `feat/smartdish-c-stability`. 코드 커밋은 이 보고서를 포함한 GitHub History와 PR Files에서 확인.
+- C 작업 브랜치: `feat/smartdish-c-stability`. **C01 최초 코드+보고서 SHA:** `d6de15d361f890e91d89e9e649268a962b8636b4` (동일 커밋). [Draft PR #39](https://github.com/silverbjin/samsung_AXI/pull/39).
 - 이전 단계 미검증: B PR #37에 manifest 헤더만 존재; 실제 물리 라벨 0건; S7 `STACKED`는 안전성 정답이 아님.
 
 ## 요구사항 → 구현 → 검증 근거

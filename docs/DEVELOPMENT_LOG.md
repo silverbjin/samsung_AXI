@@ -83,4 +83,6 @@
 
 - 2026-11-23 **SmartDish C02 L0 계약 PASS / ROS LIVE NOT_RUN**: `/smartdish/tray/image_raw` + `/collection/ai_check_request` → `/collection/stability` JSON, 요청 1건에 응답 최대 1건, stale/저신뢰/모델 누락 UNKNOWN 처리. [교육 보고서](reports/tasks/2026-11-23_C02_ROS_INFERENCE_EDU_KO.md). 실제 ROS/Gazebo 통합은 미실행.
 
-- 2026-11-23 **SmartDish C03 L0 로컬 20 PASS / GitHub CI 결과 대기**: 독립 contract-only workflow, 20개 테스트, Model Card·C 인계 및 main 대상 Draft PR 준비. [교육 보고서](reports/tasks/2026-11-23_C03_CI_DRAFT_PR_EDU_KO.md), [C_HANDOFF](handoff/C_HANDOFF.md). AI ON 실제 추론/학습 NOT_RUN.
+- 2026-11-23 **SmartDish C03 로컬·GitHub CI 20 PASS / PR #39 Draft**: 독립 contract-only workflow, 20개 테스트, Model Card·C 인계 및 main 대상 Draft PR 준비. [교육 보고서](reports/tasks/2026-11-23_C03_CI_DRAFT_PR_EDU_KO.md), [C_HANDOFF](handoff/C_HANDOFF.md). AI ON 실제 추론/학습 NOT_RUN.
+
+- 2026-11-23 **SmartDish C 교육용 CI 증거 보강**: [Draft PR #39](https://github.com/silverbjin/samsung_AXI/pull/39), [C-L0 Push #45121818110](https://github.com/silverbjin/samsung_AXI/actions/runs/45121818110) 20 PASS, [C-L0 PR #45121859983](https://github.com/silverbjin/samsung_AXI/actions/runs/45121859983) SUCCESS. 코드 3단위 C01 `d6de15d`, C02 `ada4b14`, C03 `9f4ce58`. [C03 보고서](reports/tasks/2026-11-23_C03_CI_DRAFT_PR_EDU_KO.md) 참조; 학습/실 ROS 통합 NOT_RUN.

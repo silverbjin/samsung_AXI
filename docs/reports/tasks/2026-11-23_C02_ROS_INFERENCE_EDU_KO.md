@@ -1,7 +1,7 @@
 # C02 — ROS 2 선택형 AI ON 추론 노드 개발·계약 검증 보고
 
 - 날짜: 2026-11-23 / 판정: **L0 CONTRACT PASS; ROS LIVE NOT_RUN**
-- 기준 소스: `main@2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`; 변경 소스는 C 작업 브랜치 `feat/smartdish-c-stability`의 이 파일과 동일 커밋에서 확인.
+- 기준 소스: `main@2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`; **C02 최초 코드+보고서 SHA:** `ada4b149c13260f1e1ea13feee2429aee77955c8` (동일 커밋). [Draft PR #39](https://github.com/silverbjin/samsung_AXI/pull/39).
 - 관련 계약: 공통 인터페이스 v1.0; S7 기존 `s6_vision_ai.py`, `s7_negative_contract.py`는 **수정하지 않았음**.
 
 ## 1. 배선과 단일 책임

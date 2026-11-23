@@ -2,7 +2,7 @@
 
 - 일자: 2026-11-23
 - GitHub: `silverbjin/samsung_AXI`, C 브랜치 `feat/smartdish-c-stability` (main 기준 `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`)
-- Draft PR: GitHub PR 생성 후 본문에서 확인, 최종 HEAD SHA도 PR 기준 확인
+- **Draft PR: [#39](https://github.com/silverbjin/samsung_AXI/pull/39)**, main 대상 미병합. 기능 코드 SHA `9f4ce583bb151976ba52346ba9b236d187f92028`(C03), 문서 보강 SHA는 PR History 확인.
 - B 입력 기준: `feat/smartdish-b-dataset@4c63d8a88297b7418efccb6e933c25275d9807ce`, Draft PR #37, Dataset Card v1.0, `label_map={"STABLE":0,"UNSTABLE":1}`
 - **C가 소유하지 않는 것:** A World/Nav2/트레이 카메라와 D FSM/UI, B 원본 데이터. S7 `STACKED` 모델도 수정하지 않습니다.
 
@@ -18,7 +18,7 @@
 
 ## 현재 판정
 
-- 오프라인 Python 계약·입력 방어 테스트: `20 passed`, C L0 확인 (GitHub CI Run 별도)
+- 오프라인 Python 계약·입력 방어 테스트: 로컬 `20 passed`, [GitHub push L0 #45121818110](https://github.com/silverbjin/samsung_AXI/actions/runs/45121818110) **20 passed in 0.12s / SUCCESS**, [GitHub PR L0 #45121859983](https://github.com/silverbjin/samsung_AXI/actions/runs/45121859983) **SUCCESS**.
 - AI 실데이터: **0건**, `TRAINING_NOT_RUN`; `Accuracy/F1/Confusion Matrix=NOT_RUN`.
 - Gazebo 트레이 영상: `ROS_IMAGE_LIVE_NOT_RUN`; 실제 모델 weight/version/모델 사용권=미확정.
 - ROS 2 Jazzy/WSL2 노드 시동·토픽 실측: `NOT_RUN` (이 도구 환경에는 `rclpy`가 없음).
