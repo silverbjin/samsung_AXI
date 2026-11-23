@@ -11,11 +11,13 @@ from launch.substitutions import LaunchConfiguration
 def generate_launch_description():
     here=get_package_share_directory('restaurant_bringup')
     nav=get_package_share_directory('nav2_bringup')
+    world_pkg=get_package_share_directory('restaurant_world')
     root=os.environ.get('RESTAURANT_ROOT','')
     map_default=os.path.join(root,'maps','restaurant_map.yaml')
     params_default=os.path.join(root,'generated','nav2_params.yaml')
     return LaunchDescription([
         DeclareLaunchArgument('robot_sdf'),
+        DeclareLaunchArgument('world_file',default_value=os.path.join(world_pkg,'worlds','restaurant.sdf')),
         DeclareLaunchArgument('gui',default_value='true'),
         DeclareLaunchArgument('map',default_value=map_default),
         DeclareLaunchArgument('params_file',default_value=params_default),
@@ -27,6 +29,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(here,'launch','world.launch.py')),
             launch_arguments={'robot_sdf':LaunchConfiguration('robot_sdf'),
+                              'world_file':LaunchConfiguration('world_file'),
                               'gui':LaunchConfiguration('gui'),
                               'bridge_config':LaunchConfiguration('bridge_config'),
                               'vision_camera_offset_z':LaunchConfiguration('vision_camera_offset_z'),

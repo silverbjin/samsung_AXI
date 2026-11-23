@@ -28,6 +28,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('robot_sdf', default_value=robot_default),
         DeclareLaunchArgument('gui', default_value='true'),
+        # S7 explicit startup scene; default is the original immutable S5/S6 world.
+        DeclareLaunchArgument('world_file', default_value=world_file),
         # Optional S6 RGB-on-demand mode; default preserves accepted S5.
         DeclareLaunchArgument('bridge_config',default_value=os.path.join(here,'config','bridge.yaml')),
         # Separate S6 viewpoint-only smoke, not a navigation Goal.
@@ -41,7 +43,7 @@ def generate_launch_description():
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.join(robotis, 'models')),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(gz_sim, 'launch', 'gz_sim.launch.py')),
-            launch_arguments={'gz_args': ['-r -s -v2 ', world_file], 'on_exit_shutdown': 'true'}.items()),
+            launch_arguments={'gz_args': ['-r -s -v2 ', LaunchConfiguration('world_file')], 'on_exit_shutdown': 'true'}.items()),
         GroupAction(
             scoped=True,
             condition=IfCondition(gui),
