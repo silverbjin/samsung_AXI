@@ -23,7 +23,7 @@ def test_s6_bt_ack_tune_has_bounded_change():
 def test_s5_nav2_immediate_and_s6_stagger_opt_in():
     s=(ROOT/'src/restaurant_bringup/launch/navigation.launch.py').read_text()
     assert "DeclareLaunchArgument('s6_stagger_nav_start',default_value='false')" in s
-    assert 'UnlessCondition(LaunchConfiguration(\\'s6_stagger_nav_start\\'))' in s
+    assert "UnlessCondition(LaunchConfiguration('s6_stagger_nav_start'))" in s
     assert 'TimerAction(' in s and 'period=10.0' in s
     assert "condition=IfCondition(LaunchConfiguration('s6_stagger_nav_start'))" in s
     r=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
