@@ -1,0 +1,4 @@
+# Never commit captured tray frames or restricted third-party source files.
+/images/
+/private/
+/quality_report.json
