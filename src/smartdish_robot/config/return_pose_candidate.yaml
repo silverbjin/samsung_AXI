@@ -1,0 +1,10 @@
+# A-04 CANDIDATE ONLY — NOT THE PRODUCTION table_poses.yaml
+# World: (-3.75, -0.60) = proven S2-MAP-03 survey waypoint 5.
+# World spawn (-2.60,-2.20) maps to (0,0) => map (-1.15, 1.60).
+# This waypoint is north of the kitchen counter; yaw faces the counter.
+# CI real Nav2 action / odom / AMCL must pass BEFORE promoting to table_poses.yaml.
+frame: map
+poses:
+  HOME: {x: 0.0, y: 0.0, yaw: 0.0}
+  T03: {x: 5.25, y: 0.38, yaw: -1.57079632679}
+  DISH_RETURN: {x: -1.15, y: 1.60, yaw: -1.57079632679}
