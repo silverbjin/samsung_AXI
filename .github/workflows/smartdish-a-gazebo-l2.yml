@@ -104,7 +104,7 @@ jobs:
               --robot-sdf "$PWD/generated/smartdish_a/waffle.sdf" \
               --map "$PWD/maps/candidates/s2_map03/restaurant_map.yaml" \
               --params "$PWD/generated/smartdish_a/nav2.yaml" \
-              --poses "$PWD/src/smartdish_robot/config/return_pose_candidate.yaml" \
+              --poses "$PWD/src/smartdish_robot/config/table_poses.yaml" \
               --log "$PWD/logs/smartdish_a_gazebo.log" \
               --evidence "$PWD/generated/smartdish_a/l2_evidence.json"
           python3 - <<'PY'

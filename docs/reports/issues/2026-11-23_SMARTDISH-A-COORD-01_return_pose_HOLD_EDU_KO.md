@@ -1,7 +1,7 @@
 # SMARTDISH-A-COORD-01 — 신규 DISH_RETURN 접근 Pose 검증 보류
 
 - 날짜: 2026-11-23 KST
-- 상태: **HOLD / ROS·Gazebo 물리 주행 NOT_RUN** (기존 소프트웨어 결함으로 단정하지 않음)
+- 상태: **RESOLVED (A 반납점 map 좌표 + 실제 Gazebo 3-leg L2 PASS)**; D UI/Manager 통합은 별도
 - 기준: S7 main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`
 - 담당: A Robot; 수신: D Mission Manager
 
@@ -35,3 +35,7 @@ SmartDish AI OFF는 `HOME → T03 → DISH_RETURN → HOME`의 실제 3-leg 이�
 ## 5. 교육 포인트
 
 좌표값의 출처와 좌표계는 알고리즘보다 먼저 검증해야 합니다. 코드가 성공해도 `map`이 아니라 `world`의 숫자라면 로봇은 엉뚱한 지점으로 갈 수 있습니다. 모르는 Pose를 `null`로 보존하고 미실행을 그대로 기록하는 것이 재현 가능한 개발 이력의 출발점입니다.
+
+## 6. 해결 기록 (2026-11-23)
+
+초기 `null` 보호는 올바른 상태였으며, 이후 S2-MAP-03 실제 조사 Waypoint #5 World(-3.75,-0.60) → map(-1.15,1.60) 후보를 지도 known-free/연결성 L0로 검토했습니다. [R03 실제 Gazebo 3-leg Run #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004)에서 `DISH_RETURN` Action SUCCEEDED·/odom 최대 6.459m·AMCL 목표오차 0.196m 확인, HOME 복귀 Action SUCCEEDED까지 증거 확보. 운영용 `src/smartdish_robot/config/table_poses.yaml`에 좌표 확정. **A 소유 범위 RESOLVED**, 전체 D 서비스 완료는 아직 NOT_RUN.

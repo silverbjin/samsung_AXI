@@ -2,7 +2,7 @@
 
 - 날짜: 2026-11-23 KST
 - 이전 HEAD: `7c0ba45762df58548eb8fae4ea5e24a5deaa3376`
-- 현재 상태: **CANDIDATE / L0 지도검증 PASS (3 tests), Gazebo L2 미완료**
+- 현재 상태: **CONFIRMED_BY_REAL_GAZEBO_L2 / Run #45124877004 (3 Nav2 SUCCEEDED)**
 - AI OFF 목표: `HOME → T03 → DISH_RETURN → HOME`, 기존 S7 주행/안전 유지
 
 ## 1. 후보 좌표는 어디서 왔습니까?
@@ -33,3 +33,7 @@ python3 -m pytest -q tests/test_smartdish_a_return_candidate.py
 ## 5. 주니어 핵심 질문
 
 왜 (1) SDF World, (2) SLAM map 좌표, (3) Nav2 실제 Action 성공을 순서대로 확인해야 할까요? 세 단계가 서로 다른 의미를 가짐을 보고서의 증거 수준과 함께 설명해 보세요.
+
+## 6. 최종 확정 추가 기록
+
+[실제 3-leg CI #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004)의 `TO_RETURN/DISH_RETURN`은 AMCL map(-1.10345,1.40938), 목표(-1.15,1.60), 오차 0.196m, odom 시작점 대비 최대 변위 6.459m, Action **SUCCEEDED**를 기록했습니다. 따라서 본 문서에서 과거 '후보'라고 기술한 좌표는 이후 **A-06 운영 YAML에 승격**되었습니다. 초기 설계 단계에서 null을 유지한 이력은 교육 목적상 그대로 보존합니다.

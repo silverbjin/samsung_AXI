@@ -3,7 +3,7 @@
 - 작성: 2026-11-23 · 대상: D Mission Manager 및 후속 E 통합 개발자
 - 저장소: [silverbjin/samsung_AXI](https://github.com/silverbjin/samsung_AXI)
 - 브랜치: `feat/smartdish-a-robot` (S7 main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894` 기원)
-- 상태: **L0 26 PASS / ROS L1 PASS (SHA e069a13) / real Gazebo three-leg NOT_RUN**
+- 상태: **A L0 29 PASS / ROS L1 PASS / Gazebo 실제 3-leg L2 PASS, D UI 통합 NOT_RUN**
 - Draft PR: https://github.com/silverbjin/samsung_AXI/pull/36 (미병합)
 - 기존 S7 L3 통과 소스 SHA: `097e5aca022f59b18f289e7d383a3a6b85a5da1a` (새 A 기능 검증 소스와 구분)
 
@@ -27,10 +27,10 @@ frame: map
 poses:
   HOME: {x: 0.0, y: 0.0, yaw: 0.0}
   T03: {x: 5.25, y: 0.38, yaw: -1.57079632679}
-  DISH_RETURN: {x: null, y: null, yaw: null}
+  DISH_RETURN: {x: -1.15, y: 1.60, yaw: -1.57079632679}
 ```
 
-HOME은 기존 S3 `pickup`이며 **기존 S7 `PICKUP_RETURN`은 SmartDish DISH_RETURN이 아닙니다.** T03은 기존 S3 `table_3`입니다. `DISH_RETURN` 미검증 → Goal 미전송 / `FAILED, reason=UNCONFIGURED_DESTINATION`. 실제 Gazebo에서 도달 가능한 통로의 `map` Pose를 확정할 때까지 필수 AI OFF 3-leg 인수는 **BLOCKED**입니다.
+HOME은 기존 S3 `pickup`이며 **S7 `PICKUP_RETURN`은 SmartDish DISH_RETURN이 아니라 HOME**에 대응합니다. T03은 기존 S3 `table_3`입니다. `DISH_RETURN`은 S2-MAP-03 실제 방문 지점 World `(-3.75,-0.60)`에서 map `(-1.15,1.60)`으로 변환했으며, [실제 Gazebo/Nav2 3-leg CI #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004)에서 도달 및 복귀 성공을 확인했습니다. 향후 YAML이 `null`로 잘못 바뀌면 여전히 `FAILED/UNCONFIGURED_DESTINATION`으로 차단합니다.
 
 ## 3. D 팀이 연결할 공식 토픽·QoS
 
@@ -67,7 +67,7 @@ set +u
 source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install --packages-select smartdish_robot
 source install/setup.bash
-python3 -m pytest -q tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py
+python3 -m pytest -q tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py tests/test_smartdish_a_tty.py tests/test_smartdish_a_return_candidate.py
 ros2 pkg executables smartdish_robot
 ros2 topic list -t | grep -E '/scan|/odom|/navigate_to_pose'
 # NO_GOAL: 실제 이동 승인과 요청 수신을 하지 않고 종료
@@ -100,13 +100,17 @@ ros2 topic pub --once /collection/nav_goal std_msgs/msg/String \
 
 **주의:** 위 수동 단일 Goal은 팀 D 전체 시연이 아니며, T03 직후 복귀를 자동 발행하지 않습니다. 일회성 테스트 중 로봇이 예상과 다르면 즉시 목표를 중단하고 안전 상태 확인이 우선입니다.
 
-## 5. 신규 반납점 확정·L2 인수 준비
+## 5. 실제 A 단독 Gazebo 3구간 L2 인수 결과
 
-1. Nav2/AMCL이 실제 `map`과 `map→odom→base` TF를 제공하는지 확인.
-2. 기존 World에 이미 있는 주방 카운터 주변의 **충돌 없는 통로**를 지도/RViz에서 확인하고, 로봇 차체가 도달 가능한 위치(x,y,yaw)를 측정합니다. World SDF 픽셀/좌표를 직접 넣지 않습니다.
-3. `table_poses.yaml`의 `DISH_RETURN`에 검증된 숫자만 추가합니다. `ros2 run`은 재시작하여 설치 YAML을 다시 읽습니다.
-4. A 단독 L2는 3구간 `TO_TABLE/T03 → TO_RETURN/DISH_RETURN → TO_HOME/HOME`을 **동일 request_id**로 주행하고 Nav2 결과 + /odom 이동을 기록합니다. D가 연결되기 전 A 단독 성공은 `ROBOT_ONLY`입니다.
-5. D 통합 시에만 10초/5초 대기 및 UI `COMPLETED`를 검수하고 `AI_OFF_REAL_RUN_PASS`를 선언합니다. 기존 S7 PASS를 새 PASS로 복제하지 않습니다.
+[Run #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004), 실행 SHA `6d7e3508ea1f4a5d32ab257904b2335f859b3f0b`, 같은 `request_id=SMARTDISH-A-CI-L2-001`에서 공식 Nav2 Action 결과 3개를 관측했습니다.
+
+| 구간 | 실제 Nav2 | /odom 시작점 기준 최대 변위 | AMCL 목표 위치 오차 |
+|---|---|---:|---:|
+| TO_TABLE / T03 | SUCCEEDED | 5.181m | 0.098m |
+| TO_RETURN / DISH_RETURN | SUCCEEDED | 6.459m | 0.196m |
+| TO_HOME / HOME | SUCCEEDED | 1.940m | 0.166m |
+
+위 /odom 수치는 **누적 주행거리 아닌 시작점 대비 최대 변위**입니다. 프로젝트 JSON 두 토픽 및 기존 Map/AMCL/Collision Monitor 경로를 실제로 사용했습니다. D UI의 10초/5초 대기와 최종 `COMPLETED`는 **NOT_RUN**으로 구분하고 A/D 통합 단계에서 확인해야 합니다.
 
 ## 6. 증거·디버깅·버전
 
@@ -124,7 +128,7 @@ ros2 topic echo /odom --once
 
 - [원격 A L0 25 PASS + ROS Jazzy L1 PASS #45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792), 실행 SHA `e069a13`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`.
 - [CLI 디버깅 수정 후 L0 26 PASS #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), 실행 SHA `bae0c36`. ROS Jazzy L1 빌드·실행 엔트리포인트 **PASS**. 후속 보고서 커밋은 문서만 변경됨.
-- `/collection/nav_goal` 실제 publish → Nav2 Goal, `/odom` 3구간, UI 완료 **NOT_RUN**. L0/L1 결과를 새 L2로 승격 금지.
+- [실제 Gazebo 3-leg L2 #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004): `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS`, 3 × SUCCEEDED, 3개 odom 변위와 AMCL 오차 기록. D UI 완료만 **NOT_RUN**.
 
 ## 8. 보고서 이력과 남은 경계
 
@@ -132,6 +136,10 @@ ros2 topic echo /odom --once
 - [A-02 Nav2 Adapter 개발 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-02_navigation_adapter_EDU_KO.md)
 - [A-03 출고·검증 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-03_ci_handoff_EDU_KO.md)
 - [A-DBG-01 JSON 인코딩 오류 분석 및 L0 해결](../reports/issues/2026-11-23_SMARTDISH-A-DBG-01_cli_json_escaping_EDU_KO.md)
-- [A-COORD-01 새 반납점 접근 좌표 검증 HOLD](../reports/issues/2026-11-23_SMARTDISH-A-COORD-01_return_pose_HOLD_EDU_KO.md)
+- [A-COORD-01 반납점 좌표 L2 해결](../reports/issues/2026-11-23_SMARTDISH-A-COORD-01_return_pose_HOLD_EDU_KO.md)
+- [A-04 접근 좌표 선정](../reports/tasks/2026-11-23_SMARTDISH-A-04_return_pose_candidate_EDU_KO.md)
+- [A-05 실제 3-leg Gazebo](../reports/tasks/2026-11-23_SMARTDISH-A-05_real_gazebo_3leg_EDU_KO.md)
+- [A-06 운영 YAML 승격](../reports/tasks/2026-11-23_SMARTDISH-A-06_return_pose_release_EDU_KO.md)
+- [TTY 오류 RED→GREEN](../reports/issues/2026-11-23_SMARTDISH-A-L2-DBG-02_tty_rplus_EDU_KO.md)
 
-**핸드오프 판정:** 계약 및 기본 패키지 구현 완료. 실제 신규 DISH_RETURN 좌표·A 3-leg Gazebo/odom·D 통합은 NOT_RUN. AI OFF 발표 인수로 승격하지 않습니다.
+**핸드오프 판정:** A 담당 실제 3-leg Nav2+odom **ROBOT_ONLY L2 PASS**. 운영 `table_poses.yaml`에 검증된 접근 좌표를 확정했습니다. **D Manager+UI 통합·대기 타이머·COMPLETED는 NOT_RUN**이므로 전체 SmartDish MVP AI OFF PASS로 승격하지 않습니다.

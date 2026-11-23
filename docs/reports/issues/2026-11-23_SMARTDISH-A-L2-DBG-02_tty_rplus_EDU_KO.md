@@ -1,7 +1,7 @@
 # SMARTDISH-A-L2-DBG-02 — 실제 TTY 승인 함수의 비탐색 스트림 오류
 
 - 날짜: 2026-11-23 KST
-- 상태: **OPEN / 수정 후 ROS+Gazebo L2 재검 대기**
+- 상태: **RESOLVED / 실제 TTY 승인 후 3구간 ROS/Gazebo L2 PASS**
 - 실패 Run: https://github.com/silverbjin/samsung_AXI/actions/runs/45124267209
 - 실패 SHA: `ee0b164ac6bd555f23cea4b872f6181d5ac53a1f`
 - 연결 작업: [A-05 실 Gazebo 3구간](../tasks/2026-11-23_SMARTDISH-A-05_real_gazebo_3leg_EDU_KO.md)
@@ -39,3 +39,7 @@ TTY는 seek 가능한 일반 파일이 아니므로 CPython에서 read/write 양
 ## 5. 교육 포인트
 
 예외 래핑 `OPERATOR_TTY_READ_FAILED_NO_GOAL`과 이후 관찰 `ADAPTER_TTY_CLOSED`는 같은 단계의 다른 증상입니다. 미세한 I/O 타입 문제를 Nav2 안전 설정·Gazebo 물리 설정으로 고치지 않았고, 순수 Python의 가장 작은 재현 환경으로 먼저 좁힌 뒤 안전승인 경계를 보존했습니다.
+
+## 6. 수정 후 독립 GREEN (2026-11-23)
+
+[Run #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004)에서 `A_L2_TTY_PROMPT_OBSERVED_NO_GOAL` → 10초 후 `A_L2_SIMULATION_TTY_APPROVED_AFTER_DELAY` → `SMARTDISH_A_OPERATOR_APPROVED` → `SMARTDISH_A_READY` 순으로 확인했습니다. 뒤이어 실제 Nav2 Action 3개가 SUCCEEDED와 /odom 근거로 종료됐습니다. 따라서 원래 TTY 오류는 **RESOLVED**입니다. `cb11b8d`에서 L0 정적 테스트가 옛 위치를 검사하던 문제도 수정했고 [#45124920240](https://github.com/silverbjin/samsung_AXI/actions/runs/45124920240) L0 **29 PASS**로 확인했습니다.

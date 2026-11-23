@@ -1,7 +1,7 @@
 # SMARTDISH-A-05 — Gazebo 실제 3구간 Nav2/odom 교육용 인수 보고서
 
 - 날짜: 2026-11-23 KST
-- 현재 상태: **첫 L2 실패(증거용 Git SHA 조회) → 최소 수정 재검 중, 실제 3-leg NOT_RUN**. 완료 신호 없이 PASS라고 하지 않음.
+- 현재 상태: **A-05 실제 Gazebo 3-leg L2 PASS / R03 #45124877004**, 후속 D 통합 NOT_RUN. 앞선 R01/R02 RED는 하단에 별도 보존.
 - 기준 S7 main: `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`
 - A 후보: `map (-1.15,1.60,-1.57079632679)`, S2-MAP-03 실제 World surveyed waypoint #5
 - A 개발 브랜치: `feat/smartdish-a-robot`
@@ -52,3 +52,20 @@ Actions URL, 최초 RED, 원인·수정 및 마지막 L2 판정은 실제 CI 로
 ## 7. 문서·테스트 교차 QA
 
 TTY 승인 함수를 ROS 독립 모듈로 이동한 뒤 기존 `test_smartdish_a_package.py`의 **정적 문자열 검사 위치도 함께 변경**했습니다. 단순 문자열 검사가 실제 TTY 동작을 대신하지 않도록 `test_smartdish_a_tty.py`에서 프로세스와 pseudo-TTY로 승인/거절을 별도로 실행합니다.
+
+## 8. R03 — 최종 실 Gazebo L2 GREEN (검증 SHA 고정)
+
+- [실제 GitHub Actions #45124877004](https://github.com/silverbjin/samsung_AXI/actions/runs/45124877004) **PASS**, 실행 SHA `6d7e3508ea1f4a5d32ab257904b2335f859b3f0b`.
+- 동일 `request_id=SMARTDISH-A-CI-L2-001` / 3개의 JSON nav_goal과 대응하는 3개의 실제 `nav_result=SUCCEEDED`.
+- 실 Gazebo/AMCL/Nav2 `A_L2_REAL_GAZEBO_PREFLIGHT_PASS_NO_GOAL` 및 `SMARTDISH_A_SENSOR_PREFLIGHT_PASS_NO_GOAL`.
+- 실제 CI pseudo TTY는 프롬프트 관측 **10초 뒤** 승인, `SMARTDISH_A_OPERATOR_APPROVED` → `SMARTDISH_A_READY` 순서 확인.
+
+| 구간 | Action | odom 최대 변위(m) | odom 표본 | scan 표본 | AMCL 목표 오차(m) |
+|---|---|---:|---:|---:|---:|
+| TO_TABLE / T03 | SUCCEEDED | 5.181 | 679 | 136 | 0.098 |
+| TO_RETURN / DISH_RETURN | SUCCEEDED | 6.459 | 943 | 189 | 0.196 |
+| TO_HOME / HOME | SUCCEEDED | 1.940 | 613 | 123 | 0.166 |
+
+3구간 종료 마커: `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS`, `SMARTDISH_A_REAL_GAZEBO_L2_EVIDENCE_VERIFIED`. 각 /odom 값은 **구간 시작점 대비 최대 위치 변화**입니다(누적 주행 길이 아님). L2 JSON 및 Gazebo 로그는 해당 Run의 GitHub Actions Artifact `smartdish-a-l2-evidence-45124877004`에 보존되었습니다.
+
+**판정 경계:** A 단독 로봇 이동만 `ROBOT_ONLY_REAL_GAZEBO_L2_PASS`. D 서비스 UI의 실제 `COMPLETED`, 대기시간 10초/5초, AI ON 판정은 검증하지 않았습니다. 실제 현장 WSL2 L3도 재실행하지 않았습니다.

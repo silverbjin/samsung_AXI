@@ -41,15 +41,19 @@ def test_bad_request_never_enters_nav2(raw):
         parse_goal(raw)
 
 
-def test_released_map_source_and_unverified_return_fail_closed():
+def test_released_map_source_and_physically_verified_return():
     poses = load_pose_config(POSE_FILE)
     home = resolve_pose(poses, "HOME")
     t03 = resolve_pose(poses, "T03")
     old = yaml.safe_load((ROOT / "src/restaurant_delivery/config/s3_map_waypoints.yaml").read_text())
     assert (home.x, home.y, home.yaw) == tuple(old["pickup"][k] for k in ("x", "y", "yaw"))
     assert (t03.x, t03.y, t03.yaw) == tuple(old["table_3"][k] for k in ("x", "y", "yaw"))
+    dish = resolve_pose(poses, "DISH_RETURN")
+    assert (dish.x, dish.y, dish.yaw) == (-1.15, 1.60, -1.57079632679)
+    # Future regressions must still reject an unconfigured/null return pose.
     with pytest.raises(UnconfiguredDestination, match="UNCONFIGURED_DESTINATION"):
-        resolve_pose(poses, "DISH_RETURN")
+        resolve_pose({"DISH_RETURN": {"x": None, "y": 1.60, "yaw": 0.0}},
+                     "DISH_RETURN")
 
 
 @pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), True, "5.25"])

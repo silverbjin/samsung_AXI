@@ -59,9 +59,9 @@ def test_candidate_cell_known_free_with_robot_clearance_and_connected():
     assert connected(w, h, pixels, origin, res, point, (0., 0.))
 
 
-def test_candidate_is_not_silently_enabled_in_production():
-    from smartdish_robot.contract import UnconfiguredDestination
-    import pytest
+def test_production_is_exactly_verified_real_gazebo_candidate():
+    # A-06: Run 45124877004 physically validated this exact candidate.
     production = load_pose_config(RELEASED)
-    with pytest.raises(UnconfiguredDestination):
-        resolve_pose(production, "DISH_RETURN")
+    candidate = load_pose_config(CANDIDATE)
+    for destination in ("HOME", "T03", "DISH_RETURN"):
+        assert resolve_pose(production, destination) == resolve_pose(candidate, destination)
