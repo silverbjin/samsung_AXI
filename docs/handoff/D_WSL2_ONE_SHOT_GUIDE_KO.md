@@ -43,19 +43,13 @@ bash scripts/smartdish_d_wsl2_one_shot.sh --run-ui
 
 ## 4. 리포지토리 경로와 무관한 pinned 실행
 
-GitHub PR #38에서 검증된 최신 Commit SHA를 확인한 후 아래 *형식*의 명령을 사용합니다. 다운로드 코드는 SHA를 고정해야 하며, 현장 실행 전 아래의 `PIN` 값은 반드시 최신 CI PASS 커밋으로 설정하십시오.
+아래 코드는 [실제 CI PASS를 얻은 D05 소스 SHA](https://github.com/silverbjin/samsung_AXI/actions/runs/45124883730)에서 **실행기 파일만** 받습니다. 사용자가 이미 `~/samsung_AXI`에 다른 브랜치를 열어 두어도 안전한 별도 D 작업 디렉터리를 사용합니다. 원샷 실행기는 D 브랜치의 현재 SHA를 출력하고 원격 HEAD와 로컬 HEAD 불일치 시 자동 merge 없이 중단합니다.
 
 ```bash
-PIN=<40-hex-verified-D-commit>
-FILE=$(mktemp --suffix=.sh)
-curl -fsSL --retry 3 \
-  "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/smartdish_d_wsl2_one_shot.sh" \
-  -o "$FILE"
-bash -n "$FILE" && SMARTDISH_D_SOURCE_SHA="$PIN" bash "$FILE" --verify
-rm -f "$FILE"
+( set -Eeuo pipefail; PIN=a82b3e229a330c2c38dc9857be26a232d21578da; FILE=$(mktemp --suffix=.sh); trap 'rm -f "$FILE"' EXIT; curl -fsSL --retry 3 "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/smartdish_d_wsl2_one_shot.sh" -o "$FILE"; bash -n "$FILE"; bash "$FILE" --verify )
 ```
 
-**주의:** 위 내용은 CI 결과 확인 전의 범용 형식입니다. 실제 검증된 SHA/명령은 최종 보고 및 PR 인계에서 제공됩니다.
+**이 명령에서 `PIN`은 실행기 파일의 코드 SHA입니다.** 실제 clone되는 D 브랜치 HEAD는 그 시점의 원격 최신 HEAD입니다. 두 SHA를 동일하게 고정하려면 검증된 최신 브랜치 HEAD를 `SMARTDISH_D_SOURCE_SHA`로 설정하십시오. 최종 보고서는 당시 최신 HEAD를 별도 안내합니다. 같은 명령 재실행 시 원격 브랜치가 바뀌었다면 자동 동기화하지 않고 비교 안내와 함께 중단합니다.
 
 ## 5. PASS와 BLOCKED 판단법
 

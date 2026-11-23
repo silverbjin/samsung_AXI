@@ -72,7 +72,7 @@ CI 전용 fixture는 `tmp_path`에서 bare remote와 전용 worktree를 생성�
 
 - 최초 fixture CI: https://github.com/silverbjin/samsung_AXI/actions/runs/45124460216
 - 실제 Jazzy 원샷 L1 추가 검증: https://github.com/silverbjin/samsung_AXI/actions/runs/45124624797
-- 두 번째 링크의 최종 성공·실패 여부는 원본 Actions 판정에 따르며, **사전 확인 없이 PASS로 기록하지 않습니다.**
+- 해당 Jazzy 원샷 실제 빌드 검증은 **PASS**로 확인했습니다. 실제 WSLg GUI/Gazebo 인수는 아직 수행하지 않았습니다.
 
 ## 5. 최소 수정과 남은 미검증
 
@@ -92,3 +92,9 @@ CI 전용 fixture는 `tmp_path`에서 bare remote와 전용 worktree를 생성�
 ### 추가 최소 수정: clone 이전 원격 브랜치 검사
 
 처음 clone하는 단계에서도 원격 브랜치 유무를 사전에 검사해, Git clone 오류 하나로 원인 파악이 끝나지 않도록 `SMARTDISH_D_BLOCKED=REMOTE_BRANCH_NOT_FOUND`를 지정했습니다. 기존 저장소와 로컬 소스는 변경하지 않으며, 임시 Git fixture로 회귀검증합니다.
+
+### 실제 검증 결과와 재검증 링크
+
+- D05 수정 완료 SHA: `a82b3e229a330c2c38dc9857be26a232d21578da`.
+- [최종 코드 GitHub CI #45124883730](https://github.com/silverbjin/samsung_AXI/actions/runs/45124883730): **L0 40 PASS, 실제 Jazzy L1 원샷 --verify PASS, NO_GOAL**.
+- 실제 로봇 이동/WSLg GUI는 NOT_RUN이며 인수 증거를 꾸미지 않습니다.

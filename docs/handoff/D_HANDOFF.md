@@ -102,3 +102,9 @@ ros2 topic echo /collection/status std_msgs/msg/String
 - 기존 `~/samsung_AXI`는 보존, 전용 `~/samsung_AXI_d_service` 사용.
 - 기본 `bash scripts/smartdish_d_wsl2_one_shot.sh --verify`는 NO_GOAL.
 - 기존 `main`/A/B/C 소스 변경 없음. D05 Git·빌드 검증은 실제 Gazebo 3구간 주행의 대체 근거가 아닙니다.
+
+### D05 CI 최종 결과
+
+- 기능 SHA `a82b3e229a330c2c38dc9857be26a232d21578da`: [Actions #45124883730](https://github.com/silverbjin/samsung_AXI/actions/runs/45124883730) L0 40 PASS, ROS Jazzy L1 원샷 `--verify` PASS.
+- [D05 디버깅 보고서](../reports/smartdish/d/D_DBG_003_GIT_WORKSPACE_COLLISION_EDU_KO.md), [D05 개발 보고서](../reports/smartdish/d/D05_WSL2_FAIL_FAST_RUNNER_EDU_KO.md), [원샷 명령 가이드](D_WSL2_ONE_SHOT_GUIDE_KO.md).
+- 실제 Gazebo/WSLg 현장: NOT_RUN / E 통합 대기.

@@ -47,7 +47,7 @@ flowchart TD
 | 파일 | 기능 | 교육 관점 |
 |---|---|---|
 | `scripts/smartdish_d_wsl2_one_shot.sh` | Git 격리·fail-fast·3모드·로그·검증 | Bash 상태 검사, 오류 전파, 경계 확보 |
-| `tests/test_smartdish_d_runner.py` | tmp Git+mock ROS CLI 12개 회귀 | 파괴적 연산 없이 실패 주입 |
+| `tests/test_smartdish_d_runner.py` | tmp Git+mock ROS CLI 13개 회귀 | 파괴적 연산 없이 실패 주입 |
 | `.github/workflows/smartdish-d-ci.yml` | L0 fixture + ROS Jazzy L1·원샷 | GitHub Actions 분리 게이트 |
 | `src/smartdish_service/smartdish_service/ui_app.py` | Tk 첫 idle callback의 실제 UI_READY | 시각 상태와 사전검사 구분 |
 
@@ -65,8 +65,8 @@ flowchart TD
 
 | 증거 | 실행 | 해석 |
 |---|---|---|
-| Git fixture 12개 + 기존 27개 | https://github.com/silverbjin/samsung_AXI/actions/runs/45124460216 | L0 Python/가짜 ROS fixture (MOCK_ONLY) |
-| ROS Jazzy real package/원샷 검증 | https://github.com/silverbjin/samsung_AXI/actions/runs/45124624797 | 실제 CI L1, 최종 결과는 Actions 로그 검증 필요 |
+| Git fixture 13개 + 기존 27개 | https://github.com/silverbjin/samsung_AXI/actions/runs/45124460216 | L0 Python/가짜 ROS fixture (MOCK_ONLY) |
+| ROS Jazzy real package/원샷 검증 | https://github.com/silverbjin/samsung_AXI/actions/runs/45124624797 | 실제 CI L1, **PASS (real Jazzy CI, no goals)** |
 | 실제 WSL2 GUI 및 Gazebo 3-leg | NOT_RUN | 별도 현장 시연·E 통합 검증 필요 |
 
 정적 테스트만 통과해도 GUI가 열린 것은 아닙니다. ROS 컨테이너에서 패키지 빌드가 성공해도 실제 Nav2 주행이 입증되지는 않습니다.
@@ -111,3 +111,12 @@ NEXT_ACTION=Keep local files; commit or stash manually, never reset/clean
 ## 9. CI 정적 리뷰의 추가 보강
 
 브랜치가 원격에 없을 때 Git 자체 오류만 표시되는 경로를 개선해 clone 이전에 `git ls-remote --exit-code --heads`로 검사하고 `REMOTE_BRANCH_NOT_FOUND`를 출력하게 했습니다. `--verify` 생략 시 기본 모드가 실제로 적용되는지를 검증하는 테스트도 추가했습니다. 해당 변경은 CI 검증 후에만 최종 PASS로 기록합니다.
+
+## 10. 최종 GREEN 근거 (2026-11-23)
+
+- **최종 코드 SHA:** `a82b3e229a330c2c38dc9857be26a232d21578da`
+- **[GitHub Actions #45124883730](https://github.com/silverbjin/samsung_AXI/actions/runs/45124883730) — L0 40 PASS / 실제 ROS Jazzy L1 PASS**.
+- L0: 기존 27 + D05 13 Git fixture 포함. 최초 clone, 기존 작업 디렉터리 재사용, 타 repo/dirty/없어진 브랜치/누락된 파일/패키지 0개/build 실패/반복 실행/원격 SHA 변동/기본 모드 확인.
+- L1: Jazzy container의 실제 `ros2`·colcon으로 빌드·엔트리포인트 확인 후, 게시된 원샷 실행기를 **SHA pin된 D 브랜치로 새 clone**해 `--verify` 완료.
+- L1 로그: `SMARTDISH_D_GIT_PASS`, `SMARTDISH_D_SOURCE_PASS`, `SMARTDISH_D_PREFLIGHT_PASS`, `22 passed`, `SMARTDISH_D_BUILD_PASS`, `SMARTDISH_D_PACKAGE_PASS`, `SMARTDISH_D_VERIFY_PASS_NO_GOAL`.
+- **경계:** GUI 화면 및 실제 Gazebo 3-leg는 NOT_RUN. 위 PASS는 새로운 UI/로봇 시연 완료를 의미하지 않습니다.
