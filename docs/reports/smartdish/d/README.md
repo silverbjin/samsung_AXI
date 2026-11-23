@@ -1,0 +1,17 @@
+# SmartDish D — 교육용 개발·디버깅 이력 인덱스
+
+원칙: **주니어 개발자가 문서만 읽고 요구→구현→테스트→오류→조치→인계 흐름을 복원**할 수 있도록 각 커밋·검증 종류를 연결합니다. D 브랜치 Draft PR #38은 main으로 병합하지 않았습니다.
+
+| 순서 | 읽을 보고서 | 코드 커밋 | 알아야 할 실무 포인트 |
+|---|---|---|---|
+| 0 | \`docs/pm/SMARTDISH_D_WBS_RISK_20261123_KO.md\` | S7 main 기준 | MVP 범위·요구 추적·기한 |
+| 1 | \`D01_MISSION_FSM_EDU_KO.md\` | 22a78f6d | 코어 FSM과 사용자 초·Nav2 분리 |
+| 2 | \`D02_ROS_TRANSPORT_EDU_KO.md\` | e8b559be | pub/sub, JSON 계약, RELIABLE/VOLATILE |
+| 3 | \`D03_UI_FLOORPLAN_EDU_KO.md\` | f6aaecbe | UI 도면 좌표 vs map Pose, Tk 이벤트 루프 |
+| 4 | \`D_DBG_001_CONTRACT_MISMATCH_EDU_KO.md\` | b3e9bfdb | A↔D 파서 비교, 위험 최소 수정 |
+| 5 | \`D04_RELEASE_VERIFICATION_EDU_KO.md\` | 문서 커밋 | 원격 L0/L1와 실제 이동 NOT_RUN 구분 |
+| 6 | \`docs/handoff/D_HANDOFF.md\` | PR HEAD 확인 | E 팀에 책임·차단·재현 명령 전달 |
+
+시험 결과와 실제 사용 환경을 혼동하지 않습니다. D FSM 테스트의 3개 \`SUCCEEDED\`는 테스트용 입력이며 Nav2 이동 증거가 아닙니다. S7의 기존 실제 2-leg PASS를 SmartDish 신규 3-leg PASS로 재사용하지 않습니다.
+
+표준 로그 기재: 기준 SHA → 최초 실패 입력/로그 → 불변 조건 → 수정 함수/근거 → 재검 명령·run ID → 사실/미검증·차단사항.
