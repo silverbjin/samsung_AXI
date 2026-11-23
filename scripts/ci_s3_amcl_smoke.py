@@ -128,6 +128,9 @@ def run(args):
                      'map:='+str(args.map.resolve()),
                      'params_file:='+str(args.params.resolve())]
             if args.s6_vision:
+                # S6 control-plane robustness: stagger official Nav2 lifecycle
+                # burst until Gazebo/ROS bridge has warmed up.
+                nav_cmd.append('s6_stagger_nav_start:=true')
                 nav_cmd.append('bridge_config:='+str((
                     repo/'src/restaurant_bringup/config/bridge_vision_on_demand.yaml').resolve()))
                 nav_cmd.append('vision_camera_offset_z:=0.65')
