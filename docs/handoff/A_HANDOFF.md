@@ -177,3 +177,7 @@ ros2 topic echo /odom --once
 - [TTY 오류 RED→GREEN](../reports/issues/2026-11-23_SMARTDISH-A-L2-DBG-02_tty_rplus_EDU_KO.md)
 
 **핸드오프 판정:** A 담당 실제 3-leg Nav2+odom **ROBOT_ONLY L2 PASS**. 운영 `table_poses.yaml`에 검증된 접근 좌표를 확정했습니다. **D Manager+UI 통합·대기 타이머·COMPLETED는 NOT_RUN**이므로 전체 SmartDish MVP AI OFF PASS로 승격하지 않습니다.
+
+## 9. A 현장 인수 후 E 통합 인계 (2026-11-23)
+
+[A→E MVP 우선 작업 계획](A_TO_E_INTEGRATION_PLAN_20261123_KO.md): A 로봇 실제 WSL2 GUI 3구간 PASS를 고정하고, 다음 핵심 작업을 **E 브랜치의 A+D AI OFF UI/10초/5초/COMPLETED 실제 통합 1회**로 설정합니다. B/C 실데이터·추론은 이 인수의 선행 차단 항목이 아닙니다. E 통합 시 D 문서에 남은 `DISH_RETURN=null` 등 구 버전 차단 서술을 현재 운영 YAML·A-09 증거로 정정하십시오.
