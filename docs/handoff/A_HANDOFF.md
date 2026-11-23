@@ -57,7 +57,7 @@ bash scripts/smartdish_a_wsl2_one_shot.sh --headless
 # WSLg 시각 확인은 --gui (옵션)
 ```
 
-Nav2/AMCL 사전검사 후 요청이 나타나면 `YES-SMARTDISH-A-GOALS`를 터미널에서 직접 입력합니다. 실패·성공 모두 `generated/smartdish_a_wsl2/<run_id>/smartdish_a_owner_evidence.tar.gz`가 생성됩니다. 성공은 `SMARTDISH_A_WSL2_OWNER_L3_PASS` **정확히 한 번**입니다. 자세한 해설: [A-07 원샷 사용·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-07_wsl2_one_shot_EDU_KO.md).
+Nav2/AMCL 사전검사 후 요청이 나타나면 `YES-SMARTDISH-A-GOALS`를 터미널에서 직접 입력합니다. 실패·성공 모두 `generated/smartdish_a_wsl2/<run_id>/smartdish_a_owner_evidence.tar.gz`가 생성됩니다. 성공은 `SMARTDISH_A_WSL2_OWNER_L3_PASS` **정확히 한 번**입니다. 자세한 해설: [A-07 원샷 사용·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-07_wsl2_one_shot_EDU_KO.md). [A-07 GitHub L0 42 PASS + ROS L1 PASS #45127703923](https://github.com/silverbjin/samsung_AXI/actions/runs/45127703923); **사용자 WSL2 L3는 NOT_RUN**.
 
 ## 4A. 이전 3터미널 수동 실행 (참고용, 권장 아님)
 

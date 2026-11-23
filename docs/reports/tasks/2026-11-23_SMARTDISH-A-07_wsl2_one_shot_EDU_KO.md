@@ -5,7 +5,7 @@
 - 작업 브랜치: `feat/smartdish-a-robot`
 - 소스 기준: 실 Gazebo CI 검증 `5b063a0076a78f624171e401f8041fce86d36a4e`
 - 출고: `scripts/smartdish_a_wsl2_one_shot.sh` + `scripts/smartdish_a_wsl2_l3.py`
-- 판정: **원격 L0/ROS L1 재검 전; 운영자 WSL2 L3 NOT_RUN**
+- 판정: **전용 GitHub L0 42 PASS / ROS Jazzy L1 PASS; 실제 운영자 WSL2 L3 NOT_RUN**
 
 ## 1. 왜 WSL2 전용 실행기가 필요한가?
 
@@ -101,3 +101,15 @@ YES-SMARTDISH-A-GOALS
 ## 6. 후속 인계 범위
 
 본 A-07은 A 담당 로봇만 검증합니다. D의 10초 식기 수거 대기, 5초 반납 지연, UI `COMPLETED`, AI ON은 별도 통합 검증입니다. 유효한 L3 증거는 통합시에만 재사용하며, 기존 S7 main 병합은 하지 않습니다.
+
+## 7. 실제 GitHub CI 검증 (출고 기준)
+
+- [GitHub Actions #45127703923](https://github.com/silverbjin/samsung_AXI/actions/runs/45127703923), 실행 SHA `c394ce66ffeb9a51f11bfcfb05afb4e5f2dea247`.
+- **L0 42 PASS**: `bash -n`, 실행기 `--help`, 비-WSL2 환경에서 실행 전 차단(실제 Goal 전송 0건), 실패 증거 판정, 로봇 3구간 계약, TTY 승인 회귀 포함.
+- **L1 PASS**: `Finished <<< smartdish_robot`, `smartdish_robot navigation_adapter`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`.
+- 기존 최종 [A 실제 Gazebo L2 #45125551884](https://github.com/silverbjin/samsung_AXI/actions/runs/45125551884) PASS(최종 운영 YAML)와 별도 구분합니다.
+- **L3 WSL2 현장 실주행은 아직 수행하지 않았습니다.** A-07 신규 WSL2 실행기에 대해 현장 `SMARTDISH_A_WSL2_OWNER_L3_PASS` 및 첨부 ZIP/TAR 원본 확보 전까지 성공 판정 금지.
+
+## 8. 후속 교육용 디버깅 보고 규칙
+
+WSL2 인수 과정의 최초 실패가 발생하면 `smartdish_a_owner_evidence.tar.gz`에 든 `summary.json`의 `first_error`를 기준으로 가장 작은 실패 경계를 분리합니다. 기존 S7 주행 CI PASS를 신규 현장 PASS로 대체하지 않으며, 원인·최소수정·재검 SHA·성공/실패 결과를 `docs/reports/issues/`에 별도 신규 문서로 보존합니다.
