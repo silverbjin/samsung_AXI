@@ -35,3 +35,7 @@ python3 -m compileall -q ai/scripts tests/test_b_dataset.py tests/test_b_tray_ca
 ## 주니어용 질문
 
 왜 원본 파일의 존재·해시뿐만 아니라 **실패한 작업 이후 파일이 그대로 남는지**도 확인해야 합니까? 왜 이 작은 프로젝트에 DB 대신 atomic rename과 롤백을 선택했습니까?
+
+## 후속 경계 수정 — B-08R (2026-11-23)
+
+본 문서 작성 당시 다중 작성자 제어는 제외했으나, 후속 요청에 따라 동일 manifest의 **두 CLI 동시 수집** 및 **강제 종료 후 고아 파일 탐지**만 최소 범위로 보완했습니다. [B-08R 후속 보고서](2026-11-23_B-08R_writer_lock_orphan_recovery.md)와 [B-DEBUG-06](../issues/2026-11-23_B-DEBUG-06_concurrent_orphan_recovery.md)을 참조하십시오. 기존 B-08의 최초 RED→GREEN 이력과 테스트 결과는 유지합니다.

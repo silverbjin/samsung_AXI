@@ -93,3 +93,4 @@
 - 2026-11-23 **B-08 원자적 수집/CSV 롤백**: [작업 보고서](reports/tasks/2026-11-23_B-08_atomic_intake.md), [B-DEBUG-04](reports/issues/2026-11-23_B-DEBUG-04_orphan_ingest.md). 로컬 23 PASS, 실제 Gazebo/모델 NOT_RUN. 원격 CI는 PR #37에 기록.
 
 - 2026-11-23 **B-09 더미/실데이터 격리**: [개발 보고서](reports/tasks/2026-11-23_B-09_mock_real_isolation.md), [B-DEBUG-05](reports/issues/2026-11-23_B-DEBUG-05_mock_real_mix.md). 혼합 fixture RED → 로컬 25 PASS. 실제 데이터/학습 NOT_RUN.
+- 2026-11-23 **B-08R 동시 등록 및 고아 파일 복구 최소 보강**: [작업 보고서](reports/tasks/2026-11-23_B-08R_writer_lock_orphan_recovery.md) / [B-DEBUG-06](reports/issues/2026-11-23_B-DEBUG-06_concurrent_orphan_recovery.md) — 로컬 30/30 PASS, 실제 트레이 데이터 및 ROS NOT_RUN, 원격 CI 결과는 PR #37에서 추적.

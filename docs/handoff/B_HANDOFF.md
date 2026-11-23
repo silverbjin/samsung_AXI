@@ -12,7 +12,7 @@
 - 검증: 로컬 `10 passed in 0.22s`, [GitHub Push CI #45120166614](https://github.com/silverbjin/samsung_AXI/actions/runs/45120166614) `10 passed in 0.17s`, [PR CI #45120198336](https://github.com/silverbjin/samsung_AXI/actions/runs/45120198336) PASS.
 - B-05 신규 무라벨 캡처: `ai/scripts/capture_tray_ros.py`, [사용가이드](../../ai/docs/B_TRAY_CAPTURE_GUIDE_KO.md), topic `/smartdish/tray/image_raw`, private PNG+JSON. 실제 ROS 런은 NOT_RUN.
 - B-06 증거 유효성 강화: 미존재/빈 파일/캡처 이미지 자체는 증거로 거부, `capture_config.physics_evidence_sha256` 기록. [RED→GREEN 보고](../reports/issues/2026-11-23_B-DEBUG-02_unverified_evidence_reference.md).
-- B-05/06 로컬 계약 검사: `python3 -m pytest -q tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_tray_capture.py tests/test_b_tray_capture.py` → **15 passed in 0.22s**. 본 숫자는 실제 트레이 데이터·ROS2/모델 성능이 아님.
+- B-05/06 로컬 계약 검사: `python3 -m pytest -q tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_tray_capture.py` → **15 passed in 0.22s**. 본 숫자는 실제 트레이 데이터·ROS2/모델 성능이 아님.
 - 현실적 블로커: A의 트레이 지향 실제 카메라/물리 장면 및 운영자 확인 라벨, C와 1장 실물 샘플 합동 검토.
 
 - B-07: 실제 라벨 데이터가 추가되면 `prepare_dataset`의 **근거 파일 현시점 SHA/크기 재검** 통과가 C 인계 전 조건입니다. 보고서 `evidence_hash_verified`로 파일 검증 건수만 확인합니다. [B-DEBUG-03](../reports/issues/2026-11-23_B-DEBUG-03_evidence_drift.md). 이번 단계 실제 데이터 0건, 실물 검증 NOT_RUN.
@@ -36,3 +36,10 @@ C는 위 명령을 **인터페이스 포맷 검증**으로만 사용하고 모�
 ## 통합 계약/가드
 
 D의 `/collection/stability`는 C 출력이며 B는 ROS 토픽을 발행하지 않습니다. `UNKNOWN`/미응답/불안정인 경우 D는 직원 확인을 요구하고, AI OFF 시연은 본 데이터와 무관하게 진행합니다. **B Draft PR은 main 병합하지 않습니다.**
+
+## B-08R — 중단 잔재·동시 수집 대응 (2026-11-23)
+
+- B-08의 원자적 CSV 교체는 유지하고 `collect_tableware.py`에 동일 manifest `fcntl.flock` 배타 잠금(`B_COLLECTOR_BUSY`) 추가. Ubuntu/WSL2 한정이며 잠금 파일은 삭제하지 않습니다.
+- 원본 manifest에 없는 `B-*.png`, `.incoming-*`, `.b-csv-*`는 `B_ORPHAN_FILES_DETECTED`로 차단하고 자동 삭제하지 않습니다. 운영자가 SHA/원본 확인 후 `ai/data/private/quarantine`으로 수동 격리합니다. 동일 목적지 파일의 기존 `B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST` 오류도 유지합니다.
+- [후속 작업 보고서](../reports/tasks/2026-11-23_B-08R_writer_lock_orphan_recovery.md) / [디버깅 B-DEBUG-06](../reports/issues/2026-11-23_B-DEBUG-06_concurrent_orphan_recovery.md). 로컬 **30/30 PASS**, GitHub 최신 Run은 PR #37의 Actions 확인. 실제 안정성 이미지 **0건**.
+- 오프라인 전체 계약 검사: `python3 -m pytest -q tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_intake_recovery.py`

@@ -67,3 +67,17 @@ python3 ai/scripts/prepare_dataset.py --root . \
 ## 4. C 담당의 계약 수신
 
 `ai/data/split_manifest.csv`, `ai/docs/DATASET_CARD_KO.md`, 이 문서, SHA와 품질 보고를 받습니다. 같은 파일을 C 브랜치로 복사해 중복 수정하지 않고, **B Draft PR 리뷰 후 통합 담당이 B를 먼저 병합**합니다. 실제 데이터 0건이므로 C의 실제 모델 학습/성능은 아직 불가합니다.
+
+## B-08R — 두 CLI의 충돌과 강제 종료 복구
+
+B 수집기 2개를 같은 manifest로 동시에 실행하면 두 번째 프로세스는 `B_COLLECTOR_BUSY`로 **즉시 실패**합니다. CLI 재실행 전에 첫 작업의 종료 여부를 확인하십시오. `ai/data/.b-intake.lock`은 프로세스 종료 시 잠금이 자동으로 풀리는 **지속 잠금 파일**이므로 지우지 마십시오.
+
+중단 시 발생한 `B_ORPHAN_FILES_DETECTED` 또는 `B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST`는 파일이 CSV에 정상 등록되지 않았다는 경고입니다. 오류 후 해당 PNG/`.incoming-*`/`.b-csv-*`를 바로 삭제하지 말고 `ai/data/private/quarantine/`로 **수동 격리**하고 SHA·이동 이유를 기록하십시오. 그리고 같은 수집 명령을 재시도하십시오. 격리 결정 전에 manifest에 해당 파일이 실제 등록됐는지 직접 확인해야 합니다. 정상 파일이나 공통 잠금 파일을 이동하지 마십시오.
+
+오프라인 검증 명령:
+
+```bash
+python3 -m pytest -q tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_intake_recovery.py
+```
+
+이 검사는 **데이터 등록 일관성**을 확인할 뿐, 실제 적재 안전성 또는 모델 정확도를 평가하지 않습니다. [B-08R 작업 보고서](../../docs/reports/tasks/2026-11-23_B-08R_writer_lock_orphan_recovery.md)를 참고하십시오.

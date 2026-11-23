@@ -7,12 +7,56 @@ PHYSICS_OBSERVED label. This program validates metadata, not physical truth.
 from __future__ import annotations
 import argparse
 import csv
+import fcntl
 import hashlib
 import json
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from PIL import Image, ImageOps
 from prepare_dataset import FIELDS, IMAGE_SIZE, LABELS, load_manifest, write_csv
+
+
+@contextmanager
+def _single_writer(manifest: Path):
+    """Fail fast when another B operator is writing the same manifest.
+
+    Never unlink this lock file: a concurrent process can hold its inode.
+    flock is supported in Ubuntu/WSL2; all writers must use this collector.
+    """
+    with (manifest.parent / '.b-intake.lock').open('a+b') as stream:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ValueError('B_COLLECTOR_BUSY') from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+def _reject_orphans(root: Path, manifest: Path, records: list[dict],
+                    ignored: tuple[Path, ...] = ()):
+    """Detect interrupted writes without deleting possible forensic evidence.
+
+    A hard kill can leave PNG after publication but before CSV commit.
+    Operator must inspect/quarantine it, then retry under the same lock.
+    """
+    indexed = {(root / row['image_path']).resolve() for row in records
+               if row.get('image_path')}
+    directory = root / 'ai/data/images'
+    ignore = {p.resolve() for p in ignored}
+    leftovers = []
+    if directory.exists():
+        leftovers += [p for p in directory.glob('.incoming*')
+                      if p.is_file() and p.resolve() not in ignore]
+        leftovers += [p for p in directory.glob('B-*.png')
+                      if p.is_file() and p.resolve() not in indexed
+                      and p.resolve() not in ignore]
+    leftovers += [p for p in manifest.parent.glob('.b-csv-*') if p.is_file()]
+    if leftovers:
+        names = sorted(p.name for p in leftovers)
+        raise ValueError(f'B_ORPHAN_FILES_DETECTED count={len(names)} first={names[0]}')
 
 
 def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
@@ -41,53 +85,55 @@ def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
             evidence_bytes += len(chunk)
     if evidence_bytes == 0:
         raise ValueError('B_PHYSICS_EVIDENCE_EMPTY')
-    # Fail fast on a broken/missing manifest before writing any image file.
-    records = load_manifest(manifest)
-    with Image.open(image) as img:
-        rgb = ImageOps.exif_transpose(img).convert('RGB')
-        # Fixed network contract; RGB, 224x224, bilinear resize without ROI guarantee.
-        rgb = ImageOps.fit(rgb, IMAGE_SIZE, method=Image.Resampling.BILINEAR)
-        root = root.resolve()
-        dest_dir = root / 'ai/data/images'
-        dest_dir.mkdir(parents=True, exist_ok=True)
-    # Unique temporary filename prevents the prior fixed .incoming.png from
-    # leaking across failed attempts. All writes happen under the image dir.
-    tmp = None
-    dest = None
-    try:
-        with tempfile.NamedTemporaryFile(dir=dest_dir, prefix='.incoming-',
-                                         suffix='.png', delete=False) as stream:
-            tmp = Path(stream.name)
-            rgb.save(stream, format='PNG')
-        sha = hashlib.sha256(tmp.read_bytes()).hexdigest()
-        if any(r['image_sha256'] == sha for r in records):
-            raise ValueError('B_DUPLICATE_IMAGE')
-        sid = 'B-' + sha[:16]
-        dest = dest_dir / f'{sid}.png'
-        if dest.exists():
-            # Existing unindexed content is not ours to overwrite.
-            raise ValueError('B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST')
-        row = {'sample_id': sid, 'scene_id': scene_id, 'stack_id': stack_id,
-               'label': label, 'image_path': dest.relative_to(root).as_posix(),
-               'source': source, 'capture_config': json.dumps(
-                   {'camera': camera, 'physics_evidence': str(evidence_file),
-                    'physics_evidence_sha256': evidence_hash.hexdigest(),
-                    'physics_evidence_size_bytes': evidence_bytes,
-                    'preprocess': 'RGB_224_FIT_BILINEAR'},
-                   sort_keys=True, separators=(',', ':')),
-               'license_status': license_status, 'ground_truth': 'PHYSICS_OBSERVED',
-               'image_sha256': sha}
-        tmp.replace(dest)
+    with _single_writer(manifest):
+        # Fail fast on a broken/missing manifest before writing any image file.
+        records = load_manifest(manifest)
+        with Image.open(image) as img:
+            rgb = ImageOps.exif_transpose(img).convert('RGB')
+            # Fixed network contract; RGB, 224x224, bilinear resize without ROI guarantee.
+            rgb = ImageOps.fit(rgb, IMAGE_SIZE, method=Image.Resampling.BILINEAR)
+            root = root.resolve()
+            dest_dir = root / 'ai/data/images'
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        # Unique temporary filename prevents the prior fixed .incoming.png from
+        # leaking across failed attempts. All writes happen under the image dir.
+        tmp = None
+        dest = None
         try:
-            write_csv(manifest, records + [row], FIELDS)
-        except Exception:
-            # write_csv is itself atomic; remove our freshly inserted PNG.
-            dest.unlink(missing_ok=True)
-            raise
-        return row
-    finally:
-        if tmp is not None:
-            tmp.unlink(missing_ok=True)
+            with tempfile.NamedTemporaryFile(dir=dest_dir, prefix='.incoming-',
+                                             suffix='.png', delete=False) as stream:
+                tmp = Path(stream.name)
+                rgb.save(stream, format='PNG')
+            sha = hashlib.sha256(tmp.read_bytes()).hexdigest()
+            if any(r['image_sha256'] == sha for r in records):
+                raise ValueError('B_DUPLICATE_IMAGE')
+            sid = 'B-' + sha[:16]
+            dest = dest_dir / f'{sid}.png'
+            _reject_orphans(root.resolve(), manifest, records, ignored=(tmp, dest))
+            if dest.exists():
+                # Existing unindexed content is not ours to overwrite.
+                raise ValueError('B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST')
+            row = {'sample_id': sid, 'scene_id': scene_id, 'stack_id': stack_id,
+                   'label': label, 'image_path': dest.relative_to(root).as_posix(),
+                   'source': source, 'capture_config': json.dumps(
+                       {'camera': camera, 'physics_evidence': str(evidence_file),
+                        'physics_evidence_sha256': evidence_hash.hexdigest(),
+                        'physics_evidence_size_bytes': evidence_bytes,
+                        'preprocess': 'RGB_224_FIT_BILINEAR'},
+                       sort_keys=True, separators=(',', ':')),
+                   'license_status': license_status, 'ground_truth': 'PHYSICS_OBSERVED',
+                   'image_sha256': sha}
+            tmp.replace(dest)
+            try:
+                write_csv(manifest, records + [row], FIELDS)
+            except Exception:
+                # write_csv is itself atomic; remove our freshly inserted PNG.
+                dest.unlink(missing_ok=True)
+                raise
+            return row
+        finally:
+            if tmp is not None:
+                tmp.unlink(missing_ok=True)
 
 
 
