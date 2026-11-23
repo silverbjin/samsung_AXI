@@ -54,3 +54,7 @@ ROS 2 패키지 성공만으로 pub/sub 실제 전달과 실제 주행 성공을
 
 ## 7. 수정 후 ROS L1 근거 확인
 \`#45121672872\`의 ROS Jazzy Job은 \`Finished <<< smartdish_service\`, \`Summary: 1 package finished\`, \`smartdish_service smartdish_manager\`, \`smartdish_service smartdish_ui\`, \`SMARTDISH_D_L1_ROS_PACKAGE_IMPORT_PASS_NO_GOAL\`을 실제 출력했습니다. 이 확인은 실행 파일 설치 및 import 검증이며, Nav2 전송·UI 가시성 또는 Gazebo 주행을 의미하지 않습니다.
+
+
+## 8. D-DBG-002 타이머 경계 최소 보완
+후속 정적 리뷰에서 ROS timer callback scheduling과 \`time.monotonic\` deadline 산술을 모두 wall/steady 기준으로 맞춰야 한다는 요구를 확인했습니다. \`manager_node.py\`는 \`ClockType.STEADY_TIME\`을 명시하도록 수정했으며, 새로운 L0 정적 회귀 1건과 ROS Jazzy L1 실제 API 스모크를 추가했습니다. 단, 이것은 Gazebo RTF 재현 성공/실패가 아니라 시계 설계 예방 수정입니다. **최신 SHA의 Actions 확인 후에만 새 검사 PASS로 판정**합니다. 상세 근거: \`D_DBG_002_STEADY_TIMER_EDU_KO.md\`.

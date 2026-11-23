@@ -43,3 +43,10 @@ def test_no_ros_cmdvel_or_pixel_pose_in_d_service():
     assert "create_publisher(Twist" not in text
     assert mission_manager.LEG_DESTINATIONS == {
         "TO_TABLE": "T03", "TO_RETURN": "DISH_RETURN", "TO_HOME": "HOME"}
+
+
+def test_manager_callback_timer_is_monotonic_not_ros_sim_time():
+    code = (ROOT / "src" / "smartdish_service" /
+            "smartdish_service" / "manager_node.py").read_text()
+    assert "ClockType.STEADY_TIME" in code
+    assert "clock=Clock(clock_type=ClockType.STEADY_TIME)" in code

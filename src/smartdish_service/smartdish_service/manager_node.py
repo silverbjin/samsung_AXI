@@ -26,6 +26,7 @@ def main(argv=None):
 
     import rclpy
     from rclpy.node import Node
+    from rclpy.clock import Clock, ClockType
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
     from std_msgs.msg import String
 
@@ -48,7 +49,10 @@ def main(argv=None):
             self.create_subscription(String, "/collection/nav_result", self.on_nav_result, qos)
             self.create_subscription(String, "/collection/stability", self.on_stability, qos)
             self.create_subscription(String, "/collection/staff_confirm", self.on_staff, qos)
-            self.create_timer(0.2, self.on_timer)
+            # Callback scheduling and deadline arithmetic must both use
+            # real monotonic time, even when /use_sim_time is enabled.
+            self.create_timer(0.2, self.on_timer,
+                              clock=Clock(clock_type=ClockType.STEADY_TIME))
             self.get_logger().info(
                 "SMARTDISH_D_MANAGER_READY AI_AVAILABLE=" + args.ai_available +
                 " NAV_SUBSCRIBERS=" + str(self.pubs["/collection/nav_goal"].get_subscription_count())

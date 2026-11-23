@@ -6,7 +6,7 @@
 - **Draft PR #38**: https://github.com/silverbjin/samsung_AXI/pull/38 (main 미병합)
 - 최종 *기능 코드* 수정 SHA: \`b3e9bfdb80b96607faf5f5f121429370f36ec1d6\`
 - 문서 보강 후 정확한 HEAD: Draft PR의 \`head_sha\`/ \`git rev-parse HEAD\`에서 확인 (자기 SHA를 자기 문서에 기록하지 않음)
-- 기능 판정: **D L0 26 PASS (MOCK_ONLY), ROS Jazzy L1 패키지 빌드 PASS, REAL GAZEBO NOT_RUN**
+- 기능 판정: **D-DBG-001 기준 L0 26 PASS (MOCK_ONLY) / ROS L1 PASS**, 이후 D-DBG-002 steady timer 보완은 최신 HEAD CI 재검 대상. REAL GAZEBO NOT_RUN
 
 ## 1. 소유 파일
 \`\`\`text
@@ -83,6 +83,9 @@ ros2 topic echo /collection/status std_msgs/msg/String
 - D-DBG-001 기준 [#45121672872](https://github.com/silverbjin/samsung_AXI/actions/runs/45121672872): Python **26 PASS** / ROS Jazzy L1 PASS.
 - 최신 Draft PR 소스 SHA의 전체 CI 판정은 PR Checks에서 별도 확인합니다. 기능 변경 마지막 SHA는 `b3e9bfdb`이고 이후 문서 추가만 발생했습니다.
 
+### 타이머 시계 고정
+`D-DBG-002`에서 `ClockType.STEADY_TIME`으로 ROS timer scheduling을 고정하고 FSM deadline의 `time.monotonic()`과 일치시켰습니다. 최신 GitHub CI에서는 Python 정적 회귀와 ROS Jazzy의 실제 create_timer API 호출을 확인해야 합니다.
+
 ## 6. 현재 차단 사항과 다음 액션
 - **최우선:** A가 \`DISH_RETURN\` 실제 map Pose/통로 도달성을 확정할 것.
 - 그다음: E 브랜치에서 A와 D를 결합해 AI OFF 실주행 1회. D 단독 성공을 E 실제 인수로 승격하지 않음.
@@ -90,4 +93,4 @@ ros2 topic echo /collection/status std_msgs/msg/String
 - 12/07 기능 동결, 12/08 리허설, 12/09 발표. 범위가 넘치면 UI 장식/AI 추가 기능부터 중단.
 
 ## 7. 개발 문서만으로 되짚기
-\`docs/reports/smartdish/d/README.md\` → D01 → D02 → D03 → D-DBG-001 → D04 검증 → 이 인계서 순서로 읽습니다. 원격 Actions URL과 커밋 SHA를 함께 비교하면 수정 이유와 검증 범위를 추적할 수 있습니다.
+\`docs/reports/smartdish/d/README.md\` → D01 → D02 → D03 → D-DBG-001 → D-DBG-002 → D04 검증 → 이 인계서 순서로 읽습니다. 원격 Actions URL과 커밋 SHA를 함께 비교하면 수정 이유와 검증 범위를 추적할 수 있습니다.

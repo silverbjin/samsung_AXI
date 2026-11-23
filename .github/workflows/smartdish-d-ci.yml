@@ -56,4 +56,14 @@ jobs:
           m=MissionManager()
           assert m.state == 'IDLE'
           print('SMARTDISH_D_L1_ROS_PACKAGE_IMPORT_PASS_NO_GOAL')
+          import rclpy
+          from rclpy.clock import Clock, ClockType
+          rclpy.init()
+          n = rclpy.create_node('smartdish_d_l1_steady_timer_probe')
+          timer = n.create_timer(0.2, lambda: None,
+                                 clock=Clock(clock_type=ClockType.STEADY_TIME))
+          n.destroy_timer(timer)
+          n.destroy_node()
+          rclpy.shutdown()
+          print('SMARTDISH_D_L1_STEADY_TIMER_API_PASS_NO_GOAL')
           PY
