@@ -11,6 +11,7 @@ on:
       - 'tests/test_c_mock_pipeline.py'
       - 'tests/test_c_real_readiness.py'
       - 'tests/test_c_d_cross_branch.py'
+      - 'tests/c_ros2_transport_smoke.py'
       - 'docs/reports/tasks/*C*'
       - 'docs/reports/issues/*C*'
       - '.github/workflows/smartdish-c-contract-ci.yml'
@@ -24,6 +25,7 @@ on:
       - 'tests/test_c_mock_pipeline.py'
       - 'tests/test_c_real_readiness.py'
       - 'tests/test_c_d_cross_branch.py'
+      - 'tests/c_ros2_transport_smoke.py'
       - '.github/workflows/smartdish-c-contract-ci.yml'
 permissions:
   contents: read
@@ -36,12 +38,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: silverbjin/samsung_AXI
-          ref: 1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d
+          ref: c9c528072f76b8b2dbc1119ead770d23308ffda0
           path: b-read-only
       - uses: actions/checkout@v4
         with:
           repository: silverbjin/samsung_AXI
-          ref: 195a8ee0758e7734bb6be627ab16461893355be9
+          ref: 2824370f66ca3cd46be32e2ac8a32019ada87c95
           path: d-read-only
       - uses: actions/setup-python@v5
         with:
@@ -56,7 +58,7 @@ jobs:
           # Current B manifest contains only a header; this MUST remain blocked.
           if python -m ai.train.check_real_data_readiness \
               --split-manifest b-read-only/ai/data/split_manifest.csv \
-              --root b-read-only --b-ref 1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d \
+              --root b-read-only --b-ref c9c528072f76b8b2dbc1119ead770d23308ffda0 \
               --report "${RUNNER_TEMP}/c-b-real-readiness.json"; then
             echo 'C_UNEXPECTED_REAL_DATA_READY' >&2; exit 1
           fi
@@ -65,6 +67,39 @@ jobs:
           python -m ai.train.evaluate --help >/dev/null
           python -m ai.train.demo_fixture_pipeline \
             --b-script b-read-only/ai/scripts/prepare_dataset.py \
-            --b-ref 1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d \
+            --b-ref c9c528072f76b8b2dbc1119ead770d23308ffda0 \
             --output "${RUNNER_TEMP}/smartdish-c-fixtures" --contract-only
-          echo 'SMARTDISH_C_L0_B_MOCK_D_CONTRACT_PASS_ONLY' 
+          echo 'SMARTDISH_C_L0_B_MOCK_D_CONTRACT_PASS_ONLY'
+
+  c-l1-ros-transport:
+    name: C L1 / actual Jazzy ROS DDS no-model smoke (NO GOAL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DOMAIN_ID: '77'
+      ROS_LOCALHOST_ONLY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install minimal ament-python build and ROS Image dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            python3-colcon-common-extensions python3-numpy python3-pil
+      - name: Build C ROS package and verify DDS transport (no Gazebo or model)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-select smartdish_ai --event-handlers console_direct+
+          set +u
+          source install/setup.bash
+          set -u
+          ros2 pkg executables smartdish_ai | grep -F 'stability_inference_node'
+          python3 tests/c_ros2_transport_smoke.py
+          echo 'SMARTDISH_C_L1_ROS_TRANSPORT_PASS_ONLY'

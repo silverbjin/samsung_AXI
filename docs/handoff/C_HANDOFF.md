@@ -53,3 +53,11 @@ B에서 독립 `train/val/test` 별 실제 식기 이미지와 물리 관측, �
 - C07 계약 범위: `UNKNOWN/UNSTABLE`에서 직원 확인 대기, timeout/stale capture ID 안전, 승인 전 다음 `/collection/nav_goal` 금지, 명시적 승인 후만 진행, AI OFF의 C 비의존성. 이는 **합성 Nav 결과를 사용하는 Python 계약 검사**이고 실제 A Nav2/L2·ROS 네트워크·모델 실영상 인수가 아닙니다.
 - 새로운 작업 보고서: `docs/reports/tasks/2026-11-23_C06_REAL_DATA_READINESS_EDU_KO.md`, `2026-11-23_C07_D_CROSS_BRANCH_CONTRACT_EDU_KO.md`; 결함 이력: `docs/reports/issues/2026-11-23_C_ISSUE_02_PHYSICS_EVIDENCE_GUARD_EDU_KO.md`.
 - 실제 전환 시: B 승인된 물리 이미지/별도 증거 같은 호스트 접근 → C readiness → 사람 실물 검토 → Frozen pretrained → Finetune → independent test → Model Card → A tray RGB 한 장 → D AI ON. AI OFF 필수 3-leg 인수는 본 작업과 무관합니다.
+
+## C08 — B 실데이터 지연 대응, 독립 ROS 2 검증 추가
+
+- C08 설계/결과/통합 순서: [`C08 standalone+integration review`](../reports/tasks/2026-11-23_C08_STANDALONE_ROS_AND_INTEGRATION_REVIEW_EDU_KO.md).
+- B 최신 읽기 전용 pin `c9c528072f76b8b2dbc1119ead770d23308ffda0` (B-07/08), D `2824370f66ca3cd46be32e2ac8a32019ada87c95` (기존 D 코드 유지). 이전 pin은 C07 재현 이력으로만 보존.
+- C08은 실제 ROS 2 Jazzy DDS의 모델 미설치 `UNKNOWN` 응답·중복 방지를 검증하는 **독립 C 기능 스모크**입니다. 실물 데이터/성능, Gazebo, D 실제 ROS 통합과 구별합니다.
+- 통합 우선순위: **A+D AI OFF 실주행**, B의 데이터 스키마/소스 승인, C 독립 코드 수신, D와 AI UNKNOWN 확인, 마지막 B 실제 라벨/모델로 선택 AI ON.
+- `main` 또는 B/D 소스 직접 수정/병합은 이 C 작업에서 하지 않습니다.
