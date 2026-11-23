@@ -18,5 +18,5 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
           bash -n scripts/samsungaxi_s6_wslg_reaccept_once.sh
-          python3 -m pytest -q tests/test_s6_wslg_release.py tests/test_s6_wslg_first_failure.py tests/test_s6_wslg_gl_probe.py tests/test_s6_wslg_launch_contract.py tests/test_s6_wslg_gui_injected_failure.py
+          python3 -m pytest -q tests/test_s6_wslg_release.py tests/test_s6_wslg_first_failure.py tests/test_s6_wslg_gl_probe.py tests/test_s6_wslg_launch_contract.py tests/test_s6_wslg_gui_injected_failure.py tests/test_s6_nav2_return_abort_classifier.py
           echo S6_WSLG_RELEASE_L0_PASS_NO_GOAL
