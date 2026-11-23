@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # S6 WSLg GUI/Qt safe WSL2 L3 acceptance launcher. No hidden Goal.
 set -Eeuo pipefail
-SOURCE_SHA='611ac7b9edf5aa275dc4dbbde86530a573165a77'
+SOURCE_SHA='9d402a991d1ee0a1c46027abe91a55266b69d9bd'
 REPO='silverbjin/samsung_AXI'
 WRAPPER='scripts/samsungaxi_wsl2_gui_acceptance_once.sh'
 PROBE='scripts/s6_wslg_gl_probe.py'

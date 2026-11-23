@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[1]
 F=ROOT/'scripts/samsungaxi_s6_wslg_reaccept_once.sh'
 def test_release_pin_and_safety():
     src=F.read_text()
-    assert "SOURCE_SHA='611ac7b9edf5aa275dc4dbbde86530a573165a77'" in src
+    assert "SOURCE_SHA='9d402a991d1ee0a1c46027abe91a55266b69d9bd'" in src
     assert 'SAMSUNGAXI_S6_VISION=1' in src
     assert '--s5-live --preflight-only' in src
     assert '--s5-live --perf-rgbd2 --approve-goals' in src
