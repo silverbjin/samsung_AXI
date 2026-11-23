@@ -28,6 +28,12 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('robot_sdf', default_value=robot_default),
         DeclareLaunchArgument('gui', default_value='true'),
+        # Optional S6 RGB-on-demand mode; default preserves accepted S5.
+        DeclareLaunchArgument('bridge_config',default_value=os.path.join(here,'config','bridge.yaml')),
+        # Separate S6 viewpoint-only smoke, not a navigation Goal.
+        DeclareLaunchArgument('spawn_x',default_value='-2.60'),
+        DeclareLaunchArgument('spawn_y',default_value='-2.20'),
+        DeclareLaunchArgument('spawn_yaw',default_value='0'),
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.join(robotis, 'models')),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(gz_sim, 'launch', 'gz_sim.launch.py')),
@@ -40,9 +46,11 @@ def generate_launch_description():
              parameters=[{'robot_description': description, 'use_sim_time': True}], output='screen'),
         Node(package='ros_gz_sim', executable='create', name='waffle_pi_spawner',
              arguments=['-name', 'waffle_pi', '-file', robot_sdf,
-                        '-x', '-2.60', '-y', '-2.20', '-z', '0.02'], output='screen'),
+                        '-x', LaunchConfiguration('spawn_x'),
+                        '-y', LaunchConfiguration('spawn_y'),
+                        '-Y', LaunchConfiguration('spawn_yaw'), '-z', '0.02'], output='screen'),
         Node(package='ros_gz_bridge', executable='parameter_bridge',
-             parameters=[{'config_file': os.path.join(here, 'config', 'bridge.yaml')}],
+             parameters=[{'config_file': LaunchConfiguration('bridge_config')}],
              output='screen'),
         # S2 RGB-D optical TF. Harmless in S1 even if RGB-D sensor not generated yet.
         Node(package='tf2_ros', executable='static_transform_publisher',
