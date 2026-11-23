@@ -81,3 +81,10 @@ flowchart TD
 - **왜 이 구조가 좋은가:** B 데이터 완료를 기다리지 않고 C의 소스·ROS 배포 품질과 실패 안전성을 먼저 고정할 수 있습니다. 동시에 실제 이미지가 없는 상태를 성공처럼 처리하지 않아 통합자가 AI OFF 필수 MVP를 위험에 노출시키지 않습니다.
 
 **상태:** C01~C07 L0 확인, C08 로컬 Python 구문검사 PASS/실 ROS GitHub L1 결과는 Actions 확인 후 보강. PR #39 Draft 유지, main 병합 금지.
+
+## 7. 2026-11-23 원격 GitHub C08 실제 결과 (코드 SHA 6c4c10f)
+
+- **L0 GitHub Actions #45126686463:** `40 passed in 0.26s`, B 최신 SHA `c9c528072f76b8b2dbc1119ead770d23308ffda0`의 헤더-only 실제 split로 `C_TRAINING_NOT_RUN_NO_REAL_DATA`·`BLOCKED`가 확인됐습니다. B 더미 fixture 6건은 `B_DATASET_CONTRACT_PASS`, C 계약은 `C_B_MOCK_ONLY_PIPELINE_PASS`로 기록되며, 실제 학습은 수행하지 않았습니다.
+- **L1 동일 Actions #45126686463:** 공식 ROS 2 Jazzy 컨테이너에서 `Finished <<< smartdish_ai`와 `Summary: 1 package finished` 확인. 로그 `C08_REAL_ROS2_JAZZY_NO_MODEL_UNKNOWN_TRANSPORT_PASS responses=2 duplicates=0 protocol=RELIABLE_VOLATILE_KEEP_LAST_10 real_gazebo=NOT_RUN model_training=NOT_RUN` 및 `SMARTDISH_C_L1_ROS_TRANSPORT_PASS_ONLY` 확인.
+- 근거: [C08 GitHub CI Run](https://github.com/silverbjin/samsung_AXI/actions/runs/45126686463) / source SHA `6c4c10f3e4e5d0f4da2f70d85ff139edc865ef6d`.
+- **최종 판정:** C 독립 **L0 Python + L1 ROS 통신 검증 PASS**. 아직 `AI_ON_OPTIONAL_PASS`가 아니며 실제 학습, 독립 실물 test 및 A 카메라/Gazebo/WSL2는 `NOT_RUN`. 문서만 보강하고 같은 검증을 불필요하게 재실행하지 않습니다.

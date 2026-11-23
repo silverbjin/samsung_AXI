@@ -61,3 +61,5 @@ B에서 독립 `train/val/test` 별 실제 식기 이미지와 물리 관측, �
 - C08은 실제 ROS 2 Jazzy DDS의 모델 미설치 `UNKNOWN` 응답·중복 방지를 검증하는 **독립 C 기능 스모크**입니다. 실물 데이터/성능, Gazebo, D 실제 ROS 통합과 구별합니다.
 - 통합 우선순위: **A+D AI OFF 실주행**, B의 데이터 스키마/소스 승인, C 독립 코드 수신, D와 AI UNKNOWN 확인, 마지막 B 실제 라벨/모델로 선택 AI ON.
 - `main` 또는 B/D 소스 직접 수정/병합은 이 C 작업에서 하지 않습니다.
+
+- **C08 실제 GitHub 검증:** [Actions #45126686463](https://github.com/silverbjin/samsung_AXI/actions/runs/45126686463) L0 40 PASS, L1 `smartdish_ai` Jazzy colcon build PASS + request/result DDS `UNKNOWN` 2건·중복 0건 PASS; 소스 `6c4c10f3e4e5d0f4da2f70d85ff139edc865ef6d`. AI ON/Gazebo/실학습 인수는 아닙니다.
