@@ -88,3 +88,4 @@
 - 2026-11-23 SMARTDISH-A-04 — [실제 지도 기반 반납점 후보](reports/tasks/2026-11-23_SMARTDISH-A-04_return_pose_candidate_EDU_KO.md), S2 waypoint World(-3.75,-0.60) → map(-1.15,1.60), L2 검증 전.
 - 2026-11-23 SMARTDISH-A-05 — [실 Gazebo 3구간 검증기](reports/tasks/2026-11-23_SMARTDISH-A-05_real_gazebo_3leg_EDU_KO.md), CI L0/L2 결과 대기.
 - 2026-11-23 SMARTDISH-A-L2-DBG-01 — [CI 컨테이너 Git SHA 조회 실패](reports/issues/2026-11-23_SMARTDISH-A-L2-DBG-01_git_safe_directory_EDU_KO.md), [Run #45123777661](https://github.com/silverbjin/samsung_AXI/actions/runs/45123777661): map L0 3 PASS·build PASS, L2 Gazebo 기동 전 exit128, 1-line fix 후 재검.
+- 2026-11-23 SMARTDISH-A-L2-DBG-02 — [실제 TTY 스트림 오류](reports/issues/2026-11-23_SMARTDISH-A-L2-DBG-02_tty_rplus_EDU_KO.md): [Run #45124267209](https://github.com/silverbjin/samsung_AXI/actions/runs/45124267209) Gazebo+Nav2+scan/odom pregoal PASS → /dev/tty r+ fail, ROS Goal 0, raw fd read/write + real PTY L0 회귀로 최소 수정.

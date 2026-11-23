@@ -44,3 +44,7 @@ Actions URL, 최초 RED, 원인·수정 및 마지막 L2 판정은 실제 CI 로
 ## 5. 최초 CI 실패 및 교육용 디버깅
 
 [Run #45123777661](https://github.com/silverbjin/samsung_AXI/actions/runs/45123777661): A-04 L0 **3 PASS**, ROS 패키지 빌드 PASS, 실제 Gazebo 기동 전 `git rev-parse HEAD`가 컨테이너 Git ownership 검사에서 차단되었습니다. [원인과 수정·재검 보고서](../issues/2026-11-23_SMARTDISH-A-L2-DBG-01_git_safe_directory_EDU_KO.md) 참조. 실제 물리 Goal은 **0건**, MAP 좌표의 유효/무효 결론을 낼 수 없는 환경 진단 실패입니다.
+
+## 6. R02 — Gazebo 사전검사 PASS, TTY 승인 경계 첫 실패
+
+[Run #45124267209](https://github.com/silverbjin/samsung_AXI/actions/runs/45124267209)에서 실제 Gazebo/AMCL/Nav2와 scan/odom은 준비됐으나, 승인 함수의 `os.fdopen(fd,"r+")` 비탐색 스트림 오류로 Goal 전송 전에 실패했습니다. 원인/로컬 최소 재현/수정과 테스트를 [A-L2-DBG-02](../issues/2026-11-23_SMARTDISH-A-L2-DBG-02_tty_rplus_EDU_KO.md)에 기록했습니다. **실물 3-leg 성공은 여전히 미확인**이며 새 Run으로 재검합니다.

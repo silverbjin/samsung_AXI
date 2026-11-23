@@ -5,7 +5,6 @@ Run only after existing restaurant_bringup Nav2/AMCL and Gazebo are started.
 """
 import json
 import math
-import os
 from pathlib import Path
 import time
 
@@ -18,6 +17,8 @@ from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
+
+from .tty_approval import require_operator_approval
 
 from .contract import (
     GoalContractError, NavigationGoal, load_pose_config, nav2_result_name,
@@ -51,22 +52,8 @@ def build_pose(nav: BasicNavigator, pose) -> PoseStamped:
 
 
 def approve_in_tty():
-    """No pipe/env-var shortcut around the operator approval boundary."""
-    phrase = "YES-SMARTDISH-A-GOALS"
-    try:
-        fd = os.open("/dev/tty", os.O_RDWR)
-    except OSError as exc:
-        raise RuntimeError("OPERATOR_TTY_REQUIRED_NO_GOAL") from exc
-    try:
-        with os.fdopen(fd, "r+", buffering=1) as terminal:
-            terminal.write("SmartDish A: Gazebo/Nav2 실제 주행 전 환경 확인 후 " +
-                           phrase + " 입력: ")
-            terminal.flush()
-            received = terminal.readline().strip()
-    except OSError as exc:
-        raise RuntimeError("OPERATOR_TTY_READ_FAILED_NO_GOAL") from exc
-    if received != phrase:
-        raise RuntimeError("OPERATOR_APPROVAL_DENIED_NO_GOAL")
+    """Explicit field TTY acceptance. ROS topic subscription is created later."""
+    require_operator_approval()
     log("OPERATOR_APPROVED", mode="EXPLICIT_TTY")
 
 

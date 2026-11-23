@@ -1,7 +1,7 @@
 # SMARTDISH-A-L2-DBG-01 — GitHub Actions 컨테이너에서 SHA 조회 실패
 
 - 날짜: 2026-11-23 KST
-- 상태: **OPEN — 한 줄 수정 후 같은 실제 Gazebo L2 재검 대기**
+- 상태: **RESOLVED — 동일 SHA 조회 경계 통과, 후속 TTY 별도 결함**
 - 최초 실패 Run: https://github.com/silverbjin/samsung_AXI/actions/runs/45123777661
 - 최초 실행 SHA: `113f77ea8f4be0fe17a877905ca04c1e0c72c796`
 - 연결 작업: [A-05 실제 Gazebo 3-leg L2](../tasks/2026-11-23_SMARTDISH-A-05_real_gazebo_3leg_EDU_KO.md)
@@ -29,7 +29,7 @@ returned non-zero exit status 128.
 
 ## 3. 재검 절차 및 상태
 
-기존 CI의 A-04 L0 → A-05 실제 Gazebo L2를 동일 workflow로 재실행합니다. 독립 원격 Run의 `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS`와 3×Nav2 SUCCEEDED + /odom 원본이 확보될 때만 `RESOLVED`로 변경합니다. 현재는 **OPEN / Gazebo 3-leg NOT_RUN**입니다.
+기존 CI의 A-04 L0 → A-05 실제 Gazebo L2를 동일 workflow로 재실행합니다. 독립 원격 Run의 `SMARTDISH_A_REAL_GAZEBO_3LEG_L2_PASS`와 3×Nav2 SUCCEEDED + /odom 원본이 확보될 때만 `RESOLVED`로 변경합니다. [Run #45124267209](https://github.com/silverbjin/samsung_AXI/actions/runs/45124267209)에서 `A_L2_REAL_GAZEBO_PREFLIGHT_PASS_NO_GOAL`로 통과하므로 기존 Git SHA 오류는 재현되지 않았습니다. **DBG-01 RESOLVED**. 그 다음 단계 TTY 오류는 [DBG-02](2026-11-23_SMARTDISH-A-L2-DBG-02_tty_rplus_EDU_KO.md)에 별도 기록했습니다. Gazebo 3-leg는 여전히 NOT_RUN.
 
 ## 4. 초심자를 위한 요점
 
