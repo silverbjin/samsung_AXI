@@ -89,3 +89,5 @@
 - 2026-11-23 **B-05 / 트레이 RGB 무라벨 캡처 도구**: [작업 보고서](reports/tasks/2026-11-23_B-05_tray_rgb_readonly_capture.md), [초심자 실행 가이드](../ai/docs/B_TRAY_CAPTURE_GUIDE_KO.md) — RGB/BGR 이미지 계약 테스트 PASS, 실제 ROS/Gazebo 카메라 NOT_RUN.
 
 - 2026-11-23 **B-07 물리 증거 재검/DRIFT 차단**: [개발 보고서](reports/tasks/2026-11-23_B-07_evidence_reaudit.md), [RED→GREEN B-DEBUG-03](reports/issues/2026-11-23_B-DEBUG-03_evidence_drift.md). 로컬 19 PASS, 실제 트레이 NOT_RUN. GitHub CI 결과는 PR #37에서 추적.
+
+- 2026-11-23 **B-08 원자적 수집/CSV 롤백**: [작업 보고서](reports/tasks/2026-11-23_B-08_atomic_intake.md), [B-DEBUG-04](reports/issues/2026-11-23_B-DEBUG-04_orphan_ingest.md). 로컬 23 PASS, 실제 Gazebo/모델 NOT_RUN. 원격 CI는 PR #37에 기록.

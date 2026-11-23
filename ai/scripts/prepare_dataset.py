@@ -10,6 +10,8 @@ import csv
 import hashlib
 import json
 import re
+import os
+import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
@@ -164,10 +166,20 @@ def make_splits(rows: list[dict], seed: str = 'smartdish-b-v1') -> list[dict]:
 
 def write_csv(path: Path, rows: list[dict], fields: tuple) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('w', newline='', encoding='utf-8') as out:
-        writer = csv.DictWriter(out, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(rows)
+    temp = None
+    try:
+        # Stage the complete CSV and replace the final manifest only on success.
+        with tempfile.NamedTemporaryFile(mode='w', newline='', encoding='utf-8',
+                                         dir=path.parent, prefix='.b-csv-',
+                                         suffix='.tmp', delete=False) as out:
+            temp = Path(out.name)
+            writer = csv.DictWriter(out, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(temp, path)
+    finally:
+        if temp is not None:
+            temp.unlink(missing_ok=True)
 
 
 def make_contract_fixtures(root: Path) -> Path:

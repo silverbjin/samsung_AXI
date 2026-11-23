@@ -9,6 +9,7 @@ import argparse
 import csv
 import hashlib
 import json
+import tempfile
 from pathlib import Path
 from PIL import Image, ImageOps
 from prepare_dataset import FIELDS, IMAGE_SIZE, LABELS, load_manifest, write_csv
@@ -40,6 +41,8 @@ def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
             evidence_bytes += len(chunk)
     if evidence_bytes == 0:
         raise ValueError('B_PHYSICS_EVIDENCE_EMPTY')
+    # Fail fast on a broken/missing manifest before writing any image file.
+    records = load_manifest(manifest)
     with Image.open(image) as img:
         rgb = ImageOps.exif_transpose(img).convert('RGB')
         # Fixed network contract; RGB, 224x224, bilinear resize without ROI guarantee.
@@ -47,29 +50,45 @@ def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
         root = root.resolve()
         dest_dir = root / 'ai/data/images'
         dest_dir.mkdir(parents=True, exist_ok=True)
-        tmp = dest_dir / '.incoming.png'
-        rgb.save(tmp, format='PNG')
-    raw = tmp.read_bytes()
-    sha = hashlib.sha256(raw).hexdigest()
-    records = load_manifest(manifest)
-    if any(r['image_sha256'] == sha for r in records):
-        tmp.unlink()
-        raise ValueError('B_DUPLICATE_IMAGE')
-    sid = 'B-' + sha[:16]
-    dest = dest_dir / f'{sid}.png'
-    tmp.replace(dest)
-    row = {'sample_id': sid, 'scene_id': scene_id, 'stack_id': stack_id,
-           'label': label, 'image_path': dest.relative_to(root).as_posix(),
-           'source': source, 'capture_config': json.dumps(
-               {'camera': camera, 'physics_evidence': str(evidence_file),
-                'physics_evidence_sha256': evidence_hash.hexdigest(),
-                'physics_evidence_size_bytes': evidence_bytes,
-                'preprocess': 'RGB_224_FIT_BILINEAR'},
-               sort_keys=True, separators=(',', ':')),
-           'license_status': license_status, 'ground_truth': 'PHYSICS_OBSERVED',
-           'image_sha256': sha}
-    write_csv(manifest, records+[row], FIELDS)
-    return row
+    # Unique temporary filename prevents the prior fixed .incoming.png from
+    # leaking across failed attempts. All writes happen under the image dir.
+    tmp = None
+    dest = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=dest_dir, prefix='.incoming-',
+                                         suffix='.png', delete=False) as stream:
+            tmp = Path(stream.name)
+            rgb.save(stream, format='PNG')
+        sha = hashlib.sha256(tmp.read_bytes()).hexdigest()
+        if any(r['image_sha256'] == sha for r in records):
+            raise ValueError('B_DUPLICATE_IMAGE')
+        sid = 'B-' + sha[:16]
+        dest = dest_dir / f'{sid}.png'
+        if dest.exists():
+            # Existing unindexed content is not ours to overwrite.
+            raise ValueError('B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST')
+        row = {'sample_id': sid, 'scene_id': scene_id, 'stack_id': stack_id,
+               'label': label, 'image_path': dest.relative_to(root).as_posix(),
+               'source': source, 'capture_config': json.dumps(
+                   {'camera': camera, 'physics_evidence': str(evidence_file),
+                    'physics_evidence_sha256': evidence_hash.hexdigest(),
+                    'physics_evidence_size_bytes': evidence_bytes,
+                    'preprocess': 'RGB_224_FIT_BILINEAR'},
+                   sort_keys=True, separators=(',', ':')),
+               'license_status': license_status, 'ground_truth': 'PHYSICS_OBSERVED',
+               'image_sha256': sha}
+        tmp.replace(dest)
+        try:
+            write_csv(manifest, records + [row], FIELDS)
+        except Exception:
+            # write_csv is itself atomic; remove our freshly inserted PNG.
+            dest.unlink(missing_ok=True)
+            raise
+        return row
+    finally:
+        if tmp is not None:
+            tmp.unlink(missing_ok=True)
+
 
 
 def main() -> None:

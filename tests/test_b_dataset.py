@@ -185,3 +185,63 @@ def test_physics_evidence_metadata_corrupted_rejected(tmp_path):
     rows[0]['capture_config'] = json.dumps(config)
     with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_METADATA_INVALID'):
         validate(rows, tmp_path)
+
+
+def test_collector_missing_manifest_leaves_no_orphan_png(tmp_path):
+    image = tmp_path / 'raw.png'
+    Image.new('RGB', (25, 25), (20, 30, 40)).save(image)
+    evidence = tmp_path / 'settle.log'
+    evidence.write_text('observed pose before/after')
+    with pytest.raises(FileNotFoundError):
+        collect(image, tmp_path, tmp_path / 'missing.csv', 'STABLE', 's', 'k',
+                'GAZEBO_TRAY', 'OWNED', str(evidence), 'tray')
+    assert not (tmp_path / 'ai/data/images').exists()
+
+
+def test_collector_csv_write_failure_rolls_back_new_png(tmp_path, monkeypatch):
+    image = tmp_path / 'raw.png'
+    Image.new('RGB', (25, 25), (20, 30, 40)).save(image)
+    evidence = tmp_path / 'settle.log'
+    evidence.write_text('observed before/after')
+    manifest = tmp_path / 'manifest.csv'
+    write_csv(manifest, [], FIELDS)
+    orig = manifest.read_bytes()
+    import collect_tableware
+    def fail_write(*_args):
+        raise OSError('SIMULATED_WRITE_FAILURE')
+    monkeypatch.setattr(collect_tableware, 'write_csv', fail_write)
+    with pytest.raises(OSError, match='SIMULATED_WRITE_FAILURE'):
+        collect(image, tmp_path, manifest, 'STABLE', 's', 'k',
+                'GAZEBO_TRAY', 'OWNED', str(evidence), 'tray')
+    assert manifest.read_bytes() == orig
+    assert not list((tmp_path / 'ai/data/images').glob('*.png'))
+    assert not list((tmp_path / 'ai/data/images').glob('.incoming-*'))
+
+
+def test_collector_does_not_overwrite_existing_unindexed_png(tmp_path):
+    image = tmp_path / 'raw.png'
+    Image.new('RGB', (25, 25), (20, 30, 40)).save(image)
+    evidence = tmp_path / 'settle.log'
+    evidence.write_text('observed before/after')
+    manifest = tmp_path / 'manifest.csv'
+    write_csv(manifest, [], FIELDS)
+    first = collect(image, tmp_path, manifest, 'STABLE', 's1', 'k1',
+                    'GAZEBO_TRAY', 'OWNED', str(evidence), 'tray')
+    original = (tmp_path / first['image_path']).read_bytes()
+    write_csv(manifest, [], FIELDS)  # index lost, source is left on disk
+    with pytest.raises(ValueError, match='B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST'):
+        collect(image, tmp_path, manifest, 'STABLE', 's2', 'k2',
+                'GAZEBO_TRAY', 'OWNED', str(evidence), 'tray')
+    assert (tmp_path / first['image_path']).read_bytes() == original
+
+
+def test_csv_atomic_write_failure_preserves_original(tmp_path):
+    file = tmp_path / 'manifest.csv'
+    write_csv(file, [], FIELDS)
+    original = file.read_bytes()
+    bad = [dict.fromkeys(FIELDS, 'value')]
+    bad[0]['unknown_field'] = 'cannot serialize'
+    with pytest.raises(ValueError):
+        write_csv(file, bad, FIELDS)
+    assert file.read_bytes() == original
+    assert not list(tmp_path.glob('.b-csv-*'))

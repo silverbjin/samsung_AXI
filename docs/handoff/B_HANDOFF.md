@@ -17,6 +17,8 @@
 
 - B-07: 실제 라벨 데이터가 추가되면 `prepare_dataset`의 **근거 파일 현시점 SHA/크기 재검** 통과가 C 인계 전 조건입니다. 보고서 `evidence_hash_verified`로 파일 검증 건수만 확인합니다. [B-DEBUG-03](../reports/issues/2026-11-23_B-DEBUG-03_evidence_drift.md). 이번 단계 실제 데이터 0건, 실물 검증 NOT_RUN.
 
+- B-08: 원자적 CSV 저장·PNG 롤백과 미색인 파일 덮어쓰기 방어. 단일 운영자/순차 입력 전제, CI는 23개 Python 계약 테스트. [개발 보고서](../reports/tasks/2026-11-23_B-08_atomic_intake.md), [이슈](../reports/issues/2026-11-23_B-DEBUG-04_orphan_ingest.md). 실제 트레이 0건 유지.
+
 ## C 담당 재현 명령
 
 ```bash

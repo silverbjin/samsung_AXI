@@ -41,9 +41,14 @@ python3 ai/scripts/prepare_dataset.py --root . \
 
 수집 시 저장한 근거 파일의 SHA/크기를 **데이터 준비 시에도** 대조합니다. 관측 로그를 삭제·수정한 경우 무조건 PASS로 승격하지 않으며, 원본을 복구하고 다시 검증해야 합니다. 실행 명령은 기존 `prepare_dataset.py` 그대로이며 실제 카메라·물리 관측은 별도의 선행 조건입니다.
 
+### B-08 입력 실패 시 자동 복구
+
+`collect_tableware.py`는 먼저 manifest를 확인하고 임시 PNG를 유일한 이름으로 작성합니다. CSV 저장에 실패하면 신규 이미지를 삭제하며, 기존 미색인 PNG는 덮어쓰지 않습니다. `write_csv()`는 임시 CSV를 완성한 뒤 교체합니다. 동시 여러 명이 동일 manifest를 쓰는 용도가 아니므로 **한 명의 운영자**가 순서대로 수집하십시오.
+
 ## 3. 결과 읽기와 디버깅
 
-- `B_PHYSICS_EVIDENCE_MISSING` / `B_PHYSICS_EVIDENCE_SHA_MISMATCH`: 등록 당시 관측 파일이 유실/변조됐습니다.\n- `B_PHYSICS_EVIDENCE_METADATA_INVALID`: 관측 참조 또는 SHA/크기 필드 누락/형식 오류입니다.\n- `B_INVALID_LABEL`: `STACKED` 등 틀린 라벨 → 물리 판정이 있는 `STABLE/UNSTABLE`만 등록
+- `B_PHYSICS_EVIDENCE_MISSING` / `B_PHYSICS_EVIDENCE_SHA_MISMATCH`: 등록 당시 관측 파일이 유실/변조됐습니다.\n- `B_PHYSICS_EVIDENCE_METADATA_INVALID`: 관측 참조 또는 SHA/크기 필드 누락/형식 오류입니다.\n- `B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST`: 기존 비인덱스 PNG를 덮어쓰지 않고 원본/manifest 상태를 점검합니다.
+- `B_INVALID_LABEL`: `STACKED` 등 틀린 라벨 → 물리 판정이 있는 `STABLE/UNSTABLE`만 등록
 - `B_IMAGE_MISSING` / `B_IMAGE_CORRUPT`: 경로/원본 파일 점검
 - `B_DUPLICATE_IMAGE`: 해시 동일 → 연속 프레임 중복 제거
 - `B_SCENE_SPANS_STACKS`: scene_id 하나가 여러 적재 배치를 나타냄 → 배치마다 scene_id 분리
