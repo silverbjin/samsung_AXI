@@ -4,7 +4,7 @@
 - 저장소: [silverbjin/samsung_AXI](https://github.com/silverbjin/samsung_AXI)
 - 브랜치: `feat/smartdish-a-robot` (S7 main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894` 기원)
 - 상태: **CONTRACT IMPLEMENTED / real Gazebo three-leg NOT_RUN**
-- Draft PR: 해당 브랜치의 GitHub Pull requests에서 확인(후속 문서 갱신 예정)
+- Draft PR: https://github.com/silverbjin/samsung_AXI/pull/36 (미병합)
 - 기존 S7 L3 통과 소스 SHA: `097e5aca022f59b18f289e7d383a3a6b85a5da1a` (새 A 기능 검증 소스와 구분)
 
 ## 1. 재사용과 A 소유 산출물
@@ -95,7 +95,7 @@ source ~/samsung_AXI/install/setup.bash
 ros2 topic echo /collection/nav_result std_msgs/msg/String
 # 또 다른 터미널에서 발행할 JSON 예 (D Manager 준비 후에는 D만 발행)
 ros2 topic pub --once /collection/nav_goal std_msgs/msg/String \
-  '{data: "{\\\"request_id\\\":\\\"REQ-A-01\\\",\\\"leg\\\":\\\"TO_TABLE\\\",\\\"destination_id\\\":\\\"T03\\\"}"}'
+  'data: "{\"request_id\":\"REQ-A-01\",\"leg\":\"TO_TABLE\",\"destination_id\":\"T03\"}"'
 ```
 
 **주의:** 위 수동 단일 Goal은 팀 D 전체 시연이 아니며, T03 직후 복귀를 자동 발행하지 않습니다. 일회성 테스트 중 로봇이 예상과 다르면 즉시 목표를 중단하고 안전 상태 확인이 우선입니다.

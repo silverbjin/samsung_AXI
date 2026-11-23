@@ -33,7 +33,7 @@
 python3 -m pytest -q tests/test_smartdish_a_contract.py
 ```
 
-위 출력은 GitHub Actions에서 확인 전까지 **NOT_RUN**입니다. `FakeTask`는 enum 변환의 L0 테스트일 뿐 실제 Nav2 Action 증거가 아닙니다.
+실제 GitHub Actions [#45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792) L0: **25 passed in 0.04s / PASS**, HEAD `e069a134117fbc52718260a56eb7ac2ebd7d7885` (2026-11-23). `FakeTask`는 enum 변환의 L0 테스트일 뿐 실제 Nav2 Action 증거가 아닙니다.
 
 ## 4. 학습 포인트·증거 경계
 

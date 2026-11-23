@@ -4,7 +4,7 @@
 - 브랜치: `feat/smartdish-a-robot` / 기준 S7 main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`
 - 작업 커밋: 본 보고서와 workflow, handoff 문서가 들어 있는 커밋
 - 출고 범위: 계약 L0 + ROS 빌드 L1 후보, 기존 S7 코어 수정 0건
-- 상태: **원격 CI 결과 전 NOT_RUN; 3-leg 실제 주행 NOT_RUN**
+- 상태: **L0 PASS (25 tests) / L1 진행 중 / 3-leg 실제 주행 NOT_RUN**
 
 ## 1. 목표·설계 판단
 
@@ -28,7 +28,7 @@ ros2 pkg executables smartdish_robot
 
 - 기대 L0: 세 쌍의 목적지 계약, 잘못된 입력 거부, null 목적지 실패, 패키지 구조 확인.
 - 기대 L1: `smartdish_robot navigation_adapter` 발견.
-- **실제 Run/판정:** 이후 GitHub Actions 결과로 업데이트. 현재 `NOT_RUN`.
+- **실제 L0 Run/판정:** [#45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792) `25 passed in 0.04s`, PASS. L1은 실행 중이므로 별도 판정.
 - L2 Gazebo 3-leg: `DISH_RETURN`의 실제 map Pose를 현장에서 검증하기 전 **NOT_RUN**.
 
 ## 4. 주니어 개발자를 위한 판단·질문

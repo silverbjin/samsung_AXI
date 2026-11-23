@@ -45,3 +45,19 @@ def test_goal_config_required_before_nav2():
     src = (PKG / "smartdish_robot/navigation_adapter.py").read_text()
     assert src.index("resolve_pose(self.poses, goal.destination_id)") < src.index("self.nav.goToPose(")
     assert src.index("approve_in_tty()") < src.index("adapter.enable_goal_subscription()")
+
+
+def test_handoff_manual_goal_command_is_real_json_not_escaped_json():
+    """A-DBG-01: shell quoting -> ROS YAML -> actual String.data -> JSON."""
+    import json
+    import yaml
+    guide = (ROOT / "docs/handoff/A_HANDOFF.md").read_text()
+    command = next(line.strip() for line in guide.splitlines()
+                   if line.strip().startswith("'data: ") and "REQ-A-01" in line)
+    payload = yaml.safe_load(command[1:-1])["data"]
+    decoded = json.loads(payload)
+    assert decoded == {
+        "request_id": "REQ-A-01",
+        "leg": "TO_TABLE",
+        "destination_id": "T03",
+    }
