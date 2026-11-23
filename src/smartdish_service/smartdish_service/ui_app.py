@@ -8,6 +8,13 @@ import json
 import uuid
 from pathlib import Path
 
+
+def floorplan_scale(width, height, design_width=806, design_height=460):
+    """Scale UI-only canvas coordinates; never change Nav2 map poses."""
+    if min(width, height, design_width, design_height) <= 0:
+        raise ValueError("UI_CANVAS_DIMENSIONS_MUST_BE_POSITIVE")
+    return min(1.10, width / design_width, height / design_height)
+
 STATES_KO = {
     "IDLE": "IDLE · 출발 대기",
     "TO_TABLE": "TO_TABLE · 테이블 이동",
@@ -101,6 +108,7 @@ def main(argv=None):
             self.root = tk.Tk()
             self.root.title("SmartDish — 테이블 선택형 식기 회수")
             self.root.geometry("1210x740")
+            self.root.minsize(1024, 680)
             self.root.configure(bg=self.BG)
             self.root.protocol("WM_DELETE_WINDOW", self.close)
             self.selected = None
@@ -135,20 +143,24 @@ def main(argv=None):
 
             content = tk.Frame(self.root, bg=self.BG)
             content.pack(fill="both", expand=True, padx=25)
-            left = tk.Frame(content, bg=self.PANEL, highlightbackground="#d6e1eb",
-                            highlightthickness=1)
-            left.pack(side="left", fill="both", expand=True, padx=(0, 12))
+            # Pack reserves space in order: the controls must come first.
             right = tk.Frame(content, bg=self.PANEL, width=345,
                              highlightbackground="#d6e1eb", highlightthickness=1)
             right.pack(side="right", fill="y")
             right.pack_propagate(False)
+            left = tk.Frame(content, bg=self.PANEL, highlightbackground="#d6e1eb",
+                            highlightthickness=1)
+            left.pack(side="left", fill="both", expand=True, padx=(0, 12))
 
             self._label(left, "매장 평면도  ·  테이블 선택", size=17, bold=True).pack(
                 anchor="w", padx=16, pady=(12, 0))
-            self.canvas = tk.Canvas(left, width=806, height=460, bg=self.PANEL,
+            # Pixel artwork must not reserve the entire source-image width.
+            self.canvas = tk.Canvas(left, width=1, height=1, bg=self.PANEL,
                                     bd=0, highlightthickness=0)
             self.canvas.pack(fill="both", expand=True, padx=12, pady=(4, 8))
+            self._floorplan_scale = 1.0
             self._draw_map()
+            self.canvas.bind("<Configure>", self._resize_floorplan)
             self._label(right, "현재 로봇 상태", size=12, color=self.MUTED).pack(
                 anchor="w", padx=18, pady=(20, 0))
             self._label(right, "", size=16, bold=True,
@@ -158,18 +170,22 @@ def main(argv=None):
             self._label(right, "", size=15, bold=True, textvariable=self.selected_var).pack(
                 anchor="w", padx=18, pady=(1, 12))
 
+            # One column: full Korean label above each full-width Spinbox.
             timing = tk.Frame(right, bg=self.PANEL)
             timing.pack(fill="x", padx=18)
+            timing.grid_columnconfigure(0, weight=1)
             self._label(timing, "적재 대기 (1~120초)", color=self.MUTED).grid(
                 row=0, column=0, sticky="w")
+            self.loading_spin = tk.Spinbox(
+                timing, from_=1, to=120, textvariable=self.table_wait,
+                width=7, font=("DejaVu Sans", 13), justify="center")
+            self.loading_spin.grid(row=1, column=0, sticky="ew", pady=(4, 12))
             self._label(timing, "반납 대기 (1~60초)", color=self.MUTED).grid(
-                row=0, column=1, sticky="w", padx=(8, 0))
-            tk.Spinbox(timing, from_=1, to=120, textvariable=self.table_wait,
-                       width=9, font=("DejaVu Sans", 15), justify="center").grid(
-                row=1, column=0, sticky="w", pady=5)
-            tk.Spinbox(timing, from_=1, to=60, textvariable=self.dropoff_wait,
-                       width=9, font=("DejaVu Sans", 15), justify="center").grid(
-                row=1, column=1, sticky="w", padx=(8, 0), pady=5)
+                row=2, column=0, sticky="w")
+            self.dropoff_spin = tk.Spinbox(
+                timing, from_=1, to=60, textvariable=self.dropoff_wait,
+                width=7, font=("DejaVu Sans", 13), justify="center")
+            self.dropoff_spin.grid(row=3, column=0, sticky="ew", pady=(4, 8))
             self._label(right, "남은 대기 시간 (초)", color=self.MUTED).pack(
                 anchor="w", padx=18, pady=(9, 0))
             self._label(right, "", size=16, bold=True, textvariable=self.remaining_var).pack(
@@ -201,6 +217,15 @@ def main(argv=None):
                         "T03 클릭  →  table_id=T03  →  A: table_poses.yaml  →  실제 Nav2 결과  →  UI",
                         size=10, color="#006c78", bg="#e5f2f4").pack(padx=8, pady=5)
 
+        def _resize_floorplan(self, event):
+            """Fit UI-only artwork; keep the 345px controls reserved."""
+            new_scale = floorplan_scale(
+                event.width, event.height,
+                layout["canvas"]["width"], layout["canvas"]["height"])
+            factor = new_scale / self._floorplan_scale
+            self.canvas.scale("all", 0, 0, factor, factor)
+            self._floorplan_scale = new_scale
+
         def _draw_map(self):
             c = self.canvas
             tables = layout["tables"]
@@ -212,8 +237,9 @@ def main(argv=None):
                 for y in (y1 - 20, y2 + 14):
                     for x in (x1 + 36, x2 - 36):
                         c.create_oval(x-12, y-6, x+12, y+6, fill="#b1c2cc", outline="")
-                fill = "#d8e8ef" if tid != "T03" else "#d5edf0"
-                rect = c.create_rectangle(x1, y1, x2, y2, fill=fill, outline="#85aabf", width=2)
+                fill = "#d8e8ef" if tid != "T03" else "#ffe0ad"
+                outline = "#85aabf" if tid != "T03" else "#d18a37"
+                rect = c.create_rectangle(x1, y1, x2, y2, fill=fill, outline=outline, width=2)
                 label = c.create_text((x1+x2)//2, (y1+y2)//2, text=tid,
                                       fill=self.INK, font=("DejaVu Sans", 19, "bold"))
                 if spec["enabled"]:
@@ -221,8 +247,10 @@ def main(argv=None):
                     c.tag_bind(label, "<Button-1>", lambda event: self.select_t03())
                     c.tag_bind(rect, "<Enter>", lambda event: c.configure(cursor="hand2"))
                     c.tag_bind(rect, "<Leave>", lambda event: c.configure(cursor=""))
+                    c.create_text((x1+x2)//2, y2+28, text="선택 가능",
+                                  fill="#9c611d", font=("DejaVu Sans", 9, "bold"))
                 else:
-                    c.create_text((x1+x2)//2, y2+8, text="준비 중",
+                    c.create_text((x1+x2)//2, y2+28, text="준비 중",
                                   fill="#8c9aa8", font=("DejaVu Sans", 8))
                 if tid == "T03":
                     self.t03_rect = rect
