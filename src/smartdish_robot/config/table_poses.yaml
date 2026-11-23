@@ -1,0 +1,9 @@
+# SmartDish A-01 / Nav2 map-frame coordinates, not SDF world coordinates.
+# HOME/T03: inherited from S3 released map, s3_map_waypoints.yaml.
+# DISH_RETURN: NOT VERIFIED; must be measured against this map in real Gazebo.
+# No goal may be sent to an unconfigured destination.
+frame: map
+poses:
+  HOME: {x: 0.0, y: 0.0, yaw: 0.0}
+  T03: {x: 5.25, y: 0.38, yaw: -1.57079632679}
+  DISH_RETURN: {x: null, y: null, yaw: null}
