@@ -78,3 +78,9 @@
 - 2026-11-20 **S3-NAV-02 CI·main PASS**: [PR #10](https://github.com/silverbjin/samsung_AXI/pull/10) main e2e7cf04; [Run #44646848087](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848087) 배달 Odom 5.257m / 오차 0.132m, 복귀 5.219m / 오차 0.126m, Nav2 Lifecycle/2 Action SUCCESS. S1/S2 회귀 [Run #44646848122](https://github.com/silverbjin/samsung_AXI/actions/runs/44646848122) GREEN. [최종 보고서](reports/tasks/2026-11-20_S3-NAV-02_delivery_return.md). WSL2 GUI 및 메뉴별 속도는 별도 인수.
 
 - 2026-11-20 S4-MENU-01 착수: 기존 정상 S2 지도·S3 실제 Nav2 배달/복귀 재사용. `/speed_limit` 토픽 Nav2 Controller 정합, NORMAL 0.23/SOUP 0.11m/s 실제 Odom 속도 비교, 공식 Collision Monitor LiDAR 기반 STOP 및 물리 Gazebo 단일 fixture L2. [작업 보고서](reports/tasks/2026-11-20_S4-MENU-01_speed_safety.md). 아직 CI 실제 GREEN 미확정.
+
+## SmartDish B 담당 데이터 개발 색인 (2026-11-23)
+- B-01 라벨/이용조건/스키마 계약: [작업 보고서](reports/tasks/2026-11-23_B-01_label_source_contract.md) — 문서 확인 PASS / 실제 데이터 0건.
+- B-02 수집기/형식 검증: [작업 보고서](reports/tasks/2026-11-23_B-02_collect_ingest.md) — 로컬 fixture 테스트 PASS / Gazebo 트레이 NOT_RUN.
+- B-03 그룹 분할·C 핸드오프: [작업 보고서](reports/tasks/2026-11-23_B-03_group_split_handoff.md), [디버깅 B-DEBUG-01](reports/issues/2026-11-23_B-DEBUG-01_validation_error_priority.md) — pytest 10/10 PASS, 실제 데이터 NOT_RUN.
+- B-04 데이터 계약 CI: [작업 보고서](reports/tasks/2026-11-23_B-04_ci_contract_gate.md) — GitHub Actions 실제 Run 결과는 보고서에서 추적.
