@@ -27,5 +27,12 @@
 4. 커밋이 동일한 1차와 2차 실증의 결과가 다르면, 성공 증거를 보존하면서 어떤 반복 범위를 정의해야 합니까?
 
 ## 판정
-- G08 실패 증거 분류: PASS, 실제 PICKUP_RETURN: FAIL. 동일 SHA L2 1회 재실행: RUNNING/NOT_VERIFIED(보고서 작성 시점).
+- G08 실패 증거 분류: PASS, 실제 PICKUP_RETURN: FAIL. 동일 SHA L2 1회 재실행: **FAIL — 초기 Map/TF 및 Lifecycle 준비 실패, Goal 미발행**.
 - 이미 성공한 S5/S6 원본과 지도는 보존. WSL2 GUI OpenGL L3: NOT_RUN. RTF 90%: HOLD. main 병합: HOLD.
+
+## 추가 RED — 동일 SHA 독립 재실행 결과
+- CI #45104473441 **Attempt 2**: 전체 실행 실패, 시작 단계에서 `TIMEOUT_CLOCK_SCAN_ODOM_RELEASED_MAP` (200초). 첫 NAV Goal 미발행, Vision·복귀·STOP NOT_RUN.
+- 원본 Artifact #14787009910 (ZIP: `s6-g08-retry-startup-timeout-45104473441.zip`) 확인. `logs/ci-s3-summary.txt`에서 `/map_server/change_state` 서비스 응답 타임아웃, `planner_server` lifecycle bringup 실패, `map` TF 미준비 기록.
+- 두 독립 실행이 모두 실패했으므로 **같은 SHA의 전체 L2는 FAIL**이며 반복 실행으로 실패를 덮어서는 안 됩니다. 1차와 2차는 각기 다른 최초 실패 경계입니다.
+- 추론과 수정 경계: control-plane의 Action 응답 대기(20ms)와 Gazebo/Nav2 동시 시작 부하 가능성. 단정 금지. 안전/속도/Costmap/경로 계획 변경 전 공식 Nav2 Jazzy source 확인이 필요합니다.
+- 후속 최소 변경 사이클 G09은 `fix/s6-nav2-controlplane-stability-20261123` 분기에서 독립 보고서·L0/L1/L2 검증을 수행합니다. 기존 S6 성공 SHA `937fbf025cefec01489c40bc5104c39e3d4709be`는 유지합니다.
