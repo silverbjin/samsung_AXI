@@ -55,6 +55,15 @@ def run(args):
         raise RuntimeError('S5_REQUIRES_CUSTODY_VERIFIED_S2_MAP03')
     if not args.robot_sdf.is_file() or not args.params.is_file() or not args.map.is_file():
         raise RuntimeError('S3_REQUIRED_ROBOT_SDF_PARAMS_OR_MAP_MISSING')
+    if args.s7_scenario:
+        if not args.s6_vision or args.s6_scene_fixture:
+            raise RuntimeError('S7_REQUIRES_S6_VISION_NO_DYNAMIC_DISH_SPAWN')
+        if not args.s7_world or not args.s7_world.is_file():
+            raise RuntimeError('S7_GENERATED_WORLD_MISSING_NO_GOAL')
+        from s7_scene import validate_world
+        validate_world(args.s7_world.read_text(),args.s7_scenario)
+    elif args.s7_world:
+        raise RuntimeError('S7_WORLD_WITHOUT_EXPLICIT_SCENARIO')
     if args.s6_vision:
         if not (args.s5_integrated and args.exercise_goals and args.menu_safety):
             raise RuntimeError('S6_REQUIRES_EXISTING_S5_SAFETY_CHAIN')
@@ -131,6 +140,9 @@ def run(args):
                 # S6 control-plane robustness: stagger official Nav2 lifecycle
                 # burst until Gazebo/ROS bridge has warmed up.
                 nav_cmd.append('s6_stagger_nav_start:=true')
+                if args.s7_scenario:
+                    nav_cmd.append('world_file:='+str(args.s7_world.resolve()))
+                    print('S7_STARTUP_WORLD_APPLIED='+args.s7_scenario,flush=True)
                 nav_cmd.append('bridge_config:='+str((
                     repo/'src/restaurant_bringup/config/bridge_vision_on_demand.yaml').resolve()))
                 nav_cmd.append('vision_camera_offset_z:=0.65')
@@ -220,6 +232,13 @@ def run(args):
                     'odom_to_base':state['odom_to_base'],
                     'navigate_to_pose_server_ready':True,'goal_sent':False}
             result['manual_initial_pose_published']=not args.no_initial_pose_publish
+            if args.s7_scenario:
+                import hashlib
+                result['s7_scene']={'scenario':args.s7_scenario,
+                    'world_sha256':hashlib.sha256(args.s7_world.read_bytes()).hexdigest(),
+                    'fixture_preloaded_at_world_start':args.s7_scenario=='stacked',
+                    'dynamic_fixture_spawn_requested':False,
+                    'source':'GENERATED_WORLD_SDF_NOT_GOAL_TIME_CREATE'}
             if args.no_initial_pose_publish:
                 print('S3_AMCL_AUTO_INITIAL_POSE_REAL_GAZEBO_PASS_NO_MANUAL_PUBLISH',flush=True)
             args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
@@ -580,6 +599,11 @@ def run(args):
                                 raise RuntimeError('S6_INTEGRATED_VISION_EVIDENCE_INCOMPLETE')
                             args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
                             print('S6_VISION_REAL_GAZEBO_L2_INTEGRATED_PASS',flush=True)
+                            if args.s7_scenario=='stacked':
+                                if (result['s6_vision'].get('fixture_seeded_for_demo') is not False or
+                                    result.get('s7_scene',{}).get('scenario')!='stacked'):
+                                    raise RuntimeError('S7_STARTUP_FIXTURE_EVIDENCE_MISMATCH')
+                                print('S7_STARTUP_STACKED_REAL_GAZEBO_L2_PASS',flush=True)
                         if args.live_owner:
                             if args.ci_owner_exit_on_success:
                                 # CI uses a real pseudo-TTY and real Gazebo.
@@ -640,6 +664,8 @@ def main():
     p.add_argument('--s6-vision',action='store_true')
     p.add_argument('--s6-scene-fixture',action='store_true')
     p.add_argument('--s6-model',type=Path)
+    p.add_argument('--s7-scenario',choices=['stacked','empty'],default='')
+    p.add_argument('--s7-world',type=Path)
     p.add_argument('--gui',action='store_true')
     p.add_argument('--live-owner',action='store_true')
     p.add_argument('--ci-owner-exit-on-success',action='store_true')

@@ -145,8 +145,22 @@ if [[ "$MODE" == live ]]; then
     S6_MODE_ARGS=(--s6-vision --s6-scene-fixture
                   --s6-model "$ROOT/models/s6_dish_prototype.json")
     echo S6_OPT_IN_REAL_RGB_DISH_GATE_ENABLED
+    if [[ -n "${SAMSUNGAXI_S7_SCENARIO:-}" ]]; then
+      case "$SAMSUNGAXI_S7_SCENARIO" in
+        stacked|empty) ;;
+        *) echo 'S7_BLOCKED_INVALID_SCENARIO_NO_GOAL' >&2; exit 2 ;;
+      esac
+      S7_WORLD="$ROOT/generated/s7/restaurant_$SAMSUNGAXI_S7_SCENARIO.sdf"
+      python3 "$ROOT/scripts/s7_scene.py" --source "$ROOT/src/restaurant_world/worlds/restaurant.sdf" \
+        --out "$S7_WORLD" --scenario "$SAMSUNGAXI_S7_SCENARIO" | tee -a "$RUNLOG"
+      S6_MODE_ARGS=(--s6-vision --s7-scenario "$SAMSUNGAXI_S7_SCENARIO"
+                    --s7-world "$S7_WORLD" --s6-model "$ROOT/models/s6_dish_prototype.json")
+      echo "S7_STARTUP_SCENARIO=$SAMSUNGAXI_S7_SCENARIO"
+    fi
   elif [[ "${SAMSUNGAXI_S6_VISION:-0}" != 0 ]]; then
     echo S6_BLOCKED_INVALID_OPT_IN >&2; exit 2
+  elif [[ -n "${SAMSUNGAXI_S7_SCENARIO:-}" ]]; then
+    echo S7_REQUIRES_EXPLICIT_S6_VISION_NO_GOAL >&2; exit 2
   fi
   python3 "$ROOT/scripts/ci_s3_amcl_smoke.py" \
     "${S6_MODE_ARGS[@]}" \
