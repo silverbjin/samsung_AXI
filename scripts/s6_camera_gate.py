@@ -21,11 +21,41 @@ def gate(node,spin_once,state,model_path,evidence_dir,seed_fixture):
     # BEFORE any image request and before returning to the pickup.
     speeds=[]
     arrived=time.monotonic()
-    for _ in range(12):
-        spin_once(.13)
-        if state.get('odom_speed_t',0)>=arrived:
-            speeds.append(abs(state.get('odom_speed',float('inf'))))
-    stopped=len(speeds)>=3 and max(speeds)<=.025
+    # Nav2 SUCCEEDED can precede the base physically stopping. Bound the
+    # wait but require NEW Odom callbacks, never the same stale velocity.
+    last_odom_count=state.get('odom_count',0)
+    still_since=None
+    still_origin=None
+    stopped=False
+    deadline=time.monotonic()+10.0
+    while time.monotonic()<deadline:
+        spin_once(.12)
+        if state.get('odom_count',0)<=last_odom_count:
+            continue
+        last_odom_count=state['odom_count']
+        speed=abs(state.get('odom_speed',float('inf')))
+        speeds.append(speed)
+        if len(speeds)>40:del speeds[:-40]
+        if speed>.025:
+            still_since=None
+            still_origin=None
+            continue
+        if still_since is None:
+            still_since=time.monotonic()
+            still_origin=state.get('odom')
+            continue
+        if still_origin is None or state.get('odom') is None:
+            still_since=None
+            continue
+        import math
+        drift=math.dist(still_origin,state['odom'])
+        if drift>.012:
+            still_since=time.monotonic()
+            still_origin=state['odom']
+            continue
+        if time.monotonic()-still_since>=.65:
+            stopped=True
+            break
     if not stopped:
         return {'state':'HOLD','authorized':False,'prediction':{
             'result':'UNKNOWN','confidence':0.,'reason':'NOT_SETTLED'},
