@@ -94,6 +94,10 @@ if [[ "$MODE" == live ]]; then
     *) echo 'S5_PERF_BLOCKED_UNKNOWN_MODE' >&2; exit 2 ;;
   esac
 fi
+if [[ "$MODE" == live && "${SAMSUNGAXI_S6_VISION:-0}" == 1 ]]; then
+  RGBD_RATE_ARGS+=(--vision-camera-offset-z 0.65)
+  echo 'S6_VISION_CAMERA_MOUNT_Z_OFFSET_M=0.65'
+fi
 python3 "$ROOT/scripts/prepare_waffle_rgbd.py" --source "$OFFICIAL_SDF" --out "$ROOT/generated/waffle_pi_rgbd.sdf" "${RGBD_RATE_ARGS[@]}" | tee -a "$RUNLOG"
 ROBOT_SDF="$ROOT/generated/waffle_pi_rgbd.sdf"
 if [[ "$MODE" == world ]]; then
@@ -120,6 +124,10 @@ if [[ "$MODE" == navigation || "$MODE" == live ]]; then
 fi
 [[ -s "$MAP" ]] || { echo "BLOCKED: $MAP missing. Run mapping and save a real map first."; exit 2; }
 NAV_SRC="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+if [[ "$MODE" == live && "${SAMSUNGAXI_S6_VISION:-0}" == 1 ]]; then
+  NAV_AUTO_ARGS+=(--s6-bt-ack-ms 200)
+  echo 'S6_NAV2_BT_FOLLOWPATH_ACK_TIMEOUT_MS=200'
+fi
 python3 "$ROOT/scripts/prepare_nav2_params.py" --source "$NAV_SRC" --out "$ROOT/generated/nav2_params.yaml" "${NAV_AUTO_ARGS[@]}" | tee -a "$RUNLOG"
 if [[ "$MODE" == live ]]; then
   [[ "${SAMSUNGAXI_S5_GOALS_APPROVED:-}" == YES-S5-LIVE-GOALS ]] || {
@@ -132,7 +140,16 @@ if [[ "$MODE" == live ]]; then
   mkdir -p "$S5_EVIDENCE_DIR"
   echo "S5_LIVE_EVIDENCE_DIR=$S5_EVIDENCE_DIR"
   echo 'S5_LIVE_START: REAL_GAZEBO_NO_GOAL_UNTIL_INTERACTIVE_APPROVAL'
+  S6_MODE_ARGS=()
+  if [[ "${SAMSUNGAXI_S6_VISION:-0}" == 1 ]]; then
+    S6_MODE_ARGS=(--s6-vision --s6-scene-fixture
+                  --s6-model "$ROOT/models/s6_dish_prototype.json")
+    echo S6_OPT_IN_REAL_RGB_DISH_GATE_ENABLED
+  elif [[ "${SAMSUNGAXI_S6_VISION:-0}" != 0 ]]; then
+    echo S6_BLOCKED_INVALID_OPT_IN >&2; exit 2
+  fi
   python3 "$ROOT/scripts/ci_s3_amcl_smoke.py" \
+    "${S6_MODE_ARGS[@]}" \
     --exercise-goals --menu-safety --no-initial-pose-publish \
     --s5-integrated --gui --live-owner \
     --robot-sdf "$ROBOT_SDF" --map "$MAP" \

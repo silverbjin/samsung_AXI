@@ -1,0 +1,95 @@
+name: S6 stage00 dish scene and request-driven RGB real Gazebo CI
+on:
+  push:
+    branches: [feature/s6-00-camera-01-20261123]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: s6-scene-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  l0:
+    name: S6-00/CAMERA-01 isolated contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+      - name: Verify sensor, scene and S5 default contracts
+        run: |
+          set -Eeuo pipefail
+          python3 -m compileall -q scripts src tests
+          python3 -m pytest -q tests/test_s6_camera_contract.py tests/test_static_contract.py
+          echo S6_00_CAMERA_01_L0_PASS
+  real-camera-l2:
+    name: S6-00/CAMERA-01 actual Gazebo empty/stacked image no Goal
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DISTRO: jazzy
+      ROS_DOMAIN_ID: '91'
+      GZ_PARTITION: s6_scene_${{ github.run_id }}_${{ github.run_attempt }}
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      RESTAURANT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official Gazebo Harmonic and ROS Jazzy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends             git python3-colcon-common-extensions python3-yaml xvfb xauth             mesa-utils ros-jazzy-ros-base ros-jazzy-ros-gz ros-jazzy-ros-gz-image             ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+      - name: Checkout exact official ROBOTIS Jazzy Waffle Pi
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p src/upstream
+          git clone -q --depth 1 -b jazzy             https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git             src/upstream/turtlebot3_simulations
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          if [[ "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" != "$PIN" ]]; then
+            git -C src/upstream/turtlebot3_simulations fetch -q --depth 1 origin "$PIN"
+            git -C src/upstream/turtlebot3_simulations checkout -q --detach "$PIN"
+          fi
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+      - name: Build real Waffle Pi with opt-in camera
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-up-to restaurant_world restaurant_bringup restaurant_delivery
+          set +u
+          source install/setup.bash
+          set -u
+          mkdir -p generated/s6
+          MODEL="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
+          python3 scripts/prepare_waffle_rgbd.py --source "$MODEL"             --out generated/s6/waffle.sdf --rgbd-rate-hz 2 \
+            --vision-camera-offset-z 0.65
+      - name: Collect real images from empty and stacked table
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24'             timeout --signal=INT --kill-after=20s 280s             python3 scripts/s6_camera_scene_ci.py               --robot-sdf "$PWD/generated/s6/waffle.sdf"               --bridge "$PWD/src/restaurant_bringup/config/bridge_vision_on_demand.yaml"               --out "$PWD/generated/s6/scene"
+          test -s generated/s6/scene/empty.ppm
+          test -s generated/s6/scene/stacked.ppm
+          echo S6_00_CAMERA_01_REAL_GAZEBO_PASS_NO_GOAL
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: s6-00-camera-real-image-${{ github.run_id }}
+          path: generated/s6/scene/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "algorithm": "supervised_two_prototype_rgb_layers",
+  "classes": {
+    "NOT_STACKED": [
+      0,
+      0,
+      0
+    ],
+    "STACKED": [
+      0.005339,
+      0.75,
+      0.070833
+    ]
+  },
+  "input_width": 320,
+  "input_height": 240,
+  "interclass_distance": 0.75335637,
+  "max_distance": 0.33901037,
+  "min_margin": 0.25,
+  "training_examples": {
+    "NOT_STACKED": "75c778d30d1e57050fe0aa0406a93321c056132eff4ed08bf7fca62baa2daf75",
+    "STACKED": "f2d595afea1b914a656aea1d8cfde8dc34d12b994cb4a2f9757e10cd3585afa8"
+  },
+  "training_limitations": "One real Gazebo viewpoint per class; no independent generalization evidence."
+}
