@@ -69,8 +69,11 @@ def test_stop_transition_between_fixture_and_probe_is_not_lost():
     # Fixture may trigger STOP before the positive-input probe marker.
     script=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
     assert 'fixture_marker=time.monotonic()' in script
-    assert 't>=fixture_marker and a==CollisionMonitorState.STOP' in script
-    assert 'if max(abs(v) for v in outputs)>.025 or moved>.045:' in script
+    assert "if t>=fixture_marker]" in script
+    assert 'S4_CM_STOP_NOT_CONFIRMED_BEFORE_PROBE' in script
+    assert 'S4_CM_STOP_NOT_CONFIRMED_BEFORE_PROBE' in script
+    assert 'validate_stop_probe(' in script
+    assert "result['s4_stop_timing']=timing" in script
 
 def test_s4_stop_only_does_not_require_unneeded_nav_action_server():
     # Real Collision Monitor stop test has no navigation goals; CM ACTIVE is
@@ -80,3 +83,19 @@ def test_s4_stop_only_does_not_require_unneeded_nav_action_server():
     workflow=(ROOT/'.github/workflows/restaurant-s3-ci.yml').read_text()
     assert 'FLAGS=(--s4-stop-only)' in workflow
     assert 'FLAGS=(--exercise-goals --menu-safety)' not in workflow
+
+def test_stop_probe_fails_closed_on_nonzero_output_after_confirmed_stop():
+    states=[(1.1,1,'S4ForwardStop')]
+    inputs=[(2.1,.08)]
+    zeros=[(2.1,0.),(2.2,0.),(2.3,0.)]
+    good=m.validate_stop_probe(states,inputs,zeros,1.0,2.0,0.0,1)
+    assert good['preprobe_stop_confirmed'] is True
+    assert good['filtered_output_max_abs_mps']==0.0
+    with pytest.raises(ValueError,match='S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED'):
+        m.validate_stop_probe(states,inputs,[(2.1,.08),(2.2,0.),(2.3,0.)],1.0,2.0,.00021,1)
+    with pytest.raises(ValueError,match='S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED'):
+        m.validate_stop_probe(states,inputs,zeros,1.0,2.0,.046,1)
+    with pytest.raises(ValueError,match='S4_CM_STOP_CHAIN_UNPROVEN'):
+        m.validate_stop_probe([(2.1,1,'S4ForwardStop')],inputs,zeros,1.0,2.0,0.0,1)
+    with pytest.raises(ValueError,match='S4_CM_STOP_CHAIN_UNPROVEN'):
+        m.validate_stop_probe(states+[(2.15,0,'')],inputs,zeros,1.0,2.0,0.0,1)

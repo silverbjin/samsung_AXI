@@ -73,3 +73,23 @@ def stop_polygon_points(scan):
         if .10<=x<=.58 and abs(y)<=.28:
             count+=1
     return count
+
+def validate_stop_probe(cm_states,cmd_in,cmd_out,fixture_marker,probe_marker,
+                        moved,stop_action):
+    """Fail closed: STOP must be confirmed BEFORE injecting the positive probe."""
+    observed=[(t,a,name) for t,a,name in cm_states if t>=fixture_marker]
+    prior_stop=any(t<probe_marker and a==stop_action and name=='S4ForwardStop'
+                   for t,a,name in observed)
+    departed=[(t,a,name) for t,a,name in observed
+              if t>=probe_marker and (a!=stop_action or name!='S4ForwardStop')]
+    positives=[v for t,v in cmd_in if t>=probe_marker and v>=.075]
+    outputs=[v for t,v in cmd_out if t>=probe_marker]
+    if not prior_stop or departed or not positives or len(outputs)<3:
+        raise ValueError('S4_CM_STOP_CHAIN_UNPROVEN')
+    cmd_out_max=max(abs(v) for v in outputs)
+    if cmd_out_max>.025 or moved>.045:
+        raise ValueError('S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED')
+    return {'filtered_output_max_abs_mps':round(cmd_out_max,4),
+            'physical_odom_motion_m':round(moved,5),
+            'preprobe_stop_confirmed':True,
+            'post_stop_output_samples':len(outputs)}
