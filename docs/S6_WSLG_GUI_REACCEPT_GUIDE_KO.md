@@ -4,8 +4,8 @@
 
 ## 시작 조건 및 기준 SHA
 
-- 릴리스 엔트리 원본 커밋: `23f21bf89766d1a4a41473b932ad77dc7754562b`
-- 엔트리에서 다운로드하는 **변경된 런타임 코드 SHA**: `611ac7b9edf5aa275dc4dbbde86530a573165a77`
+- 릴리스 엔트리 원본 커밋: `6fc1ac685858cb075e56514e03f72ad3a504fd87`
+- 엔트리에서 다운로드하는 **변경된 런타임 코드 SHA**: `9d402a991d1ee0a1c46027abe91a55266b69d9bd`
 - 이전 성공한 S6 L2 런타임 SHA: `937fbf025cefec01489c40bc5104c39e3d4709be` (무수정 원본으로 보존)
 - 이전 GUI 실패 ZIP SHA256: `e045f50f6e66c305eed22885d37c1fa533b20bfe37c720f82b07adaa190aa8d3`
 
@@ -16,7 +16,7 @@ WSL2 Ubuntu 24.04에서 아래를 복사해 실행합니다. 실제로 실행되
 ```bash
 (
   set -Eeuo pipefail
-  RELEASE_SHA='23f21bf89766d1a4a41473b932ad77dc7754562b'
+  RELEASE_SHA='6fc1ac685858cb075e56514e03f72ad3a504fd87'
   F="$(mktemp --suffix=.sh)"
   trap 'rm -f "$F"' EXIT
   curl -fL --retry 3 --connect-timeout 10 --max-time 90 \
@@ -47,7 +47,7 @@ GUI 오류가 재발하면 `S6_GUI_OPENGL_CONTEXT_CREATE_FAILED` 또는 `S6_GUI_
 ```bash
 (
   set -Eeuo pipefail
-  RELEASE_SHA='23f21bf89766d1a4a41473b932ad77dc7754562b'
+  RELEASE_SHA='6fc1ac685858cb075e56514e03f72ad3a504fd87'
   F="$(mktemp --suffix=.sh)"
   trap 'rm -f "$F"' EXIT
   curl -fL --retry 3 --max-time 90 \
@@ -67,3 +67,11 @@ GUI 오류가 재발하면 `S6_GUI_OPENGL_CONTEXT_CREATE_FAILED` 또는 `S6_GUI_
 - 각 RED→GREEN 보고서: docs/debug/s6/20261123_G01_FIRST_FAILURE_EDU_KO.md, 20261123_G02_G03_GL_AB_EDU_KO.md, 20261123_G04_G05_GUI_LIFECYCLE_EDU_KO.md, 20261123_G06_RELEASE_EDU_KO.md.
 - 주니어 체크: 사용자 승인과 ROS Action Goal은 별개이고, GUI 렌더러 실패와 Nav2 Lifecycle 후속 오류는 서로 다른 시간 순서를 가집니다.
 - `main` 병합은 현장 L3 PASS 및 문서 갱신 후에만 수행합니다.
+
+## 5. G09 실제 Gazebo 인수 확인과 남은 구분
+- **검증 SHA** `9d402a991d1ee0a1c46027abe91a55266b69d9bd`: [S6 L0/L1/L2 CI #45106929216](https://github.com/silverbjin/samsung_AXI/actions/runs/45106929216) SUCCESS.
+- TABLE_3 Action SUCCEEDED 5.137m, RGB 3프레임 모델 STACKED confidence 0.6652, PICKUP_RETURN SUCCEEDED 5.054m, LiDAR CM STOP 29점, 필터 출력 0m/s, 정지 Odom 0m.
+- [Artifact #14787673933](https://github.com/silverbjin/samsung_AXI/actions/runs/45106929216/artifacts/14787673933) / ZIP SHA256 `a9ee749ef91586b27a19de04e6e2cc902176701d3f66971c4225ab1a96cd528c`.
+- 변경 내용: S6만 Nav2/Gazebo 초기화를 10초 분리하고 BT `default_server_timeout` 200ms 적용, 기본 S5 설정과 안전 임계값은 보존.
+- **강사 WSL2 GUI OpenGL 해결은 아직 검증되지 않았습니다.** 사용자의 진단 ZIP, 실제 Gazebo/RViz 화면 확인, 동일 SHA 두 Goal·Vision·STOP 증거가 있어야 L3 PASS로 인정합니다.
+- S6 주행 중 RGB를 상시 AI 구독하지 않습니다. 카메라의 Gazebo 렌더러 자체가 유휴 상태인지와 RTF≥0.90은 HOLD입니다.
