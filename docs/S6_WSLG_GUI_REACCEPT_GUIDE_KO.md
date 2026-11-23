@@ -1,3 +1,5 @@
+> **G11 이후 확정 정책:** 강사 WSL2에서 최종 코드 SHA 9d402a99...에 대한 **S6 기능 L3 PASS**를 확보했습니다. 시각적 GUI 육안 검수는 사용자 전담이며 기능 자동 인수 및 main 병합 필수 게이트에서 제외합니다. 실행기의 과거 문구 GUI_VISUAL_REVIEW_REQUIRED와 L3 미확정 안내보다 [G11 최종 검수 보고서](debug/s6/20261123_G11_FINAL_WSL2_L3_ACCEPTANCE_EDU_KO.md)의 판정이 우선합니다. TTY 승인·Nav2·RGB·CM STOP 안전 증거는 계속 필수입니다.
+
 # S6 WSL2 GUI OpenGL 디버깅 재인수 — 사용자 단일 실행 가이드
 
 > 출고 상태: GitHub 릴리스 L0 PASS, 변경 런타임의 S6 실제 Gazebo L2 진행 중, 강사 WSL2 실제 GUI/L3 NOT_RUN. 목표 RTF 90% HOLD.
