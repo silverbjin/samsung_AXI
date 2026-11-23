@@ -1,0 +1,40 @@
+name: SmartDish C / contract-only L0
+on:
+  push:
+    branches: ['feat/smartdish-c-stability']
+    paths:
+      - 'ai/train/**'
+      - 'ai/evaluation/**'
+      - 'ai/docs/MODEL_*'
+      - 'src/smartdish_ai/**'
+      - 'tests/test_c_stability.py'
+      - 'docs/reports/tasks/*C*'
+      - 'docs/reports/issues/*C*'
+      - '.github/workflows/smartdish-c-contract-ci.yml'
+  pull_request:
+    paths:
+      - 'ai/train/**'
+      - 'ai/evaluation/**'
+      - 'ai/docs/MODEL_*'
+      - 'src/smartdish_ai/**'
+      - 'tests/test_c_stability.py'
+      - '.github/workflows/smartdish-c-contract-ci.yml'
+permissions:
+  contents: read
+jobs:
+  c-l0-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest pillow numpy
+      - name: C syntax and isolated ROS-free JSON protocol / dataset guard
+        run: |
+          python -m compileall -q ai/train ai/evaluation src/smartdish_ai tests/test_c_stability.py
+          python -m pytest -q tests/test_c_stability.py
+          python -m ai.train.train_classifier --help >/dev/null
+          python -m ai.train.evaluate --help >/dev/null
+          echo 'SMARTDISH_C_L0_CONTRACT_PASS_ONLY'

@@ -82,3 +82,5 @@
 - 2026-11-23 **SmartDish C01 PARTIAL / 학습 BLOCKED**: B PR #37에 실제 물리 검증 이미지 0건, ResNet18 frozen/fine-tuning·독립 test 평가 실행기 구현 및 mock-only 20건 계약 검증. [개발 보고서](reports/tasks/2026-11-23_C01_TRAIN_EVAL_EDU_KO.md), [데이터 차단 원인](reports/issues/2026-11-23_C_ISSUE_01_B_DATA_BLOCKED_KO.md). 실제 Training/Accuracy/F1 NOT_RUN.
 
 - 2026-11-23 **SmartDish C02 L0 계약 PASS / ROS LIVE NOT_RUN**: `/smartdish/tray/image_raw` + `/collection/ai_check_request` → `/collection/stability` JSON, 요청 1건에 응답 최대 1건, stale/저신뢰/모델 누락 UNKNOWN 처리. [교육 보고서](reports/tasks/2026-11-23_C02_ROS_INFERENCE_EDU_KO.md). 실제 ROS/Gazebo 통합은 미실행.
+
+- 2026-11-23 **SmartDish C03 L0 로컬 20 PASS / GitHub CI 결과 대기**: 독립 contract-only workflow, 20개 테스트, Model Card·C 인계 및 main 대상 Draft PR 준비. [교육 보고서](reports/tasks/2026-11-23_C03_CI_DRAFT_PR_EDU_KO.md), [C_HANDOFF](handoff/C_HANDOFF.md). AI ON 실제 추론/학습 NOT_RUN.
