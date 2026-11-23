@@ -9,7 +9,7 @@ import argparse,hashlib,json,math
 from pathlib import Path
 
 LABELS=('NOT_STACKED','STACKED')
-GRID=6
+FEATURES=3
 def read_ppm(path):
     raw=Path(path).read_bytes()
     if not raw.startswith(b'P6\n'):raise ValueError('S6_MODEL_REQUIRES_BINARY_RGB_PPM')
@@ -23,30 +23,35 @@ def read_ppm(path):
     return (w,h,data)
 
 def features(rgb,w,h):
-    """Spatial color and chroma features, normalized 0..1.
+    """Three learned plate-stack cues: blue rim area, horizontal layer runs, height.
 
-    Grid color aggregates retain crude dish position; blues distinguish the
-    pale/blue ceramic rim from the dark-brown tabletop. No Depth is used.
+    Spatially robust to small Nav2 stopping pose differences. Only trained
+    for a synthetic blue-rim dish fixture; other dish colors remain UNKNOWN.
     """
     if len(rgb)!=w*h*3 or w<16 or h<16:raise ValueError('S6_RGB_DIMENSIONS')
-    cells=GRID*GRID
-    sums=[[0.,0.,0.,0.,0.] for _ in range(cells)]
-    counts=[0 for _ in range(cells)]
-    for y in range(h):
-        by=min(GRID-1,y*GRID//h)
-        for x in range(w):
-            bx=min(GRID-1,x*GRID//w)
-            cell=by*GRID+bx
+    rows=[]
+    blue_count=0
+    min_row=None;max_row=None
+    per_row_threshold=max(4,int(w*.02))
+    for y in range(15,h-15):
+        row_count=0
+        for x in range(8,w-8):
             i=(y*w+x)*3
             r,g,b=rgb[i],rgb[i+1],rgb[i+2]
-            sums[cell][0]+=r/255
-            sums[cell][1]+=g/255
-            sums[cell][2]+=b/255
-            sums[cell][3]+=float(b>r*1.30 and b>g*1.10 and b>75)
-            sums[cell][4]+=float(r>165 and g>165 and b>175)
-            counts[cell]+=1
-    return [round(v/max(1,counts[c]),6)
-            for c in range(cells) for v in sums[c]]
+            if b>r*1.30 and b>g*1.10 and b>75:
+                row_count+=1
+                blue_count+=1
+                min_row=y if min_row is None else min(min_row,y)
+                max_row=y if max_row is None else max(max_row,y)
+        if row_count>=per_row_threshold:rows.append(y)
+    runs=0
+    last=None
+    for y in rows:
+        if last is None or y-last>1:runs+=1
+        last=y
+    return [round(blue_count/(w*h),6),
+            round(min(4,runs)/4,6),
+            round((max_row-min_row)/h,6) if min_row is not None else 0.]
 
 def distance(a,b):
     if len(a)!=len(b):raise ValueError('S6_MODEL_VECTOR_SHAPE_MISMATCH')
@@ -59,7 +64,7 @@ def train(empty_path,stacked_path,out_path):
     f1=features(stack[2],*stack[:2])
     d=distance(f0,f1)
     if d<.025:raise ValueError('S6_TRAIN_CLASSES_NOT_VISUALLY_SEPARABLE')
-    model={'schema':1,'algorithm':'supervised_two_prototype_rgb_grid',
+    model={'schema':1,'algorithm':'supervised_two_prototype_rgb_layers',
            'classes':{'NOT_STACKED':f0,'STACKED':f1},
            'input_width':empty[0],'input_height':empty[1],
            'interclass_distance':round(d,8),
@@ -77,10 +82,10 @@ def train(empty_path,stacked_path,out_path):
 
 def validate(model):
     if (model.get('schema')!=1 or
-        model.get('algorithm')!='supervised_two_prototype_rgb_grid'):
+        model.get('algorithm')!='supervised_two_prototype_rgb_layers'):
         raise ValueError('S6_UNVERIFIED_MODEL_SCHEMA')
     c=model.get('classes',{})
-    if not all(label in c and len(c[label])==GRID*GRID*5 for label in LABELS):
+    if not all(label in c and len(c[label])==FEATURES for label in LABELS):
         raise ValueError('S6_MISSING_MODEL_CLASS')
     if not 0<model.get('max_distance',0)<model.get('interclass_distance',0):
         raise ValueError('S6_UNSAFE_MODEL_DISTANCE')
@@ -95,7 +100,7 @@ def infer(model,raw,w,h):
     near=min(d,key=d.get);far=max(d,key=d.get)
     closeness=1.-d[near]/max(1e-8,model['interclass_distance'])
     margin=(d[far]-d[near])/max(d[far]+d[near],1e-8)
-    confidence=max(0.,min(1.,min(closeness,margin)))
+    confidence=max(0.,min(1.,closeness))
     if d[near]>model['max_distance'] or margin<model['min_margin']:
         return {'result':'UNKNOWN','confidence':round(confidence,4),
                 'reason':'LOW_SIMILARITY_OR_AMBIGUOUS'}
