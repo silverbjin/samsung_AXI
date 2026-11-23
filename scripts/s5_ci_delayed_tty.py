@@ -23,6 +23,8 @@ def main():
     parser.add_argument('--log',type=Path,required=True)
     parser.add_argument('--evidence',type=Path,required=True)
     parser.add_argument('--approval-delay-sec',type=float,default=12.0)
+    parser.add_argument('--s6-vision',action='store_true')
+    parser.add_argument('--s6-model',type=Path)
     args=parser.parse_args()
     if os.environ.get('CI','').lower()!='true':
         raise SystemExit('S5_CI_TTY_HARNESS_ONLY_IN_CI')
@@ -36,6 +38,11 @@ def main():
          '--robot-sdf',str(args.robot_sdf),'--map',str(args.map),
          '--params',str(args.params),'--log',str(args.log),
          '--evidence',str(args.evidence)]
+    if args.s6_vision:
+        if not args.s6_model or not args.s6_model.is_file():
+            raise SystemExit('S6_CI_MODEL_MISSING_NO_GOAL')
+        cmd.extend(['--s6-vision','--s6-scene-fixture',
+                    '--s6-model',str(args.s6_model.resolve())])
     env=os.environ.copy()
     env['SAMSUNGAXI_S5_GOALS_APPROVED']='YES-S5-LIVE-GOALS'
     p=subprocess.Popen(cmd,stdin=slave,stdout=subprocess.PIPE,

@@ -19,10 +19,12 @@ def generate_launch_description():
         DeclareLaunchArgument('gui',default_value='true'),
         DeclareLaunchArgument('map',default_value=map_default),
         DeclareLaunchArgument('params_file',default_value=params_default),
+        DeclareLaunchArgument('bridge_config',default_value=os.path.join(here,'config','bridge.yaml')),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(here,'launch','world.launch.py')),
             launch_arguments={'robot_sdf':LaunchConfiguration('robot_sdf'),
-                              'gui':LaunchConfiguration('gui')}.items()),
+                              'gui':LaunchConfiguration('gui'),
+                              'bridge_config':LaunchConfiguration('bridge_config')}.items()),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(nav,'launch','bringup_launch.py')),
             launch_arguments={'slam':'False','map':LaunchConfiguration('map'),

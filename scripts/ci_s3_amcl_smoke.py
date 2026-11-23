@@ -55,13 +55,20 @@ def run(args):
         raise RuntimeError('S5_REQUIRES_CUSTODY_VERIFIED_S2_MAP03')
     if not args.robot_sdf.is_file() or not args.params.is_file() or not args.map.is_file():
         raise RuntimeError('S3_REQUIRED_ROBOT_SDF_PARAMS_OR_MAP_MISSING')
+    if args.s6_vision:
+        if not (args.s5_integrated and args.exercise_goals and args.menu_safety):
+            raise RuntimeError('S6_REQUIRES_EXISTING_S5_SAFETY_CHAIN')
+        if not args.s6_model or not args.s6_model.is_file():
+            raise RuntimeError('S6_MODEL_MISSING_BEFORE_ANY_GOAL')
+        from s6_vision_ai import validate
+        validate(json.loads(args.s6_model.read_text()))
     if args.menu_safety and not args.exercise_goals:
         raise RuntimeError('S4_MENU_REQUIRES_REAL_NAV_ACTIONS')
     if args.s4_stop_only and (args.menu_safety or args.exercise_goals):
         raise RuntimeError('S4_STOP_ONLY_MUST_NOT_SEND_NAV_GOALS')
     s4={'active_menu':None,'speed_samples':{'NORMAL':[],'SOUP':[]},
         'scan':None,'cm_states':[],'cmd_in':[],'cmd_out':[]}
-    state={'clock':False,'scan':0,'scan_t':0.,'odom':None,'odom_t':0.,'odom_count':0,
+    state={'clock':False,'scan':0,'scan_t':0.,'odom':None,'odom_t':0.,'odom_count':0,'odom_speed':float('inf'),'odom_speed_t':0.,
            'odom_track':[],'map':None,'amcl_pose':None,
            'amcl_cov':None,'map_to_odom':False,'odom_to_base':False}
     args.log.parent.mkdir(parents=True,exist_ok=True)
@@ -71,6 +78,7 @@ def run(args):
     def odom(m):
         xy=(float(m.pose.pose.position.x),float(m.pose.pose.position.y))
         state['odom']=xy;state['odom_t']=time.monotonic();state['odom_count']+=1
+        state['odom_speed']=float(m.twist.twist.linear.x);state['odom_speed_t']=time.monotonic()
         if args.menu_safety and s4['active_menu'] is not None:
             s4['speed_samples'][s4['active_menu']].append(float(m.twist.twist.linear.x))
         if not state['odom_track'] or math.dist(xy,state['odom_track'][-1])>.02:
@@ -101,13 +109,16 @@ def run(args):
         raise RuntimeError('TIMEOUT_'+label)
     try:
         with args.log.open('w') as out:
-            proc=subprocess.Popen(
-                ['ros2','launch','restaurant_bringup','navigation.launch.py',
-                 'gui:=true' if args.gui else 'gui:=false',
-                 'robot_sdf:='+str(args.robot_sdf.resolve()),
-                 'map:='+str(args.map.resolve()),
-                 'params_file:='+str(args.params.resolve())],
-                stdout=out,stderr=subprocess.STDOUT,start_new_session=True,env=os.environ.copy())
+            nav_cmd=['ros2','launch','restaurant_bringup','navigation.launch.py',
+                     'gui:=true' if args.gui else 'gui:=false',
+                     'robot_sdf:='+str(args.robot_sdf.resolve()),
+                     'map:='+str(args.map.resolve()),
+                     'params_file:='+str(args.params.resolve())]
+            if args.s6_vision:
+                nav_cmd.append('bridge_config:='+str((
+                    repo/'src/restaurant_bringup/config/bridge_vision_on_demand.yaml').resolve()))
+            proc=subprocess.Popen(nav_cmd,stdout=out,stderr=subprocess.STDOUT,
+                                  start_new_session=True,env=os.environ.copy())
             rclpy.init(args=None);started=True
             node=rclpy.create_node('samsungaxi_s3_amcl_ci_no_goal',
                 parameter_overrides=[Parameter('use_sim_time',Parameter.Type.BOOL,True)])
@@ -436,6 +447,8 @@ def run(args):
                     # Persist real goal transmission immediately; an aborted
                     # action MUST NOT leave the earlier pregoal "goal_sent=false".
                     result['goal_sent']=True
+                    if label=='PICKUP_RETURN' and args.s6_vision:
+                        result['s6_return_goal_sent']=True
                     result['active_nav_goal']=label
                     result['kind']='s5_real_gazebo_goal_in_progress'
                     args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
@@ -494,6 +507,17 @@ def run(args):
                 # return-leg abort never masks physical delivery success.
                 result['real_nav_legs']=list(legs)
                 args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                if args.s6_vision:
+                    from s6_camera_gate import gate
+                    verdict=gate(node,spin_once,state,args.s6_model,
+                                 args.evidence.parent,args.s6_scene_fixture)
+                    result['s6_vision']=verdict
+                    result['s6_return_goal_sent']=False
+                    args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                    if not verdict['authorized']:
+                        raise RuntimeError('S6_VISION_HOLD_NO_RETURN_GOAL:'+
+                                           json.dumps(verdict,sort_keys=True))
+                    print('S6_VISION_REAL_RGB_STACKED_RETURN_AUTHORIZED',flush=True)
                 legs.append(goto(contract['pickup_map_xy'],0.,'PICKUP_RETURN',
                                  menu='SOUP' if args.menu_safety else None))
                 # The preflight result is NO_GOAL only until the action legs finish.
@@ -524,6 +548,15 @@ def run(args):
                             raise RuntimeError('S5_INTEGRATED_EVIDENCE_INCOMPLETE')
                         args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
                         print('S5_LIVE01_REAL_GAZEBO_L2_INTEGRATED_PASS',flush=True)
+                        if args.s6_vision:
+                            result['s6_integrated']=bool(
+                                result['s5_integrated'] and
+                                result.get('s6_return_goal_sent') and
+                                result.get('s6_vision',{}).get('authorized'))
+                            if not result['s6_integrated']:
+                                raise RuntimeError('S6_INTEGRATED_VISION_EVIDENCE_INCOMPLETE')
+                            args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                            print('S6_VISION_REAL_GAZEBO_L2_INTEGRATED_PASS',flush=True)
                         if args.live_owner:
                             if args.ci_owner_exit_on_success:
                                 # CI uses a real pseudo-TTY and real Gazebo.
@@ -581,6 +614,9 @@ def main():
     p.add_argument('--s4-stop-only',action='store_true')
     p.add_argument('--no-initial-pose-publish',action='store_true')
     p.add_argument('--s5-integrated',action='store_true')
+    p.add_argument('--s6-vision',action='store_true')
+    p.add_argument('--s6-scene-fixture',action='store_true')
+    p.add_argument('--s6-model',type=Path)
     p.add_argument('--gui',action='store_true')
     p.add_argument('--live-owner',action='store_true')
     p.add_argument('--ci-owner-exit-on-success',action='store_true')

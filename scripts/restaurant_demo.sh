@@ -132,7 +132,16 @@ if [[ "$MODE" == live ]]; then
   mkdir -p "$S5_EVIDENCE_DIR"
   echo "S5_LIVE_EVIDENCE_DIR=$S5_EVIDENCE_DIR"
   echo 'S5_LIVE_START: REAL_GAZEBO_NO_GOAL_UNTIL_INTERACTIVE_APPROVAL'
+  S6_MODE_ARGS=()
+  if [[ "${SAMSUNGAXI_S6_VISION:-0}" == 1 ]]; then
+    S6_MODE_ARGS=(--s6-vision --s6-scene-fixture
+                  --s6-model "$ROOT/models/s6_dish_prototype.json")
+    echo S6_OPT_IN_REAL_RGB_DISH_GATE_ENABLED
+  elif [[ "${SAMSUNGAXI_S6_VISION:-0}" != 0 ]]; then
+    echo S6_BLOCKED_INVALID_OPT_IN >&2; exit 2
+  fi
   python3 "$ROOT/scripts/ci_s3_amcl_smoke.py" \
+    "${S6_MODE_ARGS[@]}" \
     --exercise-goals --menu-safety --no-initial-pose-publish \
     --s5-integrated --gui --live-owner \
     --robot-sdf "$ROBOT_SDF" --map "$MAP" \
