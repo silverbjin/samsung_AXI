@@ -69,7 +69,8 @@ def test_stop_transition_between_fixture_and_probe_is_not_lost():
     # Fixture may trigger STOP before the positive-input probe marker.
     script=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
     assert 'fixture_marker=time.monotonic()' in script
-    assert 't>=fixture_marker and a==CollisionMonitorState.STOP' in script
+    assert "if t>=fixture_marker]" in script
+    assert 'S4_CM_STOP_NOT_CONFIRMED_BEFORE_PROBE' in script
     assert 'S4_CM_STOP_NOT_CONFIRMED_BEFORE_PROBE' in script
     assert 'validate_stop_probe(' in script
     assert "result['s4_stop_timing']=timing" in script
