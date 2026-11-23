@@ -55,7 +55,7 @@ curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent
 
 화면을 열어 확인하려면 끝의 `--headless`만 `--gui`로 바꿉니다. 이미 `~/samsung_AXI_A`가 있으면 **로컬 수정 없는 경우에만** Fast-forward 갱신하며, 절대 reset/삭제하지 않습니다. 실제 Goal은 사용자 터미널에서 `YES-SMARTDISH-A-GOALS`를 직접 입력할 때만 시작됩니다.
 
-상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). A의 실제 WSL2 L3는 **현장 증거 전까지 NOT_RUN**입니다.
+상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). [출고 L0 45 PASS + ROS Jazzy L1 PASS #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662). A의 실제 WSL2 L3는 **현장 증거 전까지 NOT_RUN**입니다.
 
 ## 4A. 기존 A-07 코드 다운로드 후 실행 (대안)
 

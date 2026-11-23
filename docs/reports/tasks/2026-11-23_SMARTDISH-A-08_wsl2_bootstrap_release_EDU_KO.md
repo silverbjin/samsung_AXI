@@ -79,3 +79,11 @@ scripts/smartdish_a_wsl2_bootstrap.sh
 ## 6. 초심자 디버깅 예
 
 `SMARTDISH_A_BOOTSTRAP_BLOCKED_NO_GOAL: Local tracked edits present`라면 `git status`로 수정 파일을 확인하고 커밋·stash 후 다시 실행합니다. **절대 reset --hard로 무조건 지우지 않습니다.** `SMARTDISH_A_BOOTSTRAP_BLOCKED_NO_GOAL: Origin mismatch`라면 Git 원격이 다른 프로젝트일 수 있으므로 리포지토리 출처부터 확인합니다. Gazebo·Nav2 실행 실패는 A-07 증거 번들의 첫 오류와 해당 로그에서만 진단합니다.
+
+## 7. 출시 최종 CI 결과 (확인된 사실)
+
+- [Actions #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662), 실제 CI 소스 `75160a89e6af5fbb59fa36d82d60f17754b44131`.
+- **L0 PASS — 45 tests**: `bash -n` 두 셸 실행기, 실제 운영자 확인을 보존한 비-WSL 차단, 올바른 브랜치 및 fast-forward, 손상된 증거/과장 성공 차단.
+- **L1 PASS — ROS Jazzy**: `Summary: 1 package finished`, `smartdish_robot navigation_adapter`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS` 확인.
+- 본 최종 보고 변경은 문서만 변경하며 동일 부트스트랩·ROS 소스·운영 좌표는 보존합니다.
+- 전체 인수 구분: 기 검증 A-06 Gazebo CI L2 3/3 PASS. **사용자 소유 WSL2 L3는 실제 현장 로그 수신 전 NOT_RUN**. D UI/10초/5초 완료도 NOT_RUN.
