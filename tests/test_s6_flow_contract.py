@@ -30,4 +30,4 @@ def test_actual_s5_script_is_not_implicitly_changed_to_vision():
     test=(ROOT/'scripts/ci_s3_amcl_smoke.py').read_text()
     # S6 must have separate opt-in flag; never run when original S5 defaults.
     assert "--s6-vision" in test
-    assert 's6_vision_gate' in test
+    assert 'from s6_camera_gate import gate' in test
