@@ -1,7 +1,7 @@
 name: S5-PERF-01 RGB-D A/B Opt-in Real Gazebo Safety CI
 on:
   push:
-    branches: [feature/s5-perf01-rtf-profile-rgbd2-20261120]
+    branches: [feature/s5-perf01-rtf-profile-rgbd2-20261120, s5/perf-stop-fix-20261123]
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,7 +27,8 @@ jobs:
             tests/test_s5_owner_approval.py \
             tests/test_s5_live_contract.py \
             tests/test_s5_owner_run_id_preflight.py \
-            tests/test_gui_owner_one_shot.py
+            tests/test_gui_owner_one_shot.py \
+            tests/test_s4_menu_contract.py
           echo S5_PERF01_L0_SENSOR_AND_PROFILER_CONTRACT_PASS
 
   l2-rgbd2-candidate:
@@ -95,6 +96,13 @@ jobs:
           NAV_PARAMS="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
           python3 scripts/prepare_nav2_params.py --source "$NAV_PARAMS" \
             --out generated/nav2_params_s5.yaml --auto-initial-pose
+          python3 - <<'PY'
+          import yaml
+          v=yaml.safe_load(open('generated/nav2_params_s5.yaml'))['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
+          assert v['observation_sources']=='scan' and 'rgbd' not in v
+          assert v['scan']['data_type']=='LaserScan'
+          print('S5_COSTMAP_SCAN_ONLY_L1_PASS')
+          PY
           PYTHONPATH="$PWD/scripts" python3 -c \
             'from s3_map_contract import validate_s2_map03_candidate; print("S5_MAP03_CUSTODY_PASS",validate_s2_map03_candidate("."))'
           echo SAMSUNGAXI_S5_L1_BUILD_PASS

@@ -19,7 +19,8 @@ from s5_nav_abort_evidence import nav_abort_snapshot
 from ci_s2_map_smoke import end_process
 from s2_map02_gt_pose import GazeboModelPose
 from s4_menu_contract import (NORMAL_LIMIT,SOUP_LIMIT,measured_speed,compare_speeds,
-                              fixture_sdf,front_obstacle_points,stop_polygon_points)
+                              fixture_sdf,front_obstacle_points,stop_polygon_points,
+                              validate_stop_probe)
 
 def run(args):
     import rclpy
@@ -227,44 +228,70 @@ def run(args):
                           ' STOP_RECT_POINTS='+str(stop_polygon_points(s4['scan'])),flush=True)
                     if s4_probe.get_subscription_count()<1:
                         raise RuntimeError('S4_CM_UPSTREAM_TOPIC_SUBSCRIBER_MISSING')
-                    # Guarantee the robot has settled at the Nav2 return goal.
+                    # Arm the real LiDAR Collision Monitor STOP with ZERO input
+                    # before the positive probe. This separates pending Nav2
+                    # return / transition outputs from the STOP-filtering window.
+                    arm_start=time.monotonic()
+                    while time.monotonic()-arm_start<6.0:
+                        s4_probe.publish(Twist())
+                        spin_once(.12)
+                        states=[(t,a,name) for t,a,name in s4['cm_states']
+                                if t>=fixture_marker]
+                        if states and states[-1][1]==CollisionMonitorState.STOP and (
+                                states[-1][2]=='S4ForwardStop'):
+                            break
+                    else:
+                        raise RuntimeError('S4_CM_STOP_NOT_CONFIRMED_BEFORE_PROBE:'+
+                            json.dumps({'recent_states':s4['cm_states'][-12:],
+                                        'stop_rect_points':stop_polygon_points(s4['scan'])}))
+                    # Drain queued pre-STOP callbacks without loosening any
+                    # velocity threshold. All outputs during positive probe FAIL
+                    # if >0.025 m/s; physical odom motion must remain <=0.045m.
+                    for _ in range(6):
+                        s4_probe.publish(Twist())
+                        spin_once(.12)
+                    if (s4['cm_states'][-1][1]!=CollisionMonitorState.STOP or
+                            s4['cm_states'][-1][2]!='S4ForwardStop'):
+                        raise RuntimeError('S4_CM_STOP_LOST_BEFORE_PROBE')
                     start_xy=state['odom']
-                    start_t=time.monotonic()
                     marker=time.monotonic()
                     positive_probe=Twist()
                     positive_probe.linear.x=.08
-                    while time.monotonic()-start_t<1.8:
+                    while time.monotonic()-marker<1.8:
                         s4_probe.publish(positive_probe)
                         spin_once(.12)
                     s4_probe.publish(Twist())
                     for _ in range(8):spin_once(.15)
-                    stopped=any(t>=fixture_marker and a==CollisionMonitorState.STOP
-                                and name=='S4ForwardStop' for t,a,name in s4['cm_states'])
-                    outputs=[v for t,v in s4['cmd_out'] if t>=marker]
-                    positive_input=any(t>=marker and v>=.075 for t,v in s4['cmd_in'])
                     moved=math.dist(start_xy,state['odom'])
-                    if not positive_input or not stopped or len(outputs)<3:
-                        raise RuntimeError('S4_CM_STOP_CHAIN_UNPROVEN:'+
-                            json.dumps({'input_seen':positive_input,'cm_stop':stopped,
-                                        'cmd_out_count':len(outputs),
-                                        'front_points':front_obstacle_points(s4['scan']),
-                                        'stop_rect_points':stop_polygon_points(s4['scan']),
-                                        'state_messages':len(s4['cm_states']),
-                                        'recent_states':s4['cm_states'][-12:],
-                                        'cmd_in_count':len([1 for t,_ in s4['cmd_in'] if t>=marker]),
-                                        'cmd_out_abs_max':max([abs(v) for v in outputs],default=None)}))
-                    if max(abs(v) for v in outputs)>.025 or moved>.045:
-                        raise RuntimeError('S4_CM_STOP_FAILED_TO_FILTER_OR_ROBOT_MOVED:'+
-                            json.dumps({'cmd_out_max':max(abs(v) for v in outputs),
-                                        'odom_motion_m':moved}))
+                    outputs=[v for t,v in s4['cmd_out'] if t>=marker]
+                    timing={'cm_states':[(round(t-marker,3),a,name)
+                                         for t,a,name in s4['cm_states']
+                                         if t>=fixture_marker][-16:],
+                            'upstream':[(round(t-marker,3),v)
+                                        for t,v in s4['cmd_in'] if t>=marker][-24:],
+                            'downstream':[(round(t-marker,3),v)
+                                          for t,v in s4['cmd_out'] if t>=marker][-24:],
+                            'preprobe_output_max_abs_mps':round(max(
+                                [abs(v) for t,v in s4['cmd_out']
+                                 if fixture_marker<=t<marker],default=0.),4),
+                            'post_stop_output_max_abs_mps':round(max(
+                                [abs(v) for v in outputs],default=0.),4),
+                            'odom_motion_m':round(moved,6)}
+                    result['s4_stop_timing']=timing
+                    args.evidence.write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+                    try:
+                        stop_verdict=validate_stop_probe(
+                            s4['cm_states'],s4['cmd_in'],s4['cmd_out'],
+                            fixture_marker,marker,moved,CollisionMonitorState.STOP)
+                    except ValueError as exc:
+                        raise RuntimeError(str(exc)+':'+json.dumps(timing))
                     result['s4_safety_stop']={
                         'fixture':'physical_gazebo_sdf_cylinder',
                         'gazebo_fixture_world_xy':[round(fx,3),round(fy,3)],
                         'scan_front_obstacle_points':front_obstacle_points(s4['scan']),
                         'cm_state':'STOP','polygon':'S4ForwardStop',
                         'upstream_positive_command_seen':True,
-                        'filtered_output_max_abs_mps':round(max(abs(v) for v in outputs),4),
-                        'physical_odom_motion_m':round(moved,4)}
+                        **stop_verdict}
                     result['kind']=('s4_real_gazebo_menu_speed_and_collision_stop'
                                     if args.menu_safety else 's4_collision_monitor_real_stop_only')
                     result['s4_complete']=bool(args.menu_safety)
