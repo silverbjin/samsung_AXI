@@ -61,8 +61,7 @@ def run(a):
     evidence = {
         "kind": "A_REAL_GAZEBO_NAV2_ROBOT_ONLY",
         "verdict": "NOT_RUN", "request_id": REQ,
-        "source_sha": subprocess.check_output(["git", "rev-parse", "HEAD"],
-                                               cwd=root, text=True).strip(),
+        "source_sha": os.environ["GITHUB_SHA"],
         "map_sha256": map_contract["pgm_sha256"],
         "map_release_run": map_contract["release_run"],
         "poses": {k: [v.x, v.y, v.yaw] for k, v in targets.items()},

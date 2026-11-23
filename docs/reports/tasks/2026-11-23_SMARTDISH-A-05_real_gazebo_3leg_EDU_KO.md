@@ -1,7 +1,7 @@
 # SMARTDISH-A-05 — Gazebo 실제 3구간 Nav2/odom 교육용 인수 보고서
 
 - 날짜: 2026-11-23 KST
-- 현재 상태: **CI 실행 결과 미확인 (NOT_RUN)**. 완료 신호 없이 PASS라고 하지 않음.
+- 현재 상태: **첫 L2 실패(증거용 Git SHA 조회) → 최소 수정 재검 중, 실제 3-leg NOT_RUN**. 완료 신호 없이 PASS라고 하지 않음.
 - 기준 S7 main: `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`
 - A 후보: `map (-1.15,1.60,-1.57079632679)`, S2-MAP-03 실제 World surveyed waypoint #5
 - A 개발 브랜치: `feat/smartdish-a-robot`
@@ -40,3 +40,7 @@ python3 -m pytest -q tests/test_smartdish_a_return_candidate.py
 ```
 
 Actions URL, 최초 RED, 원인·수정 및 마지막 L2 판정은 실제 CI 로그를 확인한 후 기록합니다. L2 성공하기 전 운영 `table_poses.yaml`의 DISH_RETURN은 **null 유지**. D UI/Manager `COMPLETED`는 A 단독 시연으로 PASS 처리하지 않습니다.
+
+## 5. 최초 CI 실패 및 교육용 디버깅
+
+[Run #45123777661](https://github.com/silverbjin/samsung_AXI/actions/runs/45123777661): A-04 L0 **3 PASS**, ROS 패키지 빌드 PASS, 실제 Gazebo 기동 전 `git rev-parse HEAD`가 컨테이너 Git ownership 검사에서 차단되었습니다. [원인과 수정·재검 보고서](../issues/2026-11-23_SMARTDISH-A-L2-DBG-01_git_safe_directory_EDU_KO.md) 참조. 실제 물리 Goal은 **0건**, MAP 좌표의 유효/무효 결론을 낼 수 없는 환경 진단 실패입니다.

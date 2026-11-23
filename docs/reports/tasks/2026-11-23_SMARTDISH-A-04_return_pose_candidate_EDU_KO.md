@@ -2,7 +2,7 @@
 
 - 날짜: 2026-11-23 KST
 - 이전 HEAD: `7c0ba45762df58548eb8fae4ea5e24a5deaa3376`
-- 현재 상태: **CANDIDATE / CI L0 및 Gazebo L2 검증 전에는 CONFIRMED 아님**
+- 현재 상태: **CANDIDATE / L0 지도검증 PASS (3 tests), Gazebo L2 미완료**
 - AI OFF 목표: `HOME → T03 → DISH_RETURN → HOME`, 기존 S7 주행/안전 유지
 
 ## 1. 후보 좌표는 어디서 왔습니까?
@@ -19,7 +19,7 @@ S2의 Waypoint 방문 성공이 Nav2 `NavigateToPose` 목표 도착을 자동으
 
 - `tests/test_smartdish_a_return_candidate.py`는 조사 Waypoint 출처, 지도 파일 SHA·프레임, 접근 셀의 known-free 여부, 0.25m 반경의 알려진 자유 공간 및 HOME/T03 연결성을 검사합니다.
 - `0.25m` 반경은 단순한 정적 위험 선별이며 **Nav2 비용지도·동적 장애물·실제 footprint 도착 보장은 아닙니다.**
-- 위 검사는 `A-L0-CANDIDATE_STATIC`이지 실제 이동 PASS가 아닙니다.
+- [Run #45123777661](https://github.com/silverbjin/samsung_AXI/actions/runs/45123777661)에서 `3 passed in 0.05s`, `SMARTDISH_A_CANDIDATE_MAP_L0_PASS` 확인. 이 검사는 **정적 지도 PASS**이지 실제 이동 PASS가 아닙니다.
 - 실제 A 전용 3-leg ROS Action/odom/AMCL L2를 성공한 뒤에만 운영 YAML을 승격합니다.
 
 ## 4. 재현·디버깅

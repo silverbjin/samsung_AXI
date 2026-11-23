@@ -87,3 +87,4 @@
 - 2026-11-23 SMARTDISH-A-CI-FINAL — [A-03 실행/인계 보고서](reports/tasks/2026-11-23_SMARTDISH-A-03_ci_handoff_EDU_KO.md), [Run #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312): L0 26 PASS · L1 ROS Jazzy PASS (SHA bae0c36), SmartDish 3-leg L2 HOLD.
 - 2026-11-23 SMARTDISH-A-04 — [실제 지도 기반 반납점 후보](reports/tasks/2026-11-23_SMARTDISH-A-04_return_pose_candidate_EDU_KO.md), S2 waypoint World(-3.75,-0.60) → map(-1.15,1.60), L2 검증 전.
 - 2026-11-23 SMARTDISH-A-05 — [실 Gazebo 3구간 검증기](reports/tasks/2026-11-23_SMARTDISH-A-05_real_gazebo_3leg_EDU_KO.md), CI L0/L2 결과 대기.
+- 2026-11-23 SMARTDISH-A-L2-DBG-01 — [CI 컨테이너 Git SHA 조회 실패](reports/issues/2026-11-23_SMARTDISH-A-L2-DBG-01_git_safe_directory_EDU_KO.md), [Run #45123777661](https://github.com/silverbjin/samsung_AXI/actions/runs/45123777661): map L0 3 PASS·build PASS, L2 Gazebo 기동 전 exit128, 1-line fix 후 재검.
