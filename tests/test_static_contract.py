@@ -56,9 +56,11 @@ def test_overlay_rgbd_generation(tmp_path):
     assert root.findtext(".//sensor[@name='hls_lfcd_lds']/visualize") == 'false'
     assert root.findtext(".//sensor[@name='hls_lfcd_lds']/update_rate") == '10'
 
-def test_nav_params_only_local_pointcloud_added(tmp_path):
+def test_nav_params_scan_only_preserves_official_source(tmp_path):
     base={
-      'local_costmap':{'local_costmap':{'ros__parameters':{'voxel_layer':{'observation_sources':'scan'}}}},
+      'local_costmap':{'local_costmap':{'ros__parameters':{'voxel_layer':{'observation_sources':'scan',
+                       'scan':{'topic':'scan','data_type':'LaserScan',
+                               'marking':True,'clearing':True}}}}},
       'controller_server':{'ros__parameters':{}},
       'collision_monitor':{'ros__parameters':{
           'observation_sources':['scan'],
@@ -72,5 +74,8 @@ def test_nav_params_only_local_pointcloud_added(tmp_path):
     out=tmp_path/'generated.yaml'
     mod.build(src,out)
     d=yaml.safe_load(out.read_text())
-    assert d['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']['observation_sources']=='scan rgbd'
+    voxel=d['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
+    assert voxel['observation_sources']=='scan'
+    assert voxel['scan']=={'topic':'scan','data_type':'LaserScan','marking':True,'clearing':True}
+    assert 'rgbd' not in voxel
     assert d['collision_monitor']['ros__parameters']['observation_sources']==['scan']
