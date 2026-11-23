@@ -47,3 +47,10 @@ SMARTDISH_D_READONLY=d-read-only python -m pytest -q \
 3. `UNKNOWN`/timeout에서 `nav_goal` 발행 건수를 0으로 검사하는 이유는 무엇일까요?
 
 **결론:** D 자체 코드는 변경하지 않고, C와 D 사이 실패 시 이동 보류 계약을 원래 코드에 대해 회귀 검증합니다. GitHub 원격 테스트 결과 확인 후 최종 검증 판정을 기록합니다.
+
+## 4. 원격 교차계약 최종 판정 (확정 SHA)
+
+- GitHub Push [#45125969828](https://github.com/silverbjin/samsung_AXI/actions/runs/45125969828), Draft PR [#45125976380](https://github.com/silverbjin/samsung_AXI/actions/runs/45125976380): **40 passed in 0.27s**, 모든 테스트 성공. 원격에서는 `d-read-only`를 고정 D SHA `195a8ee0758e7734bb6be627ab16461893355be9`에서 읽었으므로 C↔D 테스트 6개가 로컬처럼 SKIP되지 않았습니다.
+- B pinned `1bfc19eabe07f2a0ea8c5c8ba3509491c9dd217d`에서 6개 mock image를 생성하여 `B_DATASET_CONTRACT_PASS`, `C_B_MOCK_ONLY_PIPELINE_PASS` 확인. `training=NOT_RUN` (Torch 실행하지 않음).
+- 테스트된 코드 SHA `55ae46a36c637c352d8c851614ee4a650f6c2939`; 본 문서 보강은 `[skip ci]` 별도 SHA로 기록하며 원격 결과를 새 코드 변경의 증거로 오인하지 않습니다.
+- **최종 판정:** `C_D_CROSS_BRANCH_MOCK_CONTRACT_PASS`. 실제 Nav2 action / ROS 배선 / A 트레이 영상 / 물리적 STABLE 성능 / WSL2 인수는 `NOT_RUN`.

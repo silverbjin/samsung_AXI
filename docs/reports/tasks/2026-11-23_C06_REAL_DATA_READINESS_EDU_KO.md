@@ -40,3 +40,11 @@ B 최신 브랜치에서 `split_manifest.csv`는 헤더만 있습니다. 따라�
 **주니어 체크 질문:** (1) 데이터 행이 있어도 사람 검토 없이 학습 승인하면 안 되는 이유는? (2) 두 파일의 SHA가 같아도 라벨의 물리적 의미는 보장되나요? (3) C가 B 소유 `manifest.csv`를 직접 바꾸면 추적성이 어떻게 깨지나요?
 
 **작업 결과 코드 SHA:** 동일 커밋에 본 보고서 포함. 정확한 GitHub SHA 및 CI URL은 원격 검증 후 기록합니다.
+
+## 5. GitHub 검증 완료 후속 증거 (본 변경 코드는 변경하지 않음)
+
+- C06 개발·보고서 동일 커밋: [`c785de8582a9b8f83f82db2fabbbc4d57f3e7336`](https://github.com/silverbjin/samsung_AXI/commit/c785de8582a9b8f83f82db2fabbbc4d57f3e7336).
+- C07의 최신 B/D pinned checkout과 함께 시험된 코드: [`55ae46a36c637c352d8c851614ee4a650f6c2939`](https://github.com/silverbjin/samsung_AXI/commit/55ae46a36c637c352d8c851614ee4a650f6c2939).
+- [GitHub Push C L0 #45125969828](https://github.com/silverbjin/samsung_AXI/actions/runs/45125969828), [GitHub PR C L0 #45125976380](https://github.com/silverbjin/samsung_AXI/actions/runs/45125976380): 모두 **SUCCESS**, 각각 `40 passed in 0.27s`.
+- 실재 B split ready 검사: `reason=C_TRAINING_NOT_RUN_NO_REAL_DATA`, `verdict=BLOCKED`, `training_executed=false`, `physical_truth_certified=false` 정확히 출력. 파일 자체는 현재 헤더만 존재하며 실학습·모델 성능은 **NOT_RUN**.
+- 이 검증은 L0 계약·mock-only 범위이며 B 물리적 라벨 진위와 실제 Gazebo 주행 인수는 포함하지 않습니다.

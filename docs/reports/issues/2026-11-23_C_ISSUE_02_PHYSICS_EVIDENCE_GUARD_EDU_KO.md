@@ -1,6 +1,6 @@
 # C-ISSUE-02 — 물리 증거 경로 문자열만으로 실데이터 계약 통과 가능
 
-- 상태: **로컬 동일 경계 RESOLVED / 원격 CI 재검 대기**, 2026-11-23
+- 상태: **로컬 동일 경계 RESOLVED / 원격 L0 회귀 PASS**, 2026-11-23
 - 대상: `ai/evaluation/dataset_contract.py`, 이전 C05 기준 SHA `a1f2488d40e7d683664a3734b7be9f1f5c361cb8`
 - 책임 영역: B 데이터 검증(C read-only 수신), 모델/ROS/Nav2 자체 결함 아님.
 
@@ -27,3 +27,8 @@ $ python -m pytest -q tests/test_c_stability.py::test_contract_complete_fixture_
 ## 왜 이것이 중요할까요?
 
 CSV의 `PHYSICS_OBSERVED` 문자열은 훈련 코드가 검사할 **주장**이지 물리적 사실 그 자체가 아닙니다. 독립 기록의 존재와 파일 무결성을 자동 확인하고 사람이 라벨을 승인하는 두 단계를 분리해야, AI가 잘못된 `STABLE` 결과를 정상 주행 허가로 전파할 위험을 줄일 수 있습니다.
+
+## 원격 CI 회귀 완료 (2026-11-23)
+
+- 고정 코드 SHA `55ae46a36c637c352d8c851614ee4a650f6c2939`; [Push CI #45125969828](https://github.com/silverbjin/samsung_AXI/actions/runs/45125969828), [PR CI #45125976380](https://github.com/silverbjin/samsung_AXI/actions/runs/45125976380), 각각 `40 passed in 0.27s`. `C_PHYSICS_EVIDENCE_FILE_MISSING`, SHA/크기 mismatch 방어 테스트 통과. **C-ISSUE-02 L0 계약 결함 RESOLVED**.
+- 실물 물리적 의미의 검증은 자료가 없어 **NOT_RUN**; 확인한 것은 파일 계약의 위반 검출입니다.
