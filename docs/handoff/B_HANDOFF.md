@@ -19,6 +19,8 @@
 
 - B-08: 원자적 CSV 저장·PNG 롤백과 미색인 파일 덮어쓰기 방어. 단일 운영자/순차 입력 전제, CI는 23개 Python 계약 테스트. [개발 보고서](../reports/tasks/2026-11-23_B-08_atomic_intake.md), [이슈](../reports/issues/2026-11-23_B-DEBUG-04_orphan_ingest.md). 실제 트레이 0건 유지.
 
+- B-09: C가 실학습에 사용할 때는 `--allow-fixtures`를 **절대 사용하지 않습니다**. 이 옵션은 단색 mock fixture 전용이며 실데이터 혼합 시 `B_FIXTURE_MODE_REAL_DATA_FORBIDDEN`으로 거부합니다. [보고서](../reports/tasks/2026-11-23_B-09_mock_real_isolation.md).
+
 ## C 담당 재현 명령
 
 ```bash

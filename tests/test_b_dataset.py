@@ -245,3 +245,18 @@ def test_csv_atomic_write_failure_preserves_original(tmp_path):
         write_csv(file, bad, FIELDS)
     assert file.read_bytes() == original
     assert not list(tmp_path.glob('.b-csv-*'))
+
+
+def test_mixed_mock_and_real_rows_cannot_be_exported(tmp_path):
+    fixture_rows = load_manifest(make_contract_fixtures(tmp_path))
+    physical_manifest, evidence = _physical_manifest(tmp_path)
+    real_rows = load_manifest(physical_manifest)
+    assert validate(real_rows, tmp_path)['evidence_hash_verified'] == 1
+    with pytest.raises(ValueError, match='B_FIXTURE_MODE_REAL_DATA_FORBIDDEN'):
+        validate(fixture_rows + real_rows, tmp_path, allow_fixtures=True)
+
+
+def test_fixture_mode_refuses_even_real_only_rows(tmp_path):
+    manifest, evidence = _physical_manifest(tmp_path)
+    with pytest.raises(ValueError, match='B_FIXTURE_MODE_REAL_DATA_FORBIDDEN'):
+        validate(load_manifest(manifest), tmp_path, allow_fixtures=True)

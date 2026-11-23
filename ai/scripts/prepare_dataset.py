@@ -57,6 +57,10 @@ def validate(rows: list[dict], root: Path, allow_fixtures: bool = False) -> dict
                 raise ValueError(f'B_GROUND_TRUTH_NOT_OBSERVED {prefix}')
         elif row['source'] == 'CONTRACT_FIXTURE':
             raise ValueError(f'B_FIXTURE_CANNOT_BE_PHYSICS_OBSERVED {prefix}')
+        elif allow_fixtures:
+            # Mock fixture mode is a closed test lane, not a way to export real
+            # samples under a misleading MOCK_ONLY dataset scope.
+            raise ValueError(f'B_FIXTURE_MODE_REAL_DATA_FORBIDDEN {prefix}')
         if row['sample_id'] in seen_id:
             raise ValueError(f'B_DUPLICATE_SAMPLE_ID {prefix}')
         seen_id.add(row['sample_id'])
