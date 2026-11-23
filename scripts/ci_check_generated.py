@@ -13,5 +13,9 @@ assert robot.find(".//sensor[@name='restaurant_registered_rgbd'][@type='rgbd_cam
 assert robot.find(".//sensor[@name='hls_lfcd_lds'][@type='gpu_lidar']") is not None
 assert params['collision_monitor']['ros__parameters']['cmd_vel_out_topic'] == 'cmd_vel'
 assert params['collision_monitor']['ros__parameters']['observation_sources'] == ['scan']
-assert 'rgbd' in params['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']['observation_sources']
+voxel = params['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
+assert voxel['observation_sources'] == 'scan'
+assert voxel['scan']['data_type'] == 'LaserScan'
+assert voxel['scan']['topic'] in ('scan', '/scan')
+assert 'rgbd' not in voxel
 print('RESTAURANT_CI_GENERATED_CONTRACT_PASS')

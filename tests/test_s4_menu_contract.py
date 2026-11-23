@@ -15,7 +15,8 @@ def test_official_nav_overlay_speed_limit_and_cm_stop_zone():
                'cmd_vel_in_topic':'cmd_vel_smoothed','cmd_vel_out_topic':'cmd_vel',
                'polygons':['FootprintApproach'],'FootprintApproach':{'action_type':'approach'},
                'observation_sources':['scan']}},
-            'local_costmap':{'local_costmap':{'ros__parameters':{'voxel_layer':{}}}}}
+            'local_costmap':{'local_costmap':{'ros__parameters':{'voxel_layer':{
+                'scan':{'topic':'scan','data_type':'LaserScan','marking':True,'clearing':True}}}}}}
     import tempfile
     with tempfile.TemporaryDirectory() as d:
         here=Path(d);a=here/'src.yaml';b=here/'out.yaml'
@@ -27,6 +28,9 @@ def test_official_nav_overlay_speed_limit_and_cm_stop_zone():
     assert cm['S4ForwardStop']['action_type']=='stop' and cm['S4ForwardStop']['min_points']>=4
     assert cm['cmd_vel_out_topic']=='cmd_vel' and cm['cmd_vel_in_topic']=='cmd_vel_smoothed'
     assert cm['observation_sources']==['scan']
+    voxel=after['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
+    assert voxel['observation_sources']=='scan' and 'rgbd' not in voxel
+    assert voxel['scan']['data_type']=='LaserScan'
 
 def test_speed_policy_and_fail_closed_samples():
     config=yaml.safe_load((ROOT/'src/restaurant_delivery/config/menu.yaml').read_text())

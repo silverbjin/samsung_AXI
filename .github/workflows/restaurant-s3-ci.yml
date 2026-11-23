@@ -1,7 +1,7 @@
 name: SAMSUNGAXI S3 AMCL Real Map CI
 on:
   push:
-    branches: [main, s3/amcl-nav2-20261120, s3/nav-delivery-20261120, s4/menu-safety-20261120]
+    branches: [main, s3/amcl-nav2-20261120, s3/nav-delivery-20261120, s4/menu-safety-20261120, s5/costmap-scan-only-20261123]
   workflow_dispatch:
 permissions:
   contents: read
@@ -140,7 +140,7 @@ jobs:
               --evidence "$PWD/generated/s3/nav_delivery.json"
           cp logs/ci-s3-summary.txt logs/ci-s3-nav-summary.txt
       - name: S4-MENU-01 / actual Gazebo menu speeds and Collision Monitor scan STOP
-        if: github.ref == 'refs/heads/s4/menu-safety-20261120' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/s4/menu-safety-20261120' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/s5/costmap-scan-only-20261123'
         shell: bash
         run: |
           set -Eeuo pipefail
