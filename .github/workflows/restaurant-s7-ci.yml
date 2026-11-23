@@ -112,7 +112,7 @@ jobs:
           assert s.findtext(".//sensor[@name='hls_lfcd_lds']/update_rate")=='10'
           print('S6_SAFETY_SCAN_ONLY_AND_CAMERA_OPT_IN_L1_PASS')
           PY
-      - name: S7 stacked: real Gazebo at start, TTY, 2 Goals, actual RGB STACKED and LiDAR STOP
+      - name: S7 stacked real Gazebo at start with TTY and two Goals and CM STOP
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -155,7 +155,7 @@ jobs:
           assert hashlib.sha256(rgb).hexdigest()==d['s6_vision']['image']['image_sha256']
           print('S7_STARTUP_STACKED_TABLE_VISION_RETURN_L2_PASS')
           PY
-      - name: S7 empty table real RGB: expected HOLD and zero return Goal
+      - name: S7 empty table real RGB expected HOLD and zero return Goal
         shell: bash
         run: |
           set -Eeuo pipefail
