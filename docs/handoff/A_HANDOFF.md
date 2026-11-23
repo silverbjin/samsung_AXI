@@ -3,7 +3,7 @@
 - 작성: 2026-11-23 · 대상: D Mission Manager 및 후속 E 통합 개발자
 - 저장소: [silverbjin/samsung_AXI](https://github.com/silverbjin/samsung_AXI)
 - 브랜치: `feat/smartdish-a-robot` (S7 main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894` 기원)
-- 상태: **A L0 29 PASS / ROS L1 PASS / Gazebo 실제 3-leg L2 PASS, D UI 통합 NOT_RUN**
+- 상태: **A ROS CI PASS / 실제 Gazebo L2 PASS / 운영자 WSL2 GUI 3-leg L3 PASS. D UI·FSM 실제 통합 NOT_RUN.**
 - Draft PR: https://github.com/silverbjin/samsung_AXI/pull/36 (미병합)
 - 기존 S7 L3 통과 소스 SHA: `097e5aca022f59b18f289e7d383a3a6b85a5da1a` (새 A 기능 검증 소스와 구분)
 
@@ -55,7 +55,7 @@ curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent
 
 **기본 모드가 GUI(WSLg Gazebo/RViz)**입니다. 화면을 사용하지 않으려면 명령 맨 끝에 `--headless`를 붙입니다. 이미 `~/samsung_AXI_A`가 있으면 **로컬 수정 없는 경우에만** Fast-forward 갱신하며, 절대 reset/삭제하지 않습니다. 실제 Goal은 사용자 터미널에서 `YES-SMARTDISH-A-GOALS`를 직접 입력할 때만 시작됩니다.
 
-이번 실행의 실제 GUI WSL2 L3 주행 3/3 **PASS** 근거: [A-09 현장 원본 증거 검수 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md). 최신 GUI 기본값 변경은 실행기 인자 변경만이므로 이후 L0 검증 결과와 구분합니다. 상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). [출고 L0 45 PASS + ROS Jazzy L1 PASS #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662). A의 실제 WSL2 L3는 **현장 증거 전까지 NOT_RUN**입니다.
+이번 실행의 실제 GUI WSL2 L3 주행 3/3 **PASS** 근거: [A-09 현장 원본 증거 검수 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md). 최신 GUI 기본값 변경은 실행기 인자 변경만이므로 이후 L0 검증 결과와 구분합니다. 상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). [출고 L0 45 PASS + ROS Jazzy L1 PASS #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662). A 실제 WSL2 GUI L3는 **A-09 원본 증거로 3/3 PASS**입니다.
 
 ## 4A. 기존 A-07 코드 다운로드 후 실행 (대안)
 
@@ -65,13 +65,13 @@ curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent
 cd ~
 git clone --single-branch --branch feat/smartdish-a-robot https://github.com/silverbjin/samsung_AXI.git samsung_AXI_A
 cd ~/samsung_AXI_A
-bash scripts/smartdish_a_wsl2_one_shot.sh --headless
-# WSLg 시각 확인은 --gui (옵션)
+bash scripts/smartdish_a_wsl2_one_shot.sh
+# GUI가 불가할 때만: bash scripts/smartdish_a_wsl2_one_shot.sh --headless
 ```
 
-Nav2/AMCL 사전검사 후 요청이 나타나면 `YES-SMARTDISH-A-GOALS`를 터미널에서 직접 입력합니다. 실패·성공 모두 `generated/smartdish_a_wsl2/<run_id>/smartdish_a_owner_evidence.tar.gz`가 생성됩니다. 성공은 `SMARTDISH_A_WSL2_OWNER_L3_PASS` **정확히 한 번**입니다. 자세한 해설: [A-07 원샷 사용·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-07_wsl2_one_shot_EDU_KO.md). [A-07 GitHub L0 42 PASS + ROS L1 PASS #45127703923](https://github.com/silverbjin/samsung_AXI/actions/runs/45127703923); **사용자 WSL2 L3는 NOT_RUN**.
+Nav2/AMCL 사전검사 후 요청이 나타나면 `YES-SMARTDISH-A-GOALS`를 터미널에서 직접 입력합니다. 실패·성공 모두 `generated/smartdish_a_wsl2/<run_id>/smartdish_a_owner_evidence.tar.gz`가 생성됩니다. 성공은 `SMARTDISH_A_WSL2_OWNER_L3_PASS` **정확히 한 번**입니다. 자세한 해설: [A-07 원샷 사용·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-07_wsl2_one_shot_EDU_KO.md). [A-07 GitHub L0 42 PASS + ROS L1 PASS #45127703923](https://github.com/silverbjin/samsung_AXI/actions/runs/45127703923); **당시 작성 시점의 L3 NOT_RUN은 A-09에서 실제 GUI 3/3 PASS로 갱신됨**.
 
-## 4A. 이전 3터미널 수동 실행 (참고용, 권장 아님)
+## 4B. 이전 3터미널 수동 실행 (참고용, 권장 아님)
 
 S7에서 사용한 ROS 2 Jazzy, Gazebo Harmonic, Nav2와 공식 Waffle Pi 환경이 이미 설치된 WSL2를 전제로 합니다.
 
@@ -176,7 +176,7 @@ ros2 topic echo /odom --once
 - [A-06 운영 YAML 승격](../reports/tasks/2026-11-23_SMARTDISH-A-06_return_pose_release_EDU_KO.md)
 - [TTY 오류 RED→GREEN](../reports/issues/2026-11-23_SMARTDISH-A-L2-DBG-02_tty_rplus_EDU_KO.md)
 
-**핸드오프 판정:** A 담당 실제 3-leg Nav2+odom **ROBOT_ONLY L2 PASS**. 운영 `table_poses.yaml`에 검증된 접근 좌표를 확정했습니다. **D Manager+UI 통합·대기 타이머·COMPLETED는 NOT_RUN**이므로 전체 SmartDish MVP AI OFF PASS로 승격하지 않습니다.
+**핸드오프 판정:** A 담당 실제 3-leg Nav2+odom **ROBOT_ONLY L2 PASS 및 현장 WSL2 GUI L3 PASS**. 운영 `table_poses.yaml`에 검증된 접근 좌표를 확정했습니다. **D Manager+UI 통합·대기 타이머·COMPLETED는 NOT_RUN**이므로 전체 SmartDish MVP AI OFF PASS로 승격하지 않습니다.
 
 ## 9. A 현장 인수 후 E 통합 인계 (2026-11-23)
 

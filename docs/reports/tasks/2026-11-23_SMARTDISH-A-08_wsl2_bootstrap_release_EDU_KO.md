@@ -18,7 +18,7 @@ curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent
 GUI 없이 실행하려면 아래 한 줄을 선택합니다.
 
 ```bash
-curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/cd99c59f90d26f80b247c2a3763b0b4a0ff981c2/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh" --headless
+curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/7d110ece67096151daff7bf351420952b18a9a66/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh" --headless
 ```
 
 `curl`은 GitHub에 게시된 *정확한 커밋* `cd99c59`의 다운로드 파일을 저장하며, `bash`는 저장된 파일을 **그 터미널에서 실행**합니다. `curl | bash`를 사용하지 않는 이유는 stdin 파이프가 운영자 직접 TTY 입력 조건을 혼동시킬 수 있기 때문입니다.
