@@ -94,6 +94,10 @@ if [[ "$MODE" == live ]]; then
     *) echo 'S5_PERF_BLOCKED_UNKNOWN_MODE' >&2; exit 2 ;;
   esac
 fi
+if [[ "$MODE" == live && "${SAMSUNGAXI_S6_VISION:-0}" == 1 ]]; then
+  RGBD_RATE_ARGS+=(--vision-camera-offset-z 0.65)
+  echo 'S6_VISION_CAMERA_MOUNT_Z_OFFSET_M=0.65'
+fi
 python3 "$ROOT/scripts/prepare_waffle_rgbd.py" --source "$OFFICIAL_SDF" --out "$ROOT/generated/waffle_pi_rgbd.sdf" "${RGBD_RATE_ARGS[@]}" | tee -a "$RUNLOG"
 ROBOT_SDF="$ROOT/generated/waffle_pi_rgbd.sdf"
 if [[ "$MODE" == world ]]; then

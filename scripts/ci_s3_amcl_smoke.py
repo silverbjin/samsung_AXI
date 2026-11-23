@@ -117,6 +117,7 @@ def run(args):
             if args.s6_vision:
                 nav_cmd.append('bridge_config:='+str((
                     repo/'src/restaurant_bringup/config/bridge_vision_on_demand.yaml').resolve()))
+                nav_cmd.append('vision_camera_offset_z:=0.65')
             proc=subprocess.Popen(nav_cmd,stdout=out,stderr=subprocess.STDOUT,
                                   start_new_session=True,env=os.environ.copy())
             rclpy.init(args=None);started=True
