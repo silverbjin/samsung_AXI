@@ -84,3 +84,6 @@
 - B-02 수집기/형식 검증: [작업 보고서](reports/tasks/2026-11-23_B-02_collect_ingest.md) — 로컬 fixture 테스트 PASS / Gazebo 트레이 NOT_RUN.
 - B-03 그룹 분할·C 핸드오프: [작업 보고서](reports/tasks/2026-11-23_B-03_group_split_handoff.md), [디버깅 B-DEBUG-01](reports/issues/2026-11-23_B-DEBUG-01_validation_error_priority.md) — pytest 10/10 PASS, 실제 데이터 NOT_RUN.
 - B-04 데이터 계약 CI: [작업 보고서](reports/tasks/2026-11-23_B-04_ci_contract_gate.md) — GitHub Actions 실제 Run 결과는 보고서에서 추적.
+
+- 2026-11-23 **B-06 / 물리 근거 파일 무결성 RED→GREEN**: [작업 보고서](reports/tasks/2026-11-23_B-06_physics_evidence_integrity.md), [B-DEBUG-02](reports/issues/2026-11-23_B-DEBUG-02_unverified_evidence_reference.md) — 미존재 증거 이전 오수용 재현, 최소 수정·로컬 재검 PASS, 물리 라벨 NOT_RUN.
+- 2026-11-23 **B-05 / 트레이 RGB 무라벨 캡처 도구**: [작업 보고서](reports/tasks/2026-11-23_B-05_tray_rgb_readonly_capture.md), [초심자 실행 가이드](../ai/docs/B_TRAY_CAPTURE_GUIDE_KO.md) — RGB/BGR 이미지 계약 테스트 PASS, 실제 ROS/Gazebo 카메라 NOT_RUN.

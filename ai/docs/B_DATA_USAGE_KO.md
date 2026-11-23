@@ -11,7 +11,7 @@ Ubuntu 24.04 또는 일반 Python 3.10+, Pillow, pytest. ROS/Gazebo는 오프라
 ```bash
 # 저장소 루트에서
 python3 -m pip install --user Pillow pytest
-python3 -m pytest -q tests/test_b_dataset.py
+python3 -m pytest -q tests/test_b_dataset.py tests/test_b_tray_capture.py
 python3 ai/scripts/prepare_dataset.py --make-fixtures /tmp/smartdish_b_fixtures
 python3 ai/scripts/prepare_dataset.py --manifest /tmp/smartdish_b_fixtures/manifest.csv \
   --root /tmp/smartdish_b_fixtures --out /tmp/smartdish_b_fixtures/split.csv \
@@ -35,7 +35,7 @@ python3 ai/scripts/prepare_dataset.py --root . \
   --report ai/data/quality_report.json
 ```
 
-**주의**: 위 `--image` / `--physics-evidence` 경로는 예시이며 현재 실제 파일은 없습니다. `--physics-evidence`는 사용자가 입력한 참조 문자열일 뿐 자동으로 물리 근거를 검증하지 않습니다. 저장소의 `images/`·`private/`는 Git 무시 대상입니다. C가 학습하기 전에 증거 파일과 정답을 사람이 검토해야 합니다.
+**주의**: 위 `--image` / `--physics-evidence` 경로는 예시이며 현재 실제 파일은 없습니다. B-06부터 `--physics-evidence`는 실제 존재하는 독립·비어 있지 않은 파일이어야 하고 SHA-256 및 크기를 기록합니다. 파일의 진위와 물리 안정성은 자동 인증하지 않으므로 C가 학습하기 전 사람이 라벨/증거를 검토해야 합니다. 원본 `images/`·`private/`는 Git 무시 대상입니다. ROS 이미지 1장 캡처 절차는 [`B_TRAY_CAPTURE_GUIDE_KO.md`](B_TRAY_CAPTURE_GUIDE_KO.md)에 정리했습니다.
 
 ## 3. 결과 읽기와 디버깅
 
@@ -45,6 +45,9 @@ python3 ai/scripts/prepare_dataset.py --root . \
 - `B_SCENE_SPANS_STACKS`: scene_id 하나가 여러 적재 배치를 나타냄 → 배치마다 scene_id 분리
 - `B_STACK_LABEL_CONFLICT`: 같은 stack_id의 라벨이 모순 → 물리 관측 근거로 재라벨링
 - `B_INSUFFICIENT_INDEPENDENT_GROUPS`: 학습·검증·시험에 필요한 별개의 stack 그룹 부족 → 물리 표본 수집 후 재실행
+
+- `B_PHYSICS_EVIDENCE_FILE_MISSING` / `B_PHYSICS_EVIDENCE_EMPTY`: 관측 파일을 생성하고 사람 검토 후 재등록
+- `B_TRAY_CAMERA_TIMEOUT_NO_IMAGE`: A의 전용 트레이 RGB 토픽 준비 확인 (S7 기본 전방 카메라를 대체로 사용 금지)
 
 오류 발생 시 첫 메시지·원본 파일 SHA·재현 명령만 남기고 다른 개발자의 소스를 변경하지 않습니다. 커밋 전에 `git status --short`로 외부 데이터가 추적되지 않는지 확인하십시오.
 

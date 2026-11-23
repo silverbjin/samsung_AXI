@@ -38,7 +38,7 @@ DACON 설명은 `open.zip` 아래 `train/{id}/{front.png,top.png,simulation.mp4}
 - `split_manifest.csv`: 위 10열 + `split` (`train`/`val`/`test`). 분할 단위는 **stack_id**, `scene_id` 하나에 여러 stack이 걸치면 불허. 같은 스택의 연속 프레임을 서로 다른 split에 놓지 않습니다.
 - `label_map`: `{"STABLE":0,"UNSTABLE":1}`. 숫자 순서는 C와 사전 합의 없이 변경하지 않습니다.
 - 저장 형식: **PNG, RGB, 224×224**, Python Pillow `ImageOps.exif_transpose` → `convert('RGB')` → `ImageOps.fit(..., 224×224, BILINEAR)`. 정규화(mean/std)는 C 학습·추론에 같은 방식으로 별도 고정하며 B가 임의로 지정하지 않습니다.
-- `capture_config`: JSON 객체 문자열, 최소 `camera`, `physics_evidence`, `preprocess` 저장. 물리 근거 링크/파일은 Git 비추적 허용.
+- `capture_config`: JSON 객체 문자열, 최소 `camera`, `physics_evidence`, `preprocess` 저장. B-06부터 `physics_evidence`는 존재하고 비어 있지 않은 독립 파일이어야 하며 `physics_evidence_sha256`·`physics_evidence_size_bytes`도 포함합니다. 이는 파일 무결성 추적이지 물리적 참/거짓 자동 판정이 아닙니다. 물리 근거 파일은 Git 비추적.
 - `ground_truth`: `PHYSICS_OBSERVED`만 학습 가능; `MOCK_ONLY`는 `--allow-fixtures`에서만 검사.
 - 분할의 독립성: 그룹 `stack_id`, label별 최소 3개 독립 그룹; Seed `smartdish-b-v1`, 그룹별 SHA256 정렬, 20% test + 20% val 반올림, 나머지 train. 클래스별 균형은 리포트 확인. 임계값은 데이터 확보 후 재검토.
 - 중복 판정: 포맷 변환된 PNG의 SHA256, 완전히 동일한 이미지가 별도 행이면 실패. 근접 중복은 **미구현/수동 검토**.
@@ -46,4 +46,4 @@ DACON 설명은 `open.zip` 아래 `train/{id}/{front.png,top.png,simulation.mp4}
 
 ## 5. 실물 데이터 수집 의존성 및 한계
 
-A의 별도 트레이 지향 카메라(토픽 `/smartdish/tray/image_raw`)와 실제 물리 적재 장면이 없으므로 **실제 이미지 수집·분할/성능 평가 NOT_RUN**. 수집기는 ROS 토픽을 받는 프로그램이 아니라 카메라 프레임을 저장한 후 운영자가 지면/트레이 접촉과 낙하 여부를 **별도로 관측**한 파일을 접수하는 오프라인 도구입니다. 실제 토픽 캡처 루틴은 A에서 제공하는 카메라와 주고받는 방식이 확정된 후 추가합니다. 단색 fixture 6장은 실제 물리 표본으로 전환 금지.
+A의 별도 트레이 지향 카메라(토픽 `/smartdish/tray/image_raw`)와 실제 물리 적재 장면이 없으므로 **실제 이미지 수집·분할/성능 평가 NOT_RUN**. B-05는 ROS 2의 `/smartdish/tray/image_raw`를 1회 읽고 **라벨 없이 `ai/data/private`에 저장하는 선택형 루틴**을 추가했습니다. 이 기능의 ROS/Gazebo 실제 수신은 여전히 NOT_RUN입니다. `collect_tableware.py`는 운영자가 물리 상태를 **별도로 관측**하고 증거 파일을 제공한 경우에만 CSV를 등록합니다. 단색 fixture 6장은 실제 물리 표본으로 전환 금지.
