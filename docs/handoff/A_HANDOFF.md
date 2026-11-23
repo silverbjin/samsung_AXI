@@ -45,7 +45,21 @@ HOME은 기존 S3 `pickup`이며 **S7 `PICKUP_RETURN`은 SmartDish DISH_RETURN�
 - 단일 active/pending, 이전 `request_id`/구간 중복 거부, 임의 재전송 없음. D는 자체적으로 현재 `request_id`·`leg`가 맞는 결과만 수용합니다.
 - A의 SUCCEEDED는 공식 Nav2 완료와 실제 0.05m 이상 odom 관찰 이후에만 전송하며, D의 타이머는 A 성공 이후부터 시작합니다.
 
-## 4. 초심자용 실제 실행 — WSL2 Ubuntu 24.04
+## 4. WSL2 단일 인수 — A-07 (권장)
+
+과거의 3터미널 수동 시연 대신 아래 단일 실행기를 권장합니다. **실제 사용자 승인**과 로그 저장을 포함합니다.
+
+```bash
+cd ~
+git clone --single-branch --branch feat/smartdish-a-robot https://github.com/silverbjin/samsung_AXI.git samsung_AXI_A
+cd ~/samsung_AXI_A
+bash scripts/smartdish_a_wsl2_one_shot.sh --headless
+# WSLg 시각 확인은 --gui (옵션)
+```
+
+Nav2/AMCL 사전검사 후 요청이 나타나면 `YES-SMARTDISH-A-GOALS`를 터미널에서 직접 입력합니다. 실패·성공 모두 `generated/smartdish_a_wsl2/<run_id>/smartdish_a_owner_evidence.tar.gz`가 생성됩니다. 성공은 `SMARTDISH_A_WSL2_OWNER_L3_PASS` **정확히 한 번**입니다. 자세한 해설: [A-07 원샷 사용·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-07_wsl2_one_shot_EDU_KO.md).
+
+## 4A. 이전 3터미널 수동 실행 (참고용, 권장 아님)
 
 S7에서 사용한 ROS 2 Jazzy, Gazebo Harmonic, Nav2와 공식 Waffle Pi 환경이 이미 설치된 WSL2를 전제로 합니다.
 

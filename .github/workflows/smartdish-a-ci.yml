@@ -4,6 +4,8 @@ on:
     branches: [feat/smartdish-a-robot]
     paths:
       - 'src/smartdish_robot/**'
+      - 'scripts/smartdish_a_wsl2_*.sh'
+      - 'scripts/smartdish_a_wsl2_*.py'
       - 'tests/test_smartdish_a_*.py'
       - '.github/workflows/smartdish-a-ci.yml'
       - 'docs/handoff/A_HANDOFF.md'
@@ -29,8 +31,10 @@ jobs:
       - name: Test A contract, package shape and original map custody
         run: |
           set -Eeuo pipefail
-          python3 -m compileall -q src/smartdish_robot tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py
-          python3 -m pytest -q tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py tests/test_smartdish_a_tty.py
+          python3 -m compileall -q src/smartdish_robot scripts/smartdish_a_wsl2_l3.py tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py tests/test_smartdish_a_wsl2_l3.py
+          bash -n scripts/smartdish_a_wsl2_one_shot.sh
+          bash scripts/smartdish_a_wsl2_one_shot.sh --help
+          python3 -m pytest -q tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py tests/test_smartdish_a_tty.py tests/test_smartdish_a_wsl2_l3.py
           echo SMARTDISH_A_L0_CONTRACT_PASS
   l1-ros:
     name: L1 / ROS Jazzy ament build and node discovery (NO GOAL)
