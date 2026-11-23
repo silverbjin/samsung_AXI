@@ -27,3 +27,9 @@
 D05는 기존 `~/samsung_AXI`를 보존하며 전용 worktree로 검증합니다. CI 모의 Git/ROS 테스트를 Gazebo 실주행 인수로 승격하지 않습니다.
 
 - [D-DBG-004 CI Git SHA race/고정 원격 수정](D_DBG_004_CI_REMOTE_HEAD_RACE_EDU_KO.md) — 실패한 CI의 최초 로그와 immutable SHA 기반 재검증 방식
+
+## D07 — UI-QA-001 Tkinter 레이아웃 잘림 수정
+
+- [D07 UI 잘림 원인·수정·검증 교육 보고서](D07_UI_LAYOUT_CLIP_DEBUG_EDU_KO.md)
+- 코드: `355d12ab807daff986072355d9d733894c47cd09` / UI 입력을 1열 세로 배치하고 Canvas를 동적으로 축소
+- 검증 경계: L0/ROS Jazzy L1과 강사 WSLg 화면 시각검수는 별개; WSLg 현장 NOT_RUN

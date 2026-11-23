@@ -108,3 +108,10 @@ ros2 topic echo /collection/status std_msgs/msg/String
 - 기능 SHA `a82b3e229a330c2c38dc9857be26a232d21578da`: [Actions #45124883730](https://github.com/silverbjin/samsung_AXI/actions/runs/45124883730) L0 40 PASS, ROS Jazzy L1 원샷 `--verify` PASS.
 - [D05 디버깅 보고서](../reports/smartdish/d/D_DBG_003_GIT_WORKSPACE_COLLISION_EDU_KO.md), [D05 개발 보고서](../reports/smartdish/d/D05_WSL2_FAIL_FAST_RUNNER_EDU_KO.md), [원샷 명령 가이드](D_WSL2_ONE_SHOT_GUIDE_KO.md).
 - 실제 Gazebo/WSLg 현장: NOT_RUN / E 통합 대기.
+
+## D07 — UI 레이아웃 품질 개선(2026-11-23)
+
+- 사용자가 제출한 WSLg UI에서 오른쪽 시간 입력의 레이블/Spinbox 잘림 확인.
+- 코드 커밋 `355d12ab807daff986072355d9d733894c47cd09`: 오른쪽 패널 우선 할당, 입력 1열화, 캔버스 비례 재배치, T03 강조.
+- [교육용 원인/디버깅 보고서](../reports/smartdish/d/D07_UI_LAYOUT_CLIP_DEBUG_EDU_KO.md).
+- 실제 현장 GUI 시각 재검수는 사용자 담당 `NOT_RUN`, D 메시지 계약·기존 S7 안전 제어 불변.
