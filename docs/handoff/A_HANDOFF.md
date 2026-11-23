@@ -3,7 +3,7 @@
 - 작성: 2026-11-23 · 대상: D Mission Manager 및 후속 E 통합 개발자
 - 저장소: [silverbjin/samsung_AXI](https://github.com/silverbjin/samsung_AXI)
 - 브랜치: `feat/smartdish-a-robot` (S7 main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894` 기원)
-- 상태: **CONTRACT IMPLEMENTED / real Gazebo three-leg NOT_RUN**
+- 상태: **L0 26 PASS / ROS L1 PASS (SHA e069a13) / real Gazebo three-leg NOT_RUN**
 - Draft PR: https://github.com/silverbjin/samsung_AXI/pull/36 (미병합)
 - 기존 S7 L3 통과 소스 SHA: `097e5aca022f59b18f289e7d383a3a6b85a5da1a` (새 A 기능 검증 소스와 구분)
 
@@ -120,10 +120,18 @@ ros2 topic echo /odom --once
 
 전형적인 실패 경계는 `INVALID_GOAL_COMBINATION`, `UNCONFIGURED_DESTINATION`, `PREGOAL_SCAN_OR_ODOM_MISSING`, `NAV2_FAILED`, `ODOM_MOVEMENT_NOT_PROVEN`입니다. **최초 실패 로그 + 환경/SHA + 원인 가설 + 확인 사실 + 최소 수정 + 같은 경계 재검**을 `docs/reports/issues/`에 남기십시오. 시각 검수는 사용자 담당이며 이번 자동 게이트가 아닙니다.
 
-## 7. 보고서 이력과 남은 경계
+## 7. 공개 CI 증거와 판정
+
+- [원격 A L0 25 PASS + ROS Jazzy L1 PASS #45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792), 실행 SHA `e069a13`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`.
+- [CLI 디버깅 수정 후 L0 26 PASS #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), 실행 SHA `bae0c36`. ROS L1 재검 진행 중; 코드 변경은 문서·테스트로 한정됨.
+- `/collection/nav_goal` 실제 publish → Nav2 Goal, `/odom` 3구간, UI 완료 **NOT_RUN**. L0/L1 결과를 새 L2로 승격 금지.
+
+## 8. 보고서 이력과 남은 경계
 
 - [A-01 계약·좌표 개발 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-01_contract_and_map_EDU_KO.md)
 - [A-02 Nav2 Adapter 개발 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-02_navigation_adapter_EDU_KO.md)
 - [A-03 출고·검증 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-03_ci_handoff_EDU_KO.md)
+- [A-DBG-01 JSON 인코딩 오류 분석 및 L0 해결](../reports/issues/2026-11-23_SMARTDISH-A-DBG-01_cli_json_escaping_EDU_KO.md)
+- [A-COORD-01 새 반납점 접근 좌표 검증 HOLD](../reports/issues/2026-11-23_SMARTDISH-A-COORD-01_return_pose_HOLD_EDU_KO.md)
 
 **핸드오프 판정:** 계약 및 기본 패키지 구현 완료. 실제 신규 DISH_RETURN 좌표·A 3-leg Gazebo/odom·D 통합은 NOT_RUN. AI OFF 발표 인수로 승격하지 않습니다.

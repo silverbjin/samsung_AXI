@@ -81,4 +81,6 @@
 - 2026-11-23 SMARTDISH-A-01 — [Map Pose·JSON contract](reports/tasks/2026-11-23_SMARTDISH-A-01_contract_and_map_EDU_KO.md); A-01 commit `9542cf265265652a6910f04b660eacca35b632f7`; Gazebo 3-leg NOT_RUN.
 - 2026-11-23 SMARTDISH-A-02 — [Nav2 Adapter·TTY 경계](reports/tasks/2026-11-23_SMARTDISH-A-02_navigation_adapter_EDU_KO.md); A-02 commit `aa63757c9a034589ece6f0dfbc609545c61d3af1`; ROS L1 후속 확인.
 - 2026-11-23 SMARTDISH-A-03 — [전용 CI/팀 인계](reports/tasks/2026-11-23_SMARTDISH-A-03_ci_handoff_EDU_KO.md); [A handoff](handoff/A_HANDOFF.md); 3-leg L2 NOT_RUN.
-- 2026-11-23 SMARTDISH-A-DBG-01 — [CLI JSON escaping 오류](reports/issues/2026-11-23_SMARTDISH-A-DBG-01_cli_json_escaping_EDU_KO.md), 정적 JSONDecodeError → 한 줄 수정 + L0 회귀; CI 후 RESOLVED 판정.
+- 2026-11-23 SMARTDISH-A-DBG-01 — [CLI JSON escaping 오류](reports/issues/2026-11-23_SMARTDISH-A-DBG-01_cli_json_escaping_EDU_KO.md), 정적 JSONDecodeError → 한 줄 수정 + L0 26 PASS [#45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), RESOLVED.
+
+- 2026-11-23 SMARTDISH-A-COORD-01 — [DISH_RETURN 좌표 미검증 HOLD](reports/issues/2026-11-23_SMARTDISH-A-COORD-01_return_pose_HOLD_EDU_KO.md), 신규 3-leg L2 NOT_RUN.

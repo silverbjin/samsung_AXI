@@ -2,7 +2,7 @@
 
 - 날짜: 2026-11-23 KST
 - 환경/경계: 교육 문서의 Bash single-quoted ROS 2 YAML 입력 → `std_msgs/String.data`의 JSON
-- 상태: **수정·L0 재검 대기(OPEN)**; 물리 ROS 주행과 무관한 *문서 입력* 결함
+- 상태: **RESOLVED — 동일 CLI YAML→JSON 경계 신규 회귀 테스트 L0 PASS**; 물리 ROS 주행과 무관한 *문서 입력* 결함
 - 최초 확인 SHA: `e069a134117fbc52718260a56eb7ac2ebd7d7885`
 - 연결 개발 보고서: [A-03](../tasks/2026-11-23_SMARTDISH-A-03_ci_handoff_EDU_KO.md)
 
@@ -42,7 +42,7 @@ json.loads(yaml.safe_load(bad)["data"])
 python3 -m pytest -q tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py
 ```
 
-수정 전: 로컬 순수 Python 변환에서 `JSONDecodeError` 확인. 수정 후: GitHub Actions run과 `pytest` 결과를 확인해 **RESOLVED**로 갱신하기 전까지 **OPEN**. 이 문제 때문에 실제 Gazebo L2를 불필요하게 반복하지 않습니다.
+수정 전: 로컬 순수 Python 변환에서 `JSONDecodeError` 확인. 수정 후: [GitHub Actions #45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312), SHA `bae0c36bff32e50abd818711bca8c13737d835ec`: 새 문서 파싱 테스트 포함 `26 passed in 0.04s` **L0 PASS / RESOLVED**. 이 문제 때문에 실제 Gazebo L2를 불필요하게 반복하지 않습니다.
 
 ## 5. 교육 포인트
 

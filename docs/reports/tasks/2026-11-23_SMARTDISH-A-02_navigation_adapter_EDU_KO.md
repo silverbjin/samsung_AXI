@@ -3,7 +3,7 @@
 - 날짜: 2026-11-23 KST
 - 베이스: A-01 `9542cf265265652a6910f04b660eacca35b632f7`
 - 단위 구현: `src/smartdish_robot/` ROS 2 `ament_python` 패키지·Adapter·NO_GOAL launch
-- 검증 상태: 작성 시 **NOT_RUN** (원격 CI와 실 Gazebo는 후속 구분)
+- 검증 상태: **L0 25 PASS / ROS Jazzy L1 PASS** — [GitHub Actions #45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792), SHA `e069a134117fbc52718260a56eb7ac2ebd7d7885`; 실제 Gazebo L2 NOT_RUN
 - 커밋: 본 파일과 구현 소스·L0 테스트를 함께 포함하는 커밋
 
 ## 1. 요구사항과 데이터 흐름
@@ -62,6 +62,6 @@ ros2 run smartdish_robot navigation_adapter --ros-args \
 ## 5. 검증 범위 및 다음 작업
 
 - 기대: Python syntax/계약 unit → ROS L1 package discovery → 실제 Gazebo 3-leg L2.
-- 관찰: **작성 시 명령 실행 증거 없음.**
+- 관찰: [#45118875792](https://github.com/silverbjin/samsung_AXI/actions/runs/45118875792) L0 25 passed; L1 `Starting >>> smartdish_robot`, `Finished <<< smartdish_robot`, `smartdish_robot navigation_adapter`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS`. A-DBG-01 수정 뒤 L0 26 PASS([#45119133312](https://github.com/silverbjin/samsung_AXI/actions/runs/45119133312)); 실제 Goal/Gazebo는 NOT_RUN.
 - 기존 S7 L3 PASS는 본 신규 패키지 L2 PASS를 증명하지 않습니다.
 - 다음 A-03: 현장 실행·좌표 확정·팀 D 인계 문서 및 CI 상태 기록.
