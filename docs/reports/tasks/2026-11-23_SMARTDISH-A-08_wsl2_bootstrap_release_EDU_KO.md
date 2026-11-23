@@ -2,8 +2,8 @@
 
 - 날짜: 2026-11-23 KST
 - 소유 브랜치: `feat/smartdish-a-robot`
-- 부트스트랩 출시 소스 SHA: `cd99c59f90d26f80b247c2a3763b0b4a0ff981c2`
-- 실제 현장 WSL2 L3: **NOT_RUN** (GitHub CI L0 및 ROS L1 별도 확인)
+- GUI 기본 원샷 출시 소스 SHA: `7d110ece67096151daff7bf351420952b18a9a66`
+- 실제 현장 WSL2 L3: **A-09 실제 운영자 GUI 3-leg PASS**(실행 SHA `2ec54a0`, 신규 GUI 기본값만 변경되어 재주행 불필요)
 - A의 이전 실 Gazebo CI L2: [운영 YAML #45125551884](https://github.com/silverbjin/samsung_AXI/actions/runs/45125551884), 실제 Nav2 3-leg **PASS**
 - 담당자 수동 Goal 승인 정책: 필수, 자동 입력 금지
 
@@ -12,13 +12,13 @@
 WSL2 Ubuntu 24.04의 **대화형 터미널**에서 아래 한 줄을 그대로 복사·붙여넣기합니다.
 
 ```bash
-curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/cd99c59f90d26f80b247c2a3763b0b4a0ff981c2/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh" --headless
+curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/7d110ece67096151daff7bf351420952b18a9a66/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh"
 ```
 
-GUI를 표시하고 싶다면 아래 한 줄을 선택합니다.
+GUI 없이 실행하려면 아래 한 줄을 선택합니다.
 
 ```bash
-curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/cd99c59f90d26f80b247c2a3763b0b4a0ff981c2/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh" --gui
+curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/cd99c59f90d26f80b247c2a3763b0b4a0ff981c2/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh" --headless
 ```
 
 `curl`은 GitHub에 게시된 *정확한 커밋* `cd99c59`의 다운로드 파일을 저장하며, `bash`는 저장된 파일을 **그 터미널에서 실행**합니다. `curl | bash`를 사용하지 않는 이유는 stdin 파이프가 운영자 직접 TTY 입력 조건을 혼동시킬 수 있기 때문입니다.
@@ -74,7 +74,7 @@ scripts/smartdish_a_wsl2_bootstrap.sh
 - L0: `bash -n` 및 `--help`, 일반 GitHub CI 비-WSL2에서 원격 clone/실주행 전 차단, unsafe Git 변경이 없음, 기존 A 계약 회귀.
 - L1: ROS Jazzy 컨테이너 `smartdish_robot navigation_adapter` 정상 빌드·발견.
 - L2: 이전 A-06 실제 Gazebo 3/3 SUCCEEDED (검증된 운영 좌표; 부트스트랩 자체에 대한 실주행 증거와는 다름).
-- **WSL2 L3: 사용자 PC 최초 현장 실행 전까지 NOT_RUN**. `PASS`를 임의 생성하지 않으며 실패하면 첫 실패 증거만 수집하여 교육용 `docs/reports/issues/`로 추적합니다.
+- **WSL2 L3: GUI 사용자의 현장 3-leg PASS**가 [A-09](2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md) 증거로 확인됨. GUI 기본값만 변경했으므로 Nav2 재주행 불필요. `PASS`를 임의 생성하지 않으며 실패하면 첫 실패 증거만 수집하여 교육용 `docs/reports/issues/`로 추적합니다.
 
 ## 6. 초심자 디버깅 예
 
@@ -86,4 +86,8 @@ scripts/smartdish_a_wsl2_bootstrap.sh
 - **L0 PASS — 45 tests**: `bash -n` 두 셸 실행기, 실제 운영자 확인을 보존한 비-WSL 차단, 올바른 브랜치 및 fast-forward, 손상된 증거/과장 성공 차단.
 - **L1 PASS — ROS Jazzy**: `Summary: 1 package finished`, `smartdish_robot navigation_adapter`, `SMARTDISH_A_L1_BUILD_NO_GOAL_PASS` 확인.
 - 본 최종 보고 변경은 문서만 변경하며 동일 부트스트랩·ROS 소스·운영 좌표는 보존합니다.
-- 전체 인수 구분: 기 검증 A-06 Gazebo CI L2 3/3 PASS. **사용자 소유 WSL2 L3는 실제 현장 로그 수신 전 NOT_RUN**. D UI/10초/5초 완료도 NOT_RUN.
+- 전체 인수 구분: 기 검증 A-06 Gazebo CI L2 3/3 PASS. **사용자 소유 WSL2 L3는 기존 실행 SHA `2ec54a0`에서 3/3 PASS로 확인 (A-09 보고서)**. D UI/10초/5초 완료도 NOT_RUN.
+
+## 8. GUI 모드 기본 정책 갱신(A-10)
+
+기본 인자 없이 `bash smartdish_a_wsl2_bootstrap.sh`를 호출하면 `--gui`를 기본값으로 사용합니다. 내부 `smartdish_a_wsl2_one_shot.sh`의 직접 호출도 GUI를 기본값으로 적용합니다. **헤드리스 대체가 필요하면 마지막에 `--headless`를 명시적으로 붙입니다.** 사용자 요청에 따라 기본 표시만 전환했고, Nav2/Collision Monitor/승인/판정 로직은 수정하지 않았습니다.

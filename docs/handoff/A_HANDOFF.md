@@ -50,12 +50,12 @@ HOME은 기존 S3 `pickup`이며 **S7 `PICKUP_RETURN`은 SmartDish DISH_RETURN�
 WSL2 Ubuntu 24.04 대화형 터미널에서 별도의 Git clone/checkout 없이 **한 줄**만 입력하십시오. 고정된 GitHub 커밋의 부트스트랩을 먼저 다운로드한 뒤 로컬 파일로 실행하여 TTY를 보존합니다.
 
 ```bash
-curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/cd99c59f90d26f80b247c2a3763b0b4a0ff981c2/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh" --headless
+curl -fsSLo "$HOME/smartdish_a_wsl2_bootstrap.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/7d110ece67096151daff7bf351420952b18a9a66/scripts/smartdish_a_wsl2_bootstrap.sh" && bash "$HOME/smartdish_a_wsl2_bootstrap.sh"
 ```
 
-화면을 열어 확인하려면 끝의 `--headless`만 `--gui`로 바꿉니다. 이미 `~/samsung_AXI_A`가 있으면 **로컬 수정 없는 경우에만** Fast-forward 갱신하며, 절대 reset/삭제하지 않습니다. 실제 Goal은 사용자 터미널에서 `YES-SMARTDISH-A-GOALS`를 직접 입력할 때만 시작됩니다.
+**기본 모드가 GUI(WSLg Gazebo/RViz)**입니다. 화면을 사용하지 않으려면 명령 맨 끝에 `--headless`를 붙입니다. 이미 `~/samsung_AXI_A`가 있으면 **로컬 수정 없는 경우에만** Fast-forward 갱신하며, 절대 reset/삭제하지 않습니다. 실제 Goal은 사용자 터미널에서 `YES-SMARTDISH-A-GOALS`를 직접 입력할 때만 시작됩니다.
 
-상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). [출고 L0 45 PASS + ROS Jazzy L1 PASS #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662). A의 실제 WSL2 L3는 **현장 증거 전까지 NOT_RUN**입니다.
+이번 실행의 실제 GUI WSL2 L3 주행 3/3 **PASS** 근거: [A-09 현장 원본 증거 검수 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md). 최신 GUI 기본값 변경은 실행기 인자 변경만이므로 이후 L0 검증 결과와 구분합니다. 상세: [A-08 단일 명령 배포·교육 보고서](../reports/tasks/2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md). [출고 L0 45 PASS + ROS Jazzy L1 PASS #45129546662](https://github.com/silverbjin/samsung_AXI/actions/runs/45129546662). A의 실제 WSL2 L3는 **현장 증거 전까지 NOT_RUN**입니다.
 
 ## 4A. 기존 A-07 코드 다운로드 후 실행 (대안)
 

@@ -31,7 +31,7 @@ WSL2 Bash 1회 실행
        └─ 3×/odom·/scan·AMCL 결과 JSON 및 간결한 tar.gz 아카이브
 ```
 
-기본값은 `--headless`입니다. `--gui`로 Gazebo/RViz를 볼 수 있지만 **GUI 시각 검수는 인수 Gate가 아닙니다**.
+**최신 A-10부터 기본값은 `--gui`**입니다. `--headless`는 선택적 대체 모드로 유지합니다. 실제 주행·odom 증거를 검사하며 **GUI 시각 검수는 자동 인수 Gate가 아닙니다**.
 
 ## 3. 실제 WSL2에서 따라 하기
 
@@ -42,7 +42,7 @@ cd ~
 git clone --single-branch --branch feat/smartdish-a-robot \
   https://github.com/silverbjin/samsung_AXI.git samsung_AXI_A
 cd ~/samsung_AXI_A
-bash scripts/smartdish_a_wsl2_one_shot.sh --headless
+bash scripts/smartdish_a_wsl2_one_shot.sh
 ```
 
 기존 클론을 최신화할 때:
@@ -58,7 +58,7 @@ bash scripts/smartdish_a_wsl2_one_shot.sh --headless
 GUI 확인이 필요하면 마지막 인수 명령만 다음과 같이 변경합니다.
 
 ```bash
-bash scripts/smartdish_a_wsl2_one_shot.sh --gui
+bash scripts/smartdish_a_wsl2_one_shot.sh --headless
 ```
 
 Nav2/AMCL + 센서 준비가 끝난 후 터미널에서 아래 문구가 요청될 때만 주변 위험/로봇 스폰을 확인하고 직접 입력합니다.
@@ -117,3 +117,8 @@ WSL2 인수 과정의 최초 실패가 발생하면 `smartdish_a_owner_evidence.
 ## 9. A-08 단일 명령 출고 (후속)
 
 [A-08 배포 교육 보고서](2026-11-23_SMARTDISH-A-08_wsl2_bootstrap_release_EDU_KO.md)의 한 줄 부트스트랩이 본 A-07 원샷 실행기를 안전하게 클론·갱신한 뒤 실행합니다. A-07의 직접 TTY 승인·실제 ROS 3구간·증거 압축 코드는 그대로 재사용합니다.
+
+## 10. A-09 현장 L3 증거 및 A-10 GUI 기본값 갱신
+
+- [A-09 원본 증거 검수 보고서](2026-11-23_SMARTDISH-A-09_WSL2_GUI_L3_ACCEPTANCE_EDU_KO.md): 운영자 GUI 실주행 L3 3/3 PASS, 요청 ID 일치/odom/AMCL/scan, RViz2 종료 로그 관찰.
+- GUI 기본값 코드 SHA `7d110ece67096151daff7bf351420952b18a9a66`: 부트스트랩과 A-07 원샷 모두 인자 없는 호출을 `--gui`로 처리, `--headless` 명시 시 유지. Goal/Map/Nav2 변경 없음.
