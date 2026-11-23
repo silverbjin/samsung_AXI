@@ -9,7 +9,8 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 
-def build(src: Path, dst: Path, rgbd_rate_hz: int = 5):
+def build(src: Path, dst: Path, rgbd_rate_hz: int = 5, vision_camera_offset_z: float = 0.):
+    if not 0 <= vision_camera_offset_z <= .80:raise ValueError('S6_CAMERA_Z_RANGE')
     if rgbd_rate_hz not in (2, 5):
         raise ValueError('S5_PERF_RGBD_RATE_MUST_BE_2_OR_5')
     tree = ET.parse(src)
@@ -37,7 +38,7 @@ def build(src: Path, dst: Path, rgbd_rate_hz: int = 5):
     if viz is not None:
         viz.text = 'false'  # Ray overlay is not the actual /scan.
     sensor=ET.SubElement(camera,'sensor',{'name':'restaurant_registered_rgbd','type':'rgbd_camera'})
-    ET.SubElement(sensor,'pose').text='0 0 0 0 0 0'
+    ET.SubElement(sensor,'pose').text=f'0 0 {vision_camera_offset_z:.3f} 0 0 0'
     ET.SubElement(sensor,'always_on').text='true'
     ET.SubElement(sensor,'update_rate').text=str(rgbd_rate_hz)
     ET.SubElement(sensor,'topic').text='restaurant/rgbd'
@@ -67,7 +68,9 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--rgbd-rate-hz',type=int,choices=(2,5),default=5)
+    p.add_argument('--vision-camera-offset-z',type=float,default=0.)
     a=p.parse_args()
-    build(a.source,a.out,rgbd_rate_hz=a.rgbd_rate_hz)
+    build(a.source,a.out,rgbd_rate_hz=a.rgbd_rate_hz,
+          vision_camera_offset_z=a.vision_camera_offset_z)
 
 if __name__=='__main__': main()

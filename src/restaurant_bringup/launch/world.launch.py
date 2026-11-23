@@ -34,6 +34,7 @@ def generate_launch_description():
         DeclareLaunchArgument('spawn_x',default_value='-2.60'),
         DeclareLaunchArgument('spawn_y',default_value='-2.20'),
         DeclareLaunchArgument('spawn_yaw',default_value='0'),
+        DeclareLaunchArgument('vision_camera_offset_z',default_value='0'),
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.join(robotis, 'models')),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(gz_sim, 'launch', 'gz_sim.launch.py')),
@@ -54,7 +55,7 @@ def generate_launch_description():
              output='screen'),
         # S2 RGB-D optical TF. Harmless in S1 even if RGB-D sensor not generated yet.
         Node(package='tf2_ros', executable='static_transform_publisher',
-             arguments=['--x', '0', '--y', '0', '--z', '0',
+             arguments=['--x', '0', '--y', '0', '--z', LaunchConfiguration('vision_camera_offset_z'),
                         '--roll', '-1.57079632679', '--pitch', '0', '--yaw', '-1.57079632679',
                         '--frame-id', 'camera_link', '--child-frame-id', 'restaurant_rgbd_optical'],
              output='screen'),

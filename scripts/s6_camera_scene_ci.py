@@ -24,6 +24,16 @@ def diff_fraction(a,b):
         for i in range(0,len(a),3))
     return changed/(len(a)//3)
 
+def visible_blue(rgb,w,h):
+    count=0;first=None;last=None
+    for y in range(15,h-15):
+        for x in range(8,w-8):
+            i=(y*w+x)*3;r,g,b=rgb[i:i+3]
+            if b>r*1.30 and b>g*1.10 and b>75:
+                count+=1;first=y if first is None else min(first,y)
+                last=y if last is None else max(last,y)
+    return count,(first,last) if first is not None else None
+
 def save_ppm(path,w,h,rgb):
     path.write_bytes(f'P6\n{w} {h}\n255\n'.encode()+rgb)
 
@@ -46,7 +56,8 @@ def run(args):
     cmd=['ros2','launch','restaurant_bringup','world.launch.py',
          'gui:=false','robot_sdf:='+str(args.robot_sdf.resolve()),
          'bridge_config:='+str(args.bridge.resolve()),
-         'spawn_x:=2.65','spawn_y:=-1.82','spawn_yaw:=-1.57079632679']
+         'spawn_x:=2.65','spawn_y:=-1.82','spawn_yaw:=-1.57079632679',
+         'vision_camera_offset_z:=0.65']
     with (args.out/'gazebo.log').open('w') as log:
         proc=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,
                               env=os.environ.copy(),start_new_session=True)
@@ -80,6 +91,7 @@ def run(args):
             a=rgb_bytes(empty)
             old=rgb_bytes(frames[-2][1])
             empty_noise=diff_fraction(a,old)
+            empty_blue,_=visible_blue(a,empty.width,empty.height)
             save_ppm(args.out/'empty.ppm',empty.width,empty.height,a)
             fixture=args.out/'stacked_dishes.sdf'
             write_fixture(fixture)
@@ -106,6 +118,7 @@ def run(args):
                     break
             if best is None:raise RuntimeError('S6_STACKED_RGB_FRAME_MISSING')
             delta,_,b=best
+            new_blue,span=visible_blue(b,empty.width,empty.height)
             save_ppm(args.out/'stacked.ppm',empty.width,empty.height,b)
             node.destroy_subscription(subscriber)
             wait(lambda:node.count_subscribers('/restaurant/rgbd/image')==0,
@@ -123,7 +136,11 @@ def run(args):
                     'stacked_image_sha256':hashlib.sha256(b).hexdigest(),
                     'background_changed_fraction':round(empty_noise,6),
                     'fixture_changed_fraction':round(delta,6),
-                    'fixture_visible':bool(delta>.003 and delta>empty_noise+.002),
+                    'visible_blue_empty':empty_blue,'visible_blue_stacked':new_blue,
+                    'visible_blue_rows':span,
+                    'fixture_visible':bool(delta>.003 and delta>empty_noise+.002 and
+                                           new_blue-empty_blue>=150 and
+                                           span is not None and span[1]-span[0]>=12),
                     'vision_ai_inference':'NOT_RUN',
                     'gazebo_renderer_idle':'NOT_VERIFIED'}
             (args.out/'s6_scene_evidence.json').write_text(

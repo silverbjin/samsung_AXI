@@ -42,6 +42,15 @@ def test_s6_world_launch_has_opt_in_preserving_s5_defaults():
     assert "DeclareLaunchArgument('spawn_y',default_value='-2.20')" in text
     assert "DeclareLaunchArgument('spawn_yaw',default_value='0')" in text
 
+def test_blue_at_image_edge_and_brown_shadow_are_not_valid_dishes():
+    m=load('scripts/s6_camera_scene_ci.py','s6_view')
+    w=h=32
+    edge=bytearray([0,0,0]*(w*h))
+    for y in range(8):
+        for x in range(16):edge[(y*w+x)*3:(y*w+x)*3+3]=bytes([0,100,240])
+    assert m.visible_blue(edge,w,h)[0]==0
+    assert m.visible_blue(bytes([45,35,30]*(w*h)),w,h)[0]==0
+
 def test_s6_image_difference_is_not_misrepresented_as_ai():
     m=load('scripts/s6_camera_scene_ci.py','s6_capture')
     assert m.diff_fraction(bytes([0,0,0]*4),bytes([255,255,255]*4))==1.0
