@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import xml.etree.ElementTree as ET
 import sys
+import subprocess
 import yaml
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -79,3 +80,22 @@ def test_nav_params_scan_only_preserves_official_source(tmp_path):
     assert voxel['scan']=={'topic':'scan','data_type':'LaserScan','marking':True,'clearing':True}
     assert 'rgbd' not in voxel
     assert d['collision_monitor']['ros__parameters']['observation_sources']==['scan']
+
+
+def test_s5_rgbd2_github_release_bootstrap_is_pinned_and_noninteractive_safe():
+    """No Gazebo, no Goal: release entry point must preserve human approval."""
+    script = ROOT / 'scripts/samsungaxi_s5_rgbd2_wsl2_l3_once.sh'
+    source = script.read_text()
+    assert "SOURCE_SHA='655677571aa907f0624640c3b71cc8edc43a1f53'" in source
+    assert '--s5-live --preflight-only' in source
+    assert '--s5-live --perf-rgbd2 --approve-goals' in source
+    assert 'YES-S5-LIVE-GOALS' in source
+    assert 'if [[ ! -t 0 ]]' in source
+    subprocess.run(['bash', '-n', str(script)], check=True)
+    probe = subprocess.run(['bash', str(script), '--self-test'],
+                           capture_output=True, text=True, check=True)
+    assert 'S5_RGBD2_RELEASE_BOOTSTRAP_SELF_TEST_PASS_NO_GOAL' in probe.stdout
+    blocked = subprocess.run(['bash', str(script)], stdin=subprocess.DEVNULL,
+                             capture_output=True, text=True, check=False)
+    assert blocked.returncode == 2
+    assert 'S5_RGBD2_BLOCKED_REQUIRES_INTERACTIVE_TTY_NO_GOAL' in blocked.stderr
