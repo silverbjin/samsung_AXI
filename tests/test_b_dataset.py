@@ -101,11 +101,15 @@ def test_collector_requires_physics_and_de_dupes(tmp_path):
     write_csv(manifest, [], FIELDS)
     with pytest.raises(ValueError, match='B_OBSERVATION_METADATA_REQUIRED'):
         collect(img, root, manifest, 'STABLE','scene-1','stack-1','GAZEBO_TRAY','OWNED','','tray_rgb')
-    row = collect(img,root,manifest,'STABLE','scene-1','stack-1','GAZEBO_TRAY','OWNED','settle-log-1','tray_rgb')
+    evidence = tmp_path / 'settle.log'
+    evidence.write_text('human-reviewed observation: tray remained level after simulation')
+    row = collect(img,root,manifest,'STABLE','scene-1','stack-1','GAZEBO_TRAY','OWNED',str(evidence),'tray_rgb')
     assert row['ground_truth'] == 'PHYSICS_OBSERVED'
+    cfg = json.loads(row['capture_config'])
+    assert cfg['physics_evidence_sha256'] == hashlib.sha256(evidence.read_bytes()).hexdigest()
     assert validate(load_manifest(manifest),root)['samples'] == 1
     with pytest.raises(ValueError, match='B_DUPLICATE_IMAGE'):
-        collect(img,root,manifest,'STABLE','scene-1','stack-1','GAZEBO_TRAY','OWNED','settle-log-1','tray_rgb')
+        collect(img,root,manifest,'STABLE','scene-1','stack-1','GAZEBO_TRAY','OWNED',str(evidence),'tray_rgb')
 
 
 def test_mock_fixture_end_to_end(tmp_path):
@@ -123,3 +127,19 @@ def test_scene_group_leak_guard(tmp_path):
     rows[0]['scene_id'] = rows[2]['scene_id']
     with pytest.raises(ValueError, match='B_SCENE_SPANS_STACKS'):
         validate(rows,tmp_path,allow_fixtures=True)
+
+
+def test_physics_reference_must_be_real_nonempty_independent(tmp_path):
+    image = tmp_path / 'capture.png'
+    Image.new('RGB', (32, 32), (20, 30, 40)).save(image)
+    manifest = tmp_path / 'm.csv'
+    write_csv(manifest, [], FIELDS)
+    with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_FILE_MISSING'):
+        collect(image,tmp_path,manifest,'STABLE','s','g','GAZEBO_TRAY','OWNED','missing.log','tray')
+    with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_NOT_INDEPENDENT'):
+        collect(image,tmp_path,manifest,'STABLE','s','g','GAZEBO_TRAY','OWNED',str(image),'tray')
+    blank = tmp_path / 'blank.log'
+    blank.touch()
+    with pytest.raises(ValueError, match='B_PHYSICS_EVIDENCE_EMPTY'):
+        collect(image,tmp_path,manifest,'STABLE','s','g','GAZEBO_TRAY','OWNED',str(blank),'tray')
+    assert load_manifest(manifest) == []

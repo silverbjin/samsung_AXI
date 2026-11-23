@@ -27,6 +27,19 @@ def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
         raise ValueError('B_OBSERVATION_METADATA_REQUIRED')
     if not image.is_file():
         raise ValueError('B_IMAGE_MISSING')
+    evidence_file = Path(evidence).expanduser().resolve()
+    if not evidence_file.is_file():
+        raise ValueError('B_PHYSICS_EVIDENCE_FILE_MISSING')
+    if evidence_file == image.resolve():
+        raise ValueError('B_PHYSICS_EVIDENCE_NOT_INDEPENDENT')
+    evidence_hash = hashlib.sha256()
+    evidence_bytes = 0
+    with evidence_file.open('rb') as source_file:
+        while chunk := source_file.read(1024 * 1024):
+            evidence_hash.update(chunk)
+            evidence_bytes += len(chunk)
+    if evidence_bytes == 0:
+        raise ValueError('B_PHYSICS_EVIDENCE_EMPTY')
     with Image.open(image) as img:
         rgb = ImageOps.exif_transpose(img).convert('RGB')
         # Fixed network contract; RGB, 224x224, bilinear resize without ROI guarantee.
@@ -48,7 +61,10 @@ def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
     row = {'sample_id': sid, 'scene_id': scene_id, 'stack_id': stack_id,
            'label': label, 'image_path': dest.relative_to(root).as_posix(),
            'source': source, 'capture_config': json.dumps(
-               {'camera': camera, 'physics_evidence': evidence, 'preprocess': 'RGB_224_FIT_BILINEAR'},
+               {'camera': camera, 'physics_evidence': str(evidence_file),
+                'physics_evidence_sha256': evidence_hash.hexdigest(),
+                'physics_evidence_size_bytes': evidence_bytes,
+                'preprocess': 'RGB_224_FIT_BILINEAR'},
                sort_keys=True, separators=(',', ':')),
            'license_status': license_status, 'ground_truth': 'PHYSICS_OBSERVED',
            'image_sha256': sha}
@@ -67,7 +83,7 @@ def main() -> None:
     p.add_argument('--source', choices=('GAZEBO_TRAY', 'REAL_TRAY'), required=True)
     p.add_argument('--license-status', choices=('OWNED', 'AUTHORIZED'), required=True)
     p.add_argument('--physics-evidence', required=True,
-                   help='operator log or Gazebo after-settling pose evidence; not proof by itself')
+                   help='existing nonempty operator/Gazebo settling evidence file; manual review still required')
     p.add_argument('--camera', required=True)
     a = p.parse_args()
     row = collect(a.image, a.root, a.manifest, a.label, a.scene_id, a.stack_id,
