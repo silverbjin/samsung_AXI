@@ -21,12 +21,16 @@ def generate_launch_description():
         DeclareLaunchArgument('params_file',default_value=params_default),
         DeclareLaunchArgument('bridge_config',default_value=os.path.join(here,'config','bridge.yaml')),
         DeclareLaunchArgument('vision_camera_offset_z',default_value='0'),
+        DeclareLaunchArgument('s6_gui_xcb',default_value='false'),
+        DeclareLaunchArgument('s6_gui_exit_shutdown',default_value='true'),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(here,'launch','world.launch.py')),
             launch_arguments={'robot_sdf':LaunchConfiguration('robot_sdf'),
                               'gui':LaunchConfiguration('gui'),
                               'bridge_config':LaunchConfiguration('bridge_config'),
-                              'vision_camera_offset_z':LaunchConfiguration('vision_camera_offset_z')}.items()),
+                              'vision_camera_offset_z':LaunchConfiguration('vision_camera_offset_z'),
+                              's6_gui_xcb':LaunchConfiguration('s6_gui_xcb'),
+                              's6_gui_exit_shutdown':LaunchConfiguration('s6_gui_exit_shutdown')}.items()),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(nav,'launch','bringup_launch.py')),
             launch_arguments={'slam':'False','map':LaunchConfiguration('map'),

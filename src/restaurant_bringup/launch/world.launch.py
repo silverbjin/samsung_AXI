@@ -6,7 +6,7 @@ publishes geometry_msgs/Twist, while the original Waffle Pi YAML says TwistStamp
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import AppendEnvironmentVariable, DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import AppendEnvironmentVariable, DeclareLaunchArgument, IncludeLaunchDescription, GroupAction, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -35,14 +35,25 @@ def generate_launch_description():
         DeclareLaunchArgument('spawn_y',default_value='-2.20'),
         DeclareLaunchArgument('spawn_yaw',default_value='0'),
         DeclareLaunchArgument('vision_camera_offset_z',default_value='0'),
+        # S6/WSLg opt-in only. S5 original GUI behavior is the default.
+        DeclareLaunchArgument('s6_gui_xcb',default_value='false'),
+        DeclareLaunchArgument('s6_gui_exit_shutdown',default_value='true'),
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.join(robotis, 'models')),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(gz_sim, 'launch', 'gz_sim.launch.py')),
             launch_arguments={'gz_args': ['-r -s -v2 ', world_file], 'on_exit_shutdown': 'true'}.items()),
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(gz_sim, 'launch', 'gz_sim.launch.py')),
+        GroupAction(
+            scoped=True,
             condition=IfCondition(gui),
-            launch_arguments={'gz_args': '-g -v2', 'on_exit_shutdown': 'true'}.items()),
+            actions=[
+                # Keep Qt workaround local to the Gazebo GUI launch scope.
+                SetEnvironmentVariable(name='QT_QPA_PLATFORM',value='xcb',
+                    condition=IfCondition(LaunchConfiguration('s6_gui_xcb'))),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(os.path.join(gz_sim,'launch','gz_sim.launch.py')),
+                    launch_arguments={'gz_args':'-g -v2',
+                        'on_exit_shutdown':LaunchConfiguration('s6_gui_exit_shutdown')}.items()),
+            ]),
         Node(package='robot_state_publisher', executable='robot_state_publisher',
              parameters=[{'robot_description': description, 'use_sim_time': True}], output='screen'),
         Node(package='ros_gz_sim', executable='create', name='waffle_pi_spawner',
