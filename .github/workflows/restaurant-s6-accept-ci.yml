@@ -1,7 +1,7 @@
 name: SAMSUNGAXI S6 real Gazebo Vision TABLE3 return integration
 on:
   push:
-    branches: [feature/s6-vision-flow-20261123]
+    branches: [feature/s6-vision-flow-20261123, fix/s6-wslg-gui-opengl-cycle01-20261123, fix/s6-nav2-controlplane-stability-20261123]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,7 +26,9 @@ jobs:
           bash -n scripts/*.sh
           python3 -m pytest -q tests/test_s6_camera_contract.py \
             tests/test_s6_vision_ai.py tests/test_s6_flow_contract.py \
-            tests/test_s5_live_contract.py tests/test_s4_menu_contract.py
+            tests/test_s5_live_contract.py tests/test_s4_menu_contract.py \
+            tests/test_s6_wslg_first_failure.py tests/test_s6_wslg_gl_probe.py \
+            tests/test_s6_wslg_launch_contract.py tests/test_s6_nav2_controlplane.py
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -95,12 +97,13 @@ jobs:
             --out generated/s6/waffle.sdf --rgbd-rate-hz 2 --vision-camera-offset-z 0.65
           NAV="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
           python3 scripts/prepare_nav2_params.py --source "$NAV" \
-            --out generated/s6/nav2.yaml --auto-initial-pose
+            --out generated/s6/nav2.yaml --auto-initial-pose --s6-bt-ack-ms 200
           python3 - <<'PY'
           import yaml
           from xml.etree import ElementTree as ET
           v=yaml.safe_load(open('generated/s6/nav2.yaml'))['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
           assert v['observation_sources']=='scan' and 'rgbd' not in v
+          assert yaml.safe_load(open('generated/s6/nav2.yaml'))['bt_navigator']['ros__parameters']['default_server_timeout']==200
           s=ET.parse('generated/s6/waffle.sdf')
           assert s.findtext(".//sensor[@name='restaurant_registered_rgbd']/pose")=='0 0 0.650 0 0 0'
           assert s.findtext(".//sensor[@name='hls_lfcd_lds']/update_rate")=='10'

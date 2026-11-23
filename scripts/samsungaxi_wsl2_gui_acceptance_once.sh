@@ -77,9 +77,18 @@ finish() {
   local first phase run_id owner_sha authorized sent
   first="$(grep -Eo 'S5_BLOCKED_[A-Z0-9_]+|RESTAURANT_OWNER_BLOCKED_[A-Z0-9_]+|NAV_GOAL_NOT_SUCCEEDED_[A-Z0-9_]+:[0-9]+|NAV_GOAL_TIMEOUT_[A-Z0-9_]+|NAV_SENSOR_STALE_DURING_GOAL_[A-Z0-9_]+|BLOCKED_[A-Z0-9_]+' "$RUN" | head -n 1 || :)"
   [[ -n "$first" ]] || { if [[ "$RC" == 0 || "$RC" == 130 || "$RC" == 143 ]]; then first=NONE; else first=OWNER_NONZERO_EXIT; fi; }
+  # G04: inspect only the current run, not the preceding run's stale logs.
+  if [[ "${SAMSUNGAXI_S6_VISION:-0}" == 1 && -n "${SAMSUNGAXI_S5_RUN_ID:-}" ]]; then
+    current_launch="$WORKSPACE/generated/s5/$SAMSUNGAXI_S5_RUN_ID/s5_nav2_launch.log"
+    if [[ -f "$current_launch" ]] && grep -qF 'Failed to create OpenGL context' "$current_launch"; then
+      first=S6_GUI_OPENGL_CONTEXT_CREATE_FAILED
+    fi
+  fi
   phase=NONE
   if [[ "$first" != NONE ]]; then
-    if [[ "$first" == NAV_GOAL_* || "$first" == NAV_SENSOR_STALE_DURING_GOAL_* ]]; then
+    if [[ "$first" == S6_GUI_* ]]; then
+      phase=GAZEBO_GUI_INITIALIZATION
+    elif [[ "$first" == NAV_GOAL_* || "$first" == NAV_SENSOR_STALE_DURING_GOAL_* ]]; then
       phase=NAV2_ACTIVE_GOAL
     elif [[ "$first" == S5_BLOCKED_* || "$first" == RESTAURANT_OWNER_BLOCKED_* || "$first" == BLOCKED_* ]]; then
       phase=OWNER_PRELAUNCH
@@ -139,6 +148,17 @@ finish() {
   # Prior behavior mixed preceding runs' failures into this ZIP. Preserve
   # only the exact Owner/Core logs whose absolute paths were emitted by THIS
   # run.log; keep the compact prior-failure provenance out of fresh verdicts.
+  if (( S5_MODE )) && [[ -n "${SAMSUNGAXI_S5_RUN_ID:-}" ]]; then
+    current_dir="$WORKSPACE/generated/s5/$SAMSUNGAXI_S5_RUN_ID"
+    if [[ -f "$current_dir/s5_nav2_launch.log" ]]; then
+      tail -n 180 "$current_dir/s5_nav2_launch.log" > "$TMP/nav_launch_tail.txt" || :
+      grep -E 'gazebo-[0-9]|rviz2-[0-9]|process has died|Failed to create OpenGL context|shutting down' "$current_dir/s5_nav2_launch.log" |
+        tail -n 65 > "$TMP/gui_process_lifecycle.txt" || :
+    fi
+    if [[ -s "$current_dir/s6_table_rgb.ppm" ]]; then
+      cp "$current_dir/s6_table_rgb.ppm" "$TMP/s6_table_rgb.ppm" || :
+    fi
+  fi
   while IFS= read -r f; do
     [[ -f "$f" && "$f" == "$WORKSPACE/logs/"* ]] || continue
     echo "==== $f ====" >> "$TMP/owner_tails.txt"
@@ -232,7 +252,12 @@ for cmd in curl git python3 setsid timeout; do command -v "$cmd" >/dev/null || {
 if command -v glxinfo >/dev/null 2>&1; then
   GPU_PROBE="$(env -u LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA timeout 10 glxinfo -B 2>&1)" || GPU_PROBE=""
   printf '%s\n' "$GPU_PROBE" | grep -E 'OpenGL renderer|Accelerated|Device:' > "$TMP/gpu_probe.txt" || :
-  if [[ "$GPU_PROBE" == *D3D12* && "$GPU_PROBE" == *NVIDIA* && "$GPU_PROBE" == *"Accelerated: yes"* ]]; then
+  if [[ "${SAMSUNGAXI_S6_VISION:-0}" == 1 ]]; then
+    # G01 field log: glxinfo D3D12 succeeded but Gazebo Qt context crashed.
+    # Do NOT force a different renderer merely from a successful glxinfo.
+    # Leave user's inherited process environment untouched for S6 GUI A/B.
+    echo 'S6_WSLG_GPU_ROUTE=INHERITED_NO_D3D12_AUTO_OVERRIDE'
+  elif [[ "$GPU_PROBE" == *D3D12* && "$GPU_PROBE" == *NVIDIA* && "$GPU_PROBE" == *"Accelerated: yes"* ]]; then
     unset LIBGL_ALWAYS_SOFTWARE
     export GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA
     echo 'SAMSUNGAXI_WSLG_GPU_ROUTE=D3D12_NVIDIA_ACCELERATED'

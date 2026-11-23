@@ -98,7 +98,20 @@ def run(args):
                 state['map_to_odom']=True
             if t.header.frame_id=='odom' and t.child_frame_id in ('base_footprint','base_link'):
                 state['odom_to_base']=True
+    gui_scan_last=[0.]
     def spin_once(timeout=.25):
+        # GUI crash no longer silently shuts down all Nav2 nodes in S6,
+        # but it MUST fail closed: a missing GUI is not a visual acceptance.
+        if args.s6_vision and args.gui and time.monotonic()-gui_scan_last[0]>.7:
+            gui_scan_last[0]=time.monotonic()
+            if args.log.is_file():
+                with args.log.open('rb') as stream:
+                    stream.seek(max(0,stream.seek(0,2)-65536))
+                    launch_tail=stream.read().decode('utf-8','replace')
+                if 'Failed to create OpenGL context' in launch_tail:
+                    raise RuntimeError('S6_GUI_OPENGL_CONTEXT_CREATE_FAILED')
+                if '[gazebo-2] Aborted (core dumped)' in launch_tail:
+                    raise RuntimeError('S6_GUI_PROCESS_ABORTED')
         if proc.poll() is not None:raise RuntimeError('S3_NAV2_LAUNCH_EXITED:'+str(proc.returncode))
         rclpy.spin_once(node,timeout_sec=timeout)
     def wait(fn,seconds,label):
@@ -115,9 +128,18 @@ def run(args):
                      'map:='+str(args.map.resolve()),
                      'params_file:='+str(args.params.resolve())]
             if args.s6_vision:
+                # S6 control-plane robustness: stagger official Nav2 lifecycle
+                # burst until Gazebo/ROS bridge has warmed up.
+                nav_cmd.append('s6_stagger_nav_start:=true')
                 nav_cmd.append('bridge_config:='+str((
                     repo/'src/restaurant_bringup/config/bridge_vision_on_demand.yaml').resolve()))
                 nav_cmd.append('vision_camera_offset_z:=0.65')
+                if args.gui:
+                    # S6 only: Qt official XCB workaround and independent GUI
+                    # lifecycle. The Gazebo *server* keeps exit shutdown.
+                    nav_cmd.extend(['s6_gui_xcb:=true',
+                                    's6_gui_exit_shutdown:=false'])
+                    print('S6_WSLG_GUI_XCB_SCOPED_AND_SERVER_EXIT_OWNERSHIP_PRESERVED',flush=True)
             proc=subprocess.Popen(nav_cmd,stdout=out,stderr=subprocess.STDOUT,
                                   start_new_session=True,env=os.environ.copy())
             rclpy.init(args=None);started=True

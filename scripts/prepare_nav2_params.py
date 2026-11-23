@@ -9,7 +9,18 @@ from pathlib import Path
 import yaml
 
 
-def build(src:Path,dst:Path,auto_initial_pose=False):
+def apply_s6_ack_ms(params,ms):
+    """S6-only BT action-server *acknowledgement* timeout; no safety relaxation."""
+    if ms is None:return params
+    if not isinstance(ms,int) or not 20<=ms<=500:
+        raise ValueError('S6_BT_ACK_TIMEOUT_OUT_OF_BOUNDS')
+    bt=params.get('bt_navigator',{}).get('ros__parameters',{})
+    if 'default_server_timeout' not in bt:
+        raise RuntimeError('S6_BT_DEFAULT_SERVER_TIMEOUT_MISSING')
+    bt['default_server_timeout']=ms
+    return params
+
+def build(src:Path,dst:Path,auto_initial_pose=False,s6_bt_ack_ms=None):
     params=yaml.safe_load(src.read_text())
     voxel=params['local_costmap']['local_costmap']['ros__parameters']['voxel_layer']
     # Keep the official LaserScan source and its existing marking/clearing and
@@ -46,6 +57,7 @@ def build(src:Path,dst:Path,auto_initial_pose=False):
     # Explicitly declare Jazzy Twist behavior and the single collision-monitor output.
     params['controller_server']['ros__parameters']['enable_stamped_cmd_vel']=False
     params['collision_monitor']['ros__parameters']['enable_stamped_cmd_vel']=False
+    apply_s6_ack_ms(params,s6_bt_ack_ms)
     dst.parent.mkdir(parents=True,exist_ok=True)
     dst.write_text('# Official Nav2 Jazzy params with MINIMAL restaurant overlay.\n'
                    + yaml.safe_dump(params,sort_keys=False))
@@ -57,6 +69,9 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--auto-initial-pose',action='store_true')
-    a=p.parse_args();build(a.source,a.out,auto_initial_pose=a.auto_initial_pose)
+    p.add_argument('--s6-bt-ack-ms',type=int,default=None)
+    a=p.parse_args()
+    build(a.source,a.out,auto_initial_pose=a.auto_initial_pose,
+          s6_bt_ack_ms=a.s6_bt_ack_ms)
 
 if __name__=='__main__':main()

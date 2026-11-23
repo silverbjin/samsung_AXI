@@ -124,6 +124,10 @@ if [[ "$MODE" == navigation || "$MODE" == live ]]; then
 fi
 [[ -s "$MAP" ]] || { echo "BLOCKED: $MAP missing. Run mapping and save a real map first."; exit 2; }
 NAV_SRC="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+if [[ "$MODE" == live && "${SAMSUNGAXI_S6_VISION:-0}" == 1 ]]; then
+  NAV_AUTO_ARGS+=(--s6-bt-ack-ms 200)
+  echo 'S6_NAV2_BT_FOLLOWPATH_ACK_TIMEOUT_MS=200'
+fi
 python3 "$ROOT/scripts/prepare_nav2_params.py" --source "$NAV_SRC" --out "$ROOT/generated/nav2_params.yaml" "${NAV_AUTO_ARGS[@]}" | tee -a "$RUNLOG"
 if [[ "$MODE" == live ]]; then
   [[ "${SAMSUNGAXI_S5_GOALS_APPROVED:-}" == YES-S5-LIVE-GOALS ]] || {
