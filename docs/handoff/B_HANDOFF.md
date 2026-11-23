@@ -1,7 +1,7 @@
 # SmartDish B → C/E 핸드오프 (2026-11-23)
 
 - 저장소: `silverbjin/samsung_AXI`; base `main@2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`.
-- B 브랜치: `feat/smartdish-b-dataset`. 정확한 HEAD: `git rev-parse HEAD` 또는 GitHub 브랜치에서 조회. Draft PR: GitHub 본문 확인.
+- B 브랜치: `feat/smartdish-b-dataset`. [Draft PR #37](https://github.com/silverbjin/samsung_AXI/pull/37) → `main` (병합 금지). **검증된 코드 SHA** `32722c3a7e5361d20659e7116894c35b89b629d2`; 최종 HEAD는 문서 보강 커밋 때문에 다를 수 있으므로 GitHub PR head 및 `git rev-parse HEAD` 확인.
 - B 소유: 데이터 카탈로그/스키마, 적재 안정성 라벨 정의, 수집기, 품질 검사, 스택 그룹별 재현 분할.
 - C 소유: 학습/추론, `STABLE/UNSTABLE/UNKNOWN` 반환, 정확도·threshold·정규화 결정.
 - 데이터 카드: [`ai/docs/DATASET_CARD_KO.md`](../../ai/docs/DATASET_CARD_KO.md)
@@ -9,6 +9,7 @@
 - 라벨: `STABLE=0`, `UNSTABLE=1`; `UNKNOWN`은 추론 상태이며 **학습 라벨 아님**.
 - 입력: PNG RGB 224×224; PIL EXIF 보정, RGB 변환, `ImageOps.fit` BILINEAR. `capture_config` 확인; C의 학습 및 추론 정규화 동일 적용.
 - 현재 실제 데이터 수: **0**, 재배포 승인된 실제 트레이 이미지: **0**, DACON ZIP 다운로드/검수: **NOT_RUN**. 합성 fixture 6개는 `MOCK_ONLY`.
+- 검증: 로컬 `10 passed in 0.22s`, [GitHub Push CI #45120166614](https://github.com/silverbjin/samsung_AXI/actions/runs/45120166614) `10 passed in 0.17s`, [PR CI #45120198336](https://github.com/silverbjin/samsung_AXI/actions/runs/45120198336) PASS.
 - 현실적 블로커: A의 트레이 지향 실제 카메라/물리 장면 및 운영자 확인 라벨, C와 1장 실물 샘플 합동 검토.
 
 ## C 담당 재현 명령
