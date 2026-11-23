@@ -36,5 +36,11 @@ Gazebo rgbd_camera → 새로운 S6용 `ros_gz_bridge` lazy Image/CameraInfo →
 
 ## 7. 상태
 - L0 계약: PASS (Run #45096063527, 정확한 SHA는 해당 Run 기록)
-- L2 실제 이미지: 실행 중 / 최종 아티팩트 분석 전
-- WSL2 L3: NOT_RUN
+- L2 실제 이미지: PASS (Run #45096925265, 영상 원본 검사 완료)
+- WSL2 L3: NOT_RUN (GPU·GUI 확인 전)
+
+## 8. 정량 실증 및 아직 검증하지 않은 항목
+- L0 센서 안전 계약 PASS. 기존 `/scan`, `/odom`, `/tf`, `/cmd_vel` 등 원본 브리지 설정의 동등성을 확인했습니다.
+- L2: 로봇의 실제 Scan 31개, RGB 구독 생성 이전 0명, 테이블 접근 뒤 RGB 프레임 수신, `destroy_subscription` 이후 0명, Depth/PointCloud2 ROS 토픽 비브리지. `S6_CAMERA_01_LAZY_RGB_REQUEST_PASS_NO_GOAL`.
+- **CameraInfo 실제 메시지 수신/렌더러 OFF/CPU·GPU 절감은 별도로 직접 측정하지 않았습니다.** 설정 계약 PASS를 물리 센서 전원 차단 PASS로 과장하면 안 됩니다.
+- 실제 Gazebo 이미지의 PPM/JSON은 위 Run #45096925265 Artifact #14782884713을 사용합니다.

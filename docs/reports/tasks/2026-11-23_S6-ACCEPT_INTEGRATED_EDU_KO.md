@@ -34,4 +34,14 @@ Vision은 부족한 영상/다른 크기/유사도 부족/모델 누락에서 UN
 - S5 기능 PASS는 보존하며 S6 최종 L3 미완료 시 main 병합은 HOLD합니다.
 
 ## 5. 현재 상태
-L0=NOT_RUN / L2=NOT_RUN / L3=NOT_RUN. 증거 Run ID와 SHA는 실제 검증 후 보고서에 추가합니다.
+L0=PASS(21/21), L1=PASS, 실제 Gazebo L2=PASS, WSL2 L3=NOT_RUN, RTF 90%=HOLD. 검증 SHA `937fbf025cefec01489c40bc5104c39e3d4709be`, CI #45098202033.
+
+## 6. 실제 Gazebo 최종 L2 Evidence (2026-11-23)
+- RED: CI #45097635540 (TABLE_3 도착 뒤 선속도 약 0.11m/s, NO_RETURN/HOLD 확인).
+- GREEN: [CI #45098202033](https://github.com/silverbjin/samsung_AXI/actions/runs/45098202033) at `937fbf025cefec01489c40bc5104c39e3d4709be`. L0 21/21, L1 source scan-only/robot camera 0.65m PASS, L2 actual Gazebo PASS.
+- TTY 12.021초 운영자 승인 모의 후 실제 Goal 2개: TABLE_3 SUCCEEDED 5.156m, AMCL 오차 0.234m; PICKUP_RETURN SUCCEEDED 5.090m, AMCL 오차 0.127m.
+- 3개 실제 RGB 프레임, SHA `ea9e250feb97593b6a8e0e72fe4ae6cafa66d2ade33358dccd286fe41bc0eb49`, Vision STACKED confidence `0.6635`, 허가 이후에만 복귀 Goal.
+- NORMAL/SOUP p75 0.23/0.11m/s, 장애물 LiDAR 29점, CM STOP, 최종 `/cmd_vel` 절댓값 최대 `0.0m/s`(68개 표본), 정지 중 Odom `0m`.
+- 원본 JSON+PPM+[CI Artifact #14784278251](https://github.com/silverbjin/samsung_AXI/actions/runs/45098202033/artifacts/14784278251).
+- 식기 모델은 테이블 도착 후 시뮬레이션 fixture로 삽입된 교육 시나리오입니다. 실제 현장 식기를 대상으로 한 검증은 아닙니다.
+- **최종 인수 및 main 병합은 HOLD**: 강사 WSL2 동일 SHA L3 원본 ZIP과 GUI 육안 확인 전에는 `S6=ACCEPTED`로 승격하지 않습니다.

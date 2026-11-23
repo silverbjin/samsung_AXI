@@ -1,7 +1,7 @@
 # S6-FLOW-01 — TABLE_3 도착·Vision 식기 확인·복귀 상태기계 중간 보고서
 
 - 날짜 2026-11-23 / 브랜치 feature/s6-vision-flow-20261123
-- 구현 단계: ROS 비의존 상태기계·실패 폐쇄 테스트 작성. **Gazebo 통합/WSL2 검수 전.**
+- 구현 단계: ROS 비의존 상태기계·실패 폐쇄 테스트 작성. **실제 Gazebo 통합 L2 PASS, WSL2 L3 미검수.**
 
 ## 1. 요구사항
 기존 S5 자동 복귀는 첫 NavigateToPose(TABLE_3) 성공 직후 두 번째 Goal을 보냅니다. S6에서는 TABLE_3 Action SUCCEEDED와 로봇 정지 확인 뒤 카메라 구독을 시작하며, 실제 Vision AI가 STACKED로 판단했을 때만 PICKUP_RETURN을 보냅니다.
@@ -26,4 +26,11 @@
 - 기존 S5 배달·복귀·STOP PASS 재사용. 성공한 S5 실행을 무리하게 수정하거나 반복 검수하지 않습니다.
 
 ## 6. 판정
-코드 일부 구현 / L0 NOT_RUN / L2 NOT_RUN / L3 NOT_RUN / RTF 90% HOLD.
+코드 통합 구현 / L0 PASS / 실제 Gazebo L2 PASS / 강사 WSL2 L3 NOT_RUN / RTF 90% HOLD.
+
+## 7. RED→GREEN 실제 물리 정지 게이트 회고
+- RED Run #45097635540: TABLE_3 Action SUCCEEDED, Odom 5.158m 후 실제 Odom 속도 `0.1099m/s`가 남아 있어 `S6_VISION_HOLD_NO_RETURN_GOAL`로 실패 처리. **이 실패에서 복귀 Goal은 전송되지 않았습니다.**
+- 원인 경계: Nav2 Action 성공 통지 직후 실제 베이스는 감속 완료 전일 수 있습니다. 이를 처리하기 위해 새로운 Odom 콜백을 최대 10초 관측하고 선속도 절댓값 `≤0.025m/s`, 0.65초 이상 정지, 위치 변화 `≤0.012m`를 확인하도록 개선.
+- GREEN Run #45098202033, SHA 937fbf0: Odom 속도 `0.1117→0.1081→…→0.0082→0`으로 실제 감속. RGB 프레임 3개를 도착 후 수신, STACKED 판정 후에만 PICKUP_RETURN Goal 전송.
+- 검증: `real_nav_legs` 2개 모두 Nav2 Action 상태 4(SUCCEEDED), TABLE_3 Odom 5.156m·AMCL 오차 0.234m / PICKUP_RETURN Odom 5.090m·오차 0.127m.
+- 훈련생은 모의 API 성공과 물리적 상태의 차이, 느린 DDS/Callback 상태의 최신성, 상태 전이 race condition의 검증 필요성을 배웁니다.

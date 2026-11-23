@@ -2,7 +2,7 @@
 
 - 날짜: 2026-11-23 / 브랜치: `feature/s6-00-camera-01-20261123`
 - 기초 상태: S5 LiDAR 단독 Costmap, 배달·복귀·STOP 현장 검수 PASS 보존
-- 구현 상태: 시연용 식기 fixture와 opt-in 장면 접근 pose 구현, **실제 이미지 인수 전**.
+- 구현 상태: 시연용 식기 fixture와 opt-in 장면 접근 pose 구현, **실제 이미지 L2 검수 완료 (SHA ca6781cb)**.
 
 ## 1. 문제 정의
 기존 `restaurant.sdf`에는 TABLE_3 테이블만 있고 접시는 없습니다. 식기 데이터 없이 Vision AI 모델을 시연하면 결과의 원본이 존재하지 않습니다.
@@ -21,7 +21,14 @@
 - L0: 식기 개수·물리 형상·위치·SDF XML 계약 검증
 - L2: 빈 테이블과 접시 3장의 실제 Gazebo `sensor_msgs/Image` 원본을 PPM으로 확보, 픽셀 변화 및 각 SHA256 비교
 - 실패 시: RGB 카메라 높이/방향, TABLE_3 위치, 접시가 전면에서 테이블 벽에 가려지는지를 먼저 확인
-- 성공 문자열: `S6_00_REAL_GAZEBO_DISH_VISIBLE_PASS` (**현재 NOT_RUN**)
+- 성공 문자열: `S6_00_REAL_GAZEBO_DISH_VISIBLE_PASS` (실제 L2 PASS: Run #45096925265)
 
 ## 5. 판정
-코드 작성=완료 / L0=미확인 / 실제 L2=미확인 / WSL2 L3=미실행 / RTF 90% 목표=HOLD.
+코드 작성=완료 / L0=PASS / 실제 Gazebo L2=PASS / WSL2 L3=NOT_RUN / RTF 90% 목표=HOLD.
+
+## 6. 실제 L2 RED→GREEN 및 교육용 관찰 결과
+- 첫 실증 Run #45096146332는 파란 접시의 실질적 가시성이 나빴습니다. 픽셀 변화 약 3.4%는 주로 그림자였으므로 이미지 학습 준비 PASS로 승격하지 않았습니다.
+- 수정: S6 전용 카메라 높이 오프셋 0.65m와 광학 TF 일치, 이미지 내부 파란 테두리 픽셀 및 세로 높이를 함께 측정하도록 검증 기준 강화. **원본 S5 카메라는 변경하지 않았습니다.**
+- 정상 Run #45096925265, SHA ca6781cb32975cdde0951d1a3284e097ae245123: 실제 320×240 RGB 이미지 2장, 빈 테이블 테두리 0픽셀, 접시 410픽셀, 세로 행 91~108, 총 픽셀 차이 약 4.25%, 실제 LiDAR 31개 표본.
+- 원본 Artifact: https://github.com/silverbjin/samsung_AXI/actions/runs/45096925265/artifacts/14782884713
+- 교육 질문: 같은 이미지를 보고 색상 픽셀이 늘어난 사실만으로 AI 분류 정확도를 주장할 수 있을까요? 아니요. 시점 가시성과 모델 판정은 별도의 검증 단위입니다.
