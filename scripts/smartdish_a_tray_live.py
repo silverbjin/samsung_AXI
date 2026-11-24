@@ -259,7 +259,10 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                     observation_end_ns=observation_end_ns,
                     pose_at_capture_ns=pose_at_capture_ns,
                     image_stamp_samples=state["frame_stamps"])
-        verify_timing(**timing)
+        # Explicit mapping from *evidence schema* keys to verify_timing()
+        # positional API: capture_ns, start_ns, end_ns, pose_ns, frame_ns.
+        verify_timing(stamp, observation_start_ns, observation_end_ns,
+                      pose_at_capture_ns, state["frame_stamps"])
         sha,sz=digest(physics)
         summary={
             "trial_id":config["trial_id"],"scene_id":scenario,"seed":seed,

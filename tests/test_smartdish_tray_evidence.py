@@ -49,6 +49,12 @@ def test_pose_requires_true_entity_name_and_normalized_rotation():
         pose_from_transform(t)
 
 
+def test_valid_time_alignment_contract():
+    assert verify_timing(200_000_000, 210_000_000, 10_310_000_000,
+                         202_000_000, [200_000_000,400_000_000,
+                                       600_000_000]) is None
+
+
 def test_reject_empty_evidence_and_hash_drift(tmp_path):
     with pytest.raises(ValueError,match="EMPTY_OR_MISSING"):
         verify_trial(tmp_path)

@@ -33,6 +33,8 @@ def test_only_new_branch_and_unmodified_control():
     assert "p.set_defaults(gui=True)" in runner
     assert "SMARTDISH_A_TRAY_SOURCE_SHA" in s and "SMARTDISH_A_TRAY_SOURCE_SHA" in sh
     assert "pause: true multi_step: 5" in runner
+    assert "verify_timing(**timing)" not in runner
+    assert "verify_timing(stamp, observation_start_ns, observation_end_ns" in runner
     assert 'rclpy.init(args=None,domain_id=int(env["ROS_DOMAIN_ID"]))' in runner
     assert 'gz_call(env,WORLD,"pause: false")' in runner
     assert "save_unlabelled_frame" in runner
