@@ -138,7 +138,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             handles.append(handle)
             procs.append(subprocess.Popen(["gz","sim","-g","-v2"],env=env,
                          stdout=handle,stderr=subprocess.STDOUT,start_new_session=True))
-        rclpy.init(args=None)
+        # The ROS node must share the exact DDS domain with the per-trial
+        # bridge. A subprocess env alone does NOT change this parent's rclpy.
+        rclpy.init(args=None,domain_id=int(env["ROS_DOMAIN_ID"]))
         initialized=True
         node=rclpy.create_node("smartdish_tray_capture_"+str(os.getpid())+"_"+str(index))
         node.create_subscription(Image,TOPIC,image_cb,qos_profile_sensor_data)
