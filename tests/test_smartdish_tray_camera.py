@@ -60,6 +60,10 @@ def test_bridge_only_gazebo_to_ros_and_c_b_compat():
     assert names[INFO_TOPIC]["ros_type_name"] == "sensor_msgs/msg/CameraInfo"
     assert names["/smartdish/tray/poses"]["gz_type_name"] == "gz.msgs.Pose_V"
     assert all(x["direction"] == "GZ_TO_ROS" for x in cfg)
+    for i in (1,2,3):
+        topic="/smartdish/tray/pose/dish_%02d"%i
+        assert names[topic]["gz_topic_name"]=="/smartdish/tray/gz_pose/dish_%02d"%i
+        assert names[topic]["ros_type_name"]=="tf2_msgs/msg/TFMessage"
     b = (ROOT / "ai/scripts/capture_tray_ros.py").read_text()
     c = (ROOT / "src/smartdish_ai/smartdish_ai/stability_inference_node.py").read_text()
     assert TOPIC in b and TOPIC in c

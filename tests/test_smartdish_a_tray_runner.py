@@ -52,7 +52,8 @@ def test_real_physics_and_image_required_no_mock_success():
     assert "A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE" in src
     assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in src
     assert "GZ_IMAGE_TOPIC_ADVERTISED" in src
-    assert "A13_GAZEBO_DYNAMIC_POSE_BRIDGE_NO_DISH" in src
+    assert "A13_GAZEBO_NAMED_POSE_BRIDGE_NO_DISH" in src
+    assert '"/smartdish/tray/pose/"+name' in src
     assert "A13_TEN_SIM_SECONDS_OBSERVATION_TIMEOUT" in src
     assert "PHYSICS_OBSERVATION_PASS" in src
     assert 'ground_truth":"NOT_OPERATOR_APPROVED"' in src

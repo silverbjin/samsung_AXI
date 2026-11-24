@@ -144,8 +144,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         initialized=True
         node=rclpy.create_node("smartdish_tray_capture_"+str(os.getpid())+"_"+str(index))
         node.create_subscription(Image,TOPIC,image_cb,qos_profile_sensor_data)
-        node.create_subscription(TFMessage,"/smartdish/tray/poses",
-                                 poses_cb,qos_profile_sensor_data)
+        for name in dish_names:
+            node.create_subscription(TFMessage,"/smartdish/tray/pose/"+name,
+                                     poses_cb,qos_profile_sensor_data)
         node.create_subscription(Clock,"/clock",clock_cb,QoSProfile(depth=10))
         start=time.monotonic()
         while time.monotonic()-start<75:
@@ -188,7 +189,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         if (stamp<=0 or stamp>300_000_000 or state["sim_ns"]>320_000_000):
             raise RuntimeError("A13_PRE_EVENT_CAMERA_TOO_LATE_NO_VALID_TRAINING_INPUT")
         if not set(dish_names)<=set(state["poses"]):
-            raise RuntimeError("A13_GAZEBO_DYNAMIC_POSE_BRIDGE_NO_DISH")
+            raise RuntimeError("A13_GAZEBO_NAMED_POSE_BRIDGE_NO_DISH"
+                               + " actual="+str(sorted(state["poses"]))
+                               + " expected="+str(dish_names))
         if (int(msg.width),int(msg.height))!=(WIDTH,HEIGHT) or msg.encoding.lower() not in ("rgb8","bgr8"):
             raise RuntimeError("A13_LIVE_IMAGE_DIMENSION_OR_ENCODING_MISMATCH")
         if msg.header.frame_id!=FRAME:

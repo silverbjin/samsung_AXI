@@ -65,6 +65,17 @@ def plate_model(name, x, y, z, roll, pitch, radius, thickness, color):
     m = ET.Element("model", {"name": name})
     el(m, "static", "false")
     el(m, "pose", f"{x:.5f} {y:.5f} {z:.5f} {roll:.5f} {pitch:.5f} 0")
+    # Official Gazebo PosePublisher emits NAMED Pose_V with world-relative
+    # model transforms. SceneBroadcaster's dynamic_pose/info may omit TF
+    # frame names when bridged; never infer entity identity from array index.
+    pub=el(m,"plugin",filename="gz-sim-pose-publisher-system",
+           name="gz::sim::systems::PosePublisher")
+    el(pub,"publish_model_pose","true")
+    el(pub,"publish_nested_model_pose","true")
+    el(pub,"publish_link_pose","false")
+    el(pub,"use_pose_vector_msg","true")
+    el(pub,"update_frequency","20")
+    el(pub,"topic","/smartdish/tray/gz_pose/"+name)
     link = el(m, "link", name="body")
     el(link, "gravity", "true")
     inertial(link, MASS_KG, radius, thickness)
@@ -169,6 +180,11 @@ def validate_world(root, expected=None):
         raise ValueError("A12_DISH_FIXED_JOINT_FORBIDDEN")
     if any(x.find(".//inertial") is None or x.find(".//collision") is None for x in dish):
         raise ValueError("A12_MASS_OR_COLLISION_MISSING")
+    if any(x.findtext("./plugin[@name='gz::sim::systems::PosePublisher']/use_pose_vector_msg") != "true"
+           or x.findtext("./plugin[@name='gz::sim::systems::PosePublisher']/publish_nested_model_pose") != "true"
+           or x.findtext("./plugin[@name='gz::sim::systems::PosePublisher']/topic")
+           != "/smartdish/tray/gz_pose/"+x.attrib["name"] for x in dish):
+        raise ValueError("A12_GAZEBO_NAMED_POSE_PUBLISHER_MISSING")
     names = [x.attrib["name"] for x in dish]
     if len(set(names)) != len(names) or (expected is not None
                                         and names != [d["name"] for d in expected]):

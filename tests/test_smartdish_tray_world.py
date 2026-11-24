@@ -61,6 +61,11 @@ def test_world_has_sensor_ogre2_physics_and_pose_broadcaster():
     assert len(disks)==3
     for d in disks:
         assert d.findtext("static")=="false"
+        pub=d.find("./plugin[@name='gz::sim::systems::PosePublisher']")
+        assert pub is not None
+        assert pub.findtext("use_pose_vector_msg")=="true"
+        assert pub.findtext("publish_nested_model_pose")=="true"
+        assert pub.findtext("topic")=="/smartdish/tray/gz_pose/"+d.get("name")
         assert d.find("./link/collision/geometry/cylinder") is not None
         assert float(d.findtext("./link/inertial/mass"))>0
         assert d.find("./joint") is None

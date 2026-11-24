@@ -20,3 +20,21 @@
   ros_type_name: rosgraph_msgs/msg/Clock
   gz_type_name: gz.msgs.Clock
   direction: GZ_TO_ROS
+
+# Official Gazebo PosePublisher, unique topic per model; unlike
+# SceneBroadcaster /world/.../dynamic_pose/info, model names survive bridge.
+- ros_topic_name: /smartdish/tray/pose/dish_01
+  gz_topic_name: /smartdish/tray/gz_pose/dish_01
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+- ros_topic_name: /smartdish/tray/pose/dish_02
+  gz_topic_name: /smartdish/tray/gz_pose/dish_02
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+- ros_topic_name: /smartdish/tray/pose/dish_03
+  gz_topic_name: /smartdish/tray/gz_pose/dish_03
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
