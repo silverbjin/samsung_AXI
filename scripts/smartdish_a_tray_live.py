@@ -172,7 +172,14 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                     state["sim_ns"]>=int(state["frame"].header.stamp.sec)*1_000_000_000+
                                       int(state["frame"].header.stamp.nanosec)):
                     break
-            if state["frame"] is not None and set(dish_names)<=set(state["poses"]):
+            # Do not break on image+poses alone: /clock can lag the image
+            # callback by a few Gazebo physics steps in separate ROS topics.
+            # t2 observation_start must never be earlier than t1 capture.
+            if (state["frame"] is not None and
+                    set(dish_names)<=set(state["poses"]) and
+                    state["sim_ns"]>=
+                    int(state["frame"].header.stamp.sec)*1_000_000_000+
+                    int(state["frame"].header.stamp.nanosec)):
                 break
             if state["sim_ns"]>300_000_000:
                 break

@@ -38,6 +38,8 @@ def test_only_new_branch_and_unmodified_control():
     assert 'rclpy.init(args=None,domain_id=int(env["ROS_DOMAIN_ID"]))' in runner
     assert 'gz_call(env,WORLD,"pause: false")' in runner
     assert "save_unlabelled_frame" in runner
+    # Both the inner and outer break require /clock >= actual Image stamp.
+    assert runner.count('int(state["frame"].header.stamp.sec)*1_000_000_000+')>=2
     assert "ROBOT_ONLY" not in runner
     assert "smartdish_a_tray_evidence.tar.gz" in runner
     assert all(token not in s+runner+sh for token in ("pkill", "killall", "rm -rf", "git reset --hard"))
