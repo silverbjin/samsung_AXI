@@ -99,3 +99,23 @@
 - 2026-11-23 SMARTDISH-A-10 — [WSL2 원샷 기본 GUI로 전환](reports/tasks/2026-11-23_SMARTDISH-A-10_GUI_DEFAULT_RELEASE_EDU_KO.md), 코드 `7d110ece67096151daff7bf351420952b18a9a66`; 명시적 `--headless` 보존, 교육용 실패 경계 테스트 추가, Gazebo 주행 코드 불변.
 - 2026-11-23 SMARTDISH-A-to-E — [A 인수 완료 이후 E 통합 실행 계획](handoff/A_TO_E_INTEGRATION_PLAN_20261123_KO.md): 독립 A Gazebo 재검 대신 A+D AI OFF 실제 FSM/동일 요청/10초/5초/COMPLETED 1회 우선, B/C 선택형 AI 병렬 추진. 기존 S7 main 미병합.
 - 2026-11-23 SMARTDISH-A-10-GUI-DEFAULT-CI — [Actions #45132140083](https://github.com/silverbjin/samsung_AXI/actions/runs/45132140083) L0 45 PASS 및 ROS Jazzy L1 PASS; GUI 기본값 코드 SHA `7d110ece67096151daff7bf351420952b18a9a66`와 동일한 실행기, 추가 변경 문서만. A-09 WSL2 현장 3-leg PASS 유지, D 실제 AI OFF 통합 NOT_RUN.
+
+
+## SmartDish B 교육·디버깅 이력 (E 통합시 충돌 보존)
+
+
+## SmartDish B 담당 데이터 개발 색인 (2026-11-23)
+- B-01 라벨/이용조건/스키마 계약: [작업 보고서](reports/tasks/2026-11-23_B-01_label_source_contract.md) — 문서 확인 PASS / 실제 데이터 0건.
+- B-02 수집기/형식 검증: [작업 보고서](reports/tasks/2026-11-23_B-02_collect_ingest.md) — 로컬 fixture 테스트 PASS / Gazebo 트레이 NOT_RUN.
+- B-03 그룹 분할·C 핸드오프: [작업 보고서](reports/tasks/2026-11-23_B-03_group_split_handoff.md), [디버깅 B-DEBUG-01](reports/issues/2026-11-23_B-DEBUG-01_validation_error_priority.md) — pytest 10/10 PASS, 실제 데이터 NOT_RUN.
+- B-04 데이터 계약 CI: [작업 보고서](reports/tasks/2026-11-23_B-04_ci_contract_gate.md) — GitHub Actions 실제 Run 결과는 보고서에서 추적.
+
+- 2026-11-23 **B-06 / 물리 근거 파일 무결성 RED→GREEN**: [작업 보고서](reports/tasks/2026-11-23_B-06_physics_evidence_integrity.md), [B-DEBUG-02](reports/issues/2026-11-23_B-DEBUG-02_unverified_evidence_reference.md) — 미존재 증거 이전 오수용 재현, 최소 수정·로컬 재검 PASS, 물리 라벨 NOT_RUN.
+- 2026-11-23 **B-05 / 트레이 RGB 무라벨 캡처 도구**: [작업 보고서](reports/tasks/2026-11-23_B-05_tray_rgb_readonly_capture.md), [초심자 실행 가이드](../ai/docs/B_TRAY_CAPTURE_GUIDE_KO.md) — RGB/BGR 이미지 계약 테스트 PASS, 실제 ROS/Gazebo 카메라 NOT_RUN.
+
+- 2026-11-23 **B-07 물리 증거 재검/DRIFT 차단**: [개발 보고서](reports/tasks/2026-11-23_B-07_evidence_reaudit.md), [RED→GREEN B-DEBUG-03](reports/issues/2026-11-23_B-DEBUG-03_evidence_drift.md). 로컬 19 PASS, 실제 트레이 NOT_RUN. GitHub CI 결과는 PR #37에서 추적.
+
+- 2026-11-23 **B-08 원자적 수집/CSV 롤백**: [작업 보고서](reports/tasks/2026-11-23_B-08_atomic_intake.md), [B-DEBUG-04](reports/issues/2026-11-23_B-DEBUG-04_orphan_ingest.md). 로컬 23 PASS, 실제 Gazebo/모델 NOT_RUN. 원격 CI는 PR #37에 기록.
+
+- 2026-11-23 **B-09 더미/실데이터 격리**: [개발 보고서](reports/tasks/2026-11-23_B-09_mock_real_isolation.md), [B-DEBUG-05](reports/issues/2026-11-23_B-DEBUG-05_mock_real_mix.md). 혼합 fixture RED → 로컬 25 PASS. 실제 데이터/학습 NOT_RUN.
+- 2026-11-23 **B-08R 동시 등록 및 고아 파일 복구 최소 보강**: [작업 보고서](reports/tasks/2026-11-23_B-08R_writer_lock_orphan_recovery.md) / [B-DEBUG-06](reports/issues/2026-11-23_B-DEBUG-06_concurrent_orphan_recovery.md) — 로컬 30/30 PASS, 실제 트레이 데이터 및 ROS NOT_RUN, 원격 CI 결과는 PR #37에서 추적.
