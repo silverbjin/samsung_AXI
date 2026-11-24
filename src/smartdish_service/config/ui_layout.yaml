@@ -1,0 +1,13 @@
+# UI-only geometry, source artwork recreation. NEVER interpreted as map x/y/yaw.
+frame: ui_pixels
+canvas: {width: 806, height: 460}
+tables:
+  T01: {rect: [55, 110, 215, 178], enabled: false}
+  T02: {rect: [325, 110, 485, 178], enabled: false}
+  T03: {rect: [585, 110, 745, 178], enabled: true}
+  T04: {rect: [55, 260, 215, 328], enabled: false}
+  T05: {rect: [325, 260, 485, 328], enabled: false}
+  T06: {rect: [585, 260, 745, 328], enabled: false}
+areas:
+  HOME: [40, 380, 290, 430]
+  DISH_RETURN: [480, 380, 770, 430]

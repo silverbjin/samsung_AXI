@@ -1,0 +1,78 @@
+name: SmartDish E A+D integration contract (NO_GAZEBO)
+on:
+  push:
+    branches: [integration/smartdish-mvp-20261209]
+  pull_request:
+    paths:
+      - "scripts/smartdish_e_*"
+      - "tests/test_smartdish_e_*"
+      - "src/smartdish_robot/**"
+      - "src/smartdish_service/**"
+      - ".github/workflows/smartdish-e-integration-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  l0-ad-contract:
+    name: E A+D L0 Python contract (MOCK_ONLY)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python and syntax contracts; no Nav2 fabricated PASS
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml python3-pil python3-numpy
+          python3 -m py_compile scripts/smartdish_e_live_witness.py
+          bash -n scripts/smartdish_e_wsl2_one_shot.sh
+          bash -n scripts/smartdish_e_wsl2_bootstrap.sh
+          python3 -m pytest -q \
+            tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py \
+            tests/test_smartdish_d_service.py tests/test_smartdish_d_ui.py \
+            tests/test_smartdish_e_contract.py tests/test_b_dataset.py \
+            tests/test_c_stability.py tests/test_s7_scene.py tests/test_s7_negative.py
+          echo SMARTDISH_E_ABCD_L0_CONTRACT_ONLY_PASS_NO_GAZEBO
+  l1-ros-packages:
+    name: E A+D L1 ROS Jazzy build and interface (NO_GOAL)
+    needs: l0-ad-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: ros:jazzy-ros-base-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official Nav2 and minimal build toolchain
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            python3-colcon-common-extensions python3-yaml python3-tk \
+            ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-nav-msgs ros-jazzy-sensor-msgs ros-jazzy-geometry-msgs
+      - name: Build A and D from same tree; verify ROS entry points
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --event-handlers console_direct+ \
+            --packages-select smartdish_robot smartdish_service smartdish_ai
+          set +u
+          source install/setup.bash
+          set -u
+          ros2 pkg executables smartdish_robot | grep -Fx 'smartdish_robot navigation_adapter'
+          ros2 pkg executables smartdish_service | grep -Fx 'smartdish_service smartdish_manager'
+          ros2 pkg executables smartdish_service | grep -Fx 'smartdish_service smartdish_ui'
+          ros2 pkg executables smartdish_ai | grep -Fx 'smartdish_ai stability_inference_node'
+          python3 - <<'PY'
+          from smartdish_robot.contract import parse_goal
+          from smartdish_service.mission_manager import MissionManager
+          assert parse_goal('{"request_id":"E-1","leg":"TO_TABLE","destination_id":"T03"}').leg == "TO_TABLE"
+          manager=MissionManager(ai_available=False)
+          assert manager.handle_request({"request_id":"E-1","table_id":"T03","table_wait_s":10,"dropoff_wait_s":5,"ai_enabled":False})
+          assert manager.drain()[-1][1]["destination_id"] == "T03"
+          print("SMARTDISH_E_AD_L1_ROS_BUILD_NO_GOAL_PASS")
+          PY
