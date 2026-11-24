@@ -1,6 +1,6 @@
 # SmartDish MVP — A/B/C/D 통합 인수 및 교육용 개발 보고서
 
-작성: 2026-11-24 / 책임: E 통합 / **결론: HOLD — main 미병합, WSL2_L3=NOT_RUN**
+작성: 2026-11-24 / 책임: E 통합 / **결론: AI OFF 실제 WSL2 L3 PASS / PR #44 main 배포 승인 (AI ON 별도 HOLD)**
 
 ## 1. 출처와 검증 대상
 - 기준: S7 main SHA **2dd7f968dd3d24e2afb48e0917ef8c9d054ac894**, PR [#35](https://github.com/silverbjin/samsung_AXI/pull/35).
@@ -66,7 +66,7 @@ E 관측기는 goal/result를 발행하거나 성공을 합성하지 않습니�
 
 성공 표식은 **SMARTDISH_E_AI_OFF_WSL2_L3_PASS**. 그렇지 않으면 HOLD입니다. ZIP: ~/samsung_AXI_E/generated/smartdish_e/<run_id>/smartdish_e_owner_evidence.tar.gz. summary.json, live_evidence.json, adapter/service/observer/nav2/build 로그를 제공합니다. 반드시 동일 request_id, NAV_RESULT SUCCEEDED 세 건, odom 이동, 10/5초 구분, UI COMPLETED 적용을 대조하십시오.
 
-**현재 실제 E WSL2 L3 결과: NOT_RUN**. A 단독 실증과 E 합성 테스트를 E 실제 인수 PASS로 대체하지 않습니다.
+**초기 출고 당시 E WSL2 L3 결과: NOT_RUN (아래 8절에서 현장 PASS로 갱신)**. A 단독 실증과 E 합성 테스트를 E 실제 인수 PASS로 대체하지 않습니다.
 
 ## 5. AI ON 선택 기능 상태
 - B의 label_map: STABLE=0, UNSTABLE=1. UNKNOWN은 판정 실패 상태로 학습 클래스가 아닙니다.
@@ -82,8 +82,8 @@ E 관측기는 goal/result를 발행하거나 성공을 합성하지 않습니�
 - D L0/L1 및 사용자 IDLE 화면: 원래 범위에서 PASS.
 - B/C 독립 계약 테스트와 C 모델 없는 DDS: 원래 범위에서 PASS.
 - E 신규 CI: [통합 E workflow](https://github.com/silverbjin/samsung_AXI/actions/workflows/smartdish-e-integration-ci.yml) — Python A/B/C/D 관련 계약과 ROS Jazzy 3패키지 빌드, NO_GOAL; 반드시 최종 커밋의 결과를 검사.
-- E 실제 AI OFF UI 3구간: **WSL2_L3=NOT_RUN / HOLD**.
-- main 릴리스: **MAIN_MERGED=false**. E→main Draft PR만 생성하고, 사용자 실제 E 증거 검수 또는 명시된 대체 승인 없이 merge하지 않습니다.
+- E 실제 AI OFF UI 3구간: **WSL2_L3=PASS** (8절 현장 원본 검수).
+- main 릴리스: PR #44의 현장 승인 조건 충족. 실제 병합 커밋과 상태는 [PR #44](https://github.com/silverbjin/samsung_AXI/pull/44) 참조.
 - 기능 동결 2026-12-07, 리허설 12-08, 발표 12-09. RTF 90%, UI 셰이더, 3회 반복, 모든 테이블, 모델 고도화, HW E-stop은 MVP 필수에서 제외합니다. SW STOP은 인증 HW E-stop이 아닙니다.
 
 ## 7. 주니어 개발자 학습 핵심
@@ -94,4 +94,30 @@ E 관측기는 goal/result를 발행하거나 성공을 합성하지 않습니�
 4. CI 첫 실패는 코드/환경 경계를 확인한 뒤 좁은 범위에서 조치합니다. 실제 Gazebo 반복이나 테스트 비활성화로 녹색을 만들지 않습니다.
 5. 현장에서는 첫 오류, SHA, 실제 Nav 결과, 이동, UI applied를 남겨 후속 인수가 문서만으로 추적 가능해야 합니다.
 
-**최종 상태: SMARTDISH_MVP=HOLD, AI_OFF_WSL2_L3=NOT_RUN, AI_ON=NOT_READY, MAIN_MERGED=false.**
+**최종 현장 판정: SMARTDISH_MVP_AI_OFF=PASS, AI_OFF_WSL2_L3=PASS, AI_ON=NOT_READY. main 배포는 PR #44에서 추적.**
+
+
+## 8. 2026-11-24 — E 실제 WSL2 L3 인수 완료
+
+- 원본: smartdish_e_owner_evidence.tar.gz, SHA256 9cb248c55331c0cf6b526dff2d1990053329e2d4a67f6c75f1c429fc3873af16. 사용자 원본 보관; 공개 저장소에는 개인 환경 로그 대신 비식별 검수 요약만 기록.
+- 실행 SHA: efedaf38aca421bcdd3056584483b9a85f00ba8b. UTC 완료: 2026-11-24 00:59:48. request_id REQ-0a470b5448f4. 실제 UI 클릭 1건, AI=false, 대기 10/5초, EXPLICIT_TTY 및 Nav2/scan/odom readiness 확인.
+- A Adapter 원본 goal/result 3건과 D Manager goal 3건, 독립 observer, UI APPLIED COMPLETED가 동일 ID로 일치. Nav2 lifecycle collision_monitor 활성화 기록 존재. 새 CM STOP fault 실험은 수행하지 않음.
+
+| leg | 실제 Nav2 | 이동 시간(s) | 최대 odom 변위(m) | odom 샘플 | scan 샘플 |
+|---|---|---:|---:|---:|---:|
+| TO_TABLE/T03 | SUCCEEDED | 22.464 | 5.256 | 672 | 135 |
+| TO_RETURN/DISH_RETURN | SUCCEEDED | 30.166 | 6.529 | 933 | 187 |
+| TO_HOME/HOME | SUCCEEDED | 19.248 | 1.950 | 550 | 110 |
+
+- 실제 결과 수신 → 다음 Goal 관측: 10.020s 및 5.037s. 첫 Goal → 최종 COMPLETED: 86.934s. 대기 카운트다운 및 UI applied 확인. 원본 summary exit_code=0, live verdict AI_OFF_REAL_RUN_PASS.
+- 요약 first_error=UNVERIFIED는 live_evidence.first_error=null 및 exit_code=0과 불일치. 성공 시 빈 오류를 UNVERIFIED로 채우는 요약 출력 결함으로 분리. 종료 SIGINT 이후 ROS context wait set 및 UI/Manager traceback은 종료 백로그. 성공 이전에 실패한 주행 증거 없음. 사용자 시각 QA 정책 유지. 정지 속도 별도 정량화/스크린샷은 이번 첨부에 없음.
+- 동일 실행 SHA의 실제 CI: [E PR #45298546837](https://github.com/silverbjin/samsung_AXI/actions/runs/45298546837) L0 117 PASS/L1 SUCCESS, [E Push #45298541121](https://github.com/silverbjin/samsung_AXI/actions/runs/45298541121) SUCCESS; [기존 Restaurant CI #45298546824](https://github.com/silverbjin/samsung_AXI/actions/runs/45298546824) SUCCESS; A #45298546676, B #45298546555, C #45298546764, D #45298546714 모두 SUCCESS.
+- 이번 기록은 문서만 변경; 위 실행 SHA의 런타임 파일은 그대로 유지. PR #44에서 main merge SHA 추적. 기존 S7 보호 자산 회귀 변경 없음. 사용자 main 배포 승인 확인.
+
+## 9. AI ON 후속 통합 (새 main 기준선에서 별도 작업)
+
+A+B: 트레이 전용 RGB 카메라와 물리적으로 관측 가능한 적재 fixture (기존 S7 world/센서 경로 보존) → B 실 프레임/독립 물리 기록 수집 → 사람 라벨·사용권 검토 → stack_id 그룹별 train/val/test 분할 (클래스별 독립 그룹 최소 3개는 파이프라인 하한이지 성능 기준 아님) → B 데이터 버전, 품질 보고서, manifest SHA 인계. 원본 파일은 승인된 비공개 저장소에 보관. B 현재 manifest 0행, split 0행; B08R/B09까지 계약 구현과 CI 30 PASS. B 코드는 이미 병합 대상이며 원래 브랜치 전체를 다시 병합할 필요 없음.
+
+C: B 최신 버전 read-only readiness → 운영자 실제 라벨/권리 승인 → ResNet18 frozen baseline → layer4+fc fine-tuning → validation 기준 모델/threshold 선정 → untouched test Accuracy/Macro-F1/confusion matrix 및 오류 샘플 → PHYSICS_OBSERVED checkpoint/SHA/Model Card → A 실제 RGB로 DDS 추론. C08 40 PASS 및 no-model UNKNOWN 2건/중복 0건 보존. model_path 현재 빈 문자열; mock checkpoint 운영 금지.
+
+D+E: 실제 트레이 RGB+모델+동일 request_id/capture_id 계약 검증 → STABLE 진행, UNSTABLE/UNKNOWN/timeout 직원 승인/중단 분기(승인 전 추가 Goal 금지) → 선택 AI ON 실제 시나리오 1회 및 AI OFF 회귀 → 새 통합 PR. 준비 미완료 시 12/07 동결은 AI OFF baseline으로 유지. 12/08 리허설, 12/09 발표. 안전 인증 주장 금지.
