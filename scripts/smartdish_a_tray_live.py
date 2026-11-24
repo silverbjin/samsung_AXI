@@ -81,14 +81,23 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
     node=None
     initialized=False
     state={"sim_ns":0,"frame":None,"frame_stamps":[],
-           "poses":{},"traces":[],"pose_times":{}}
+           "poses":{},"traces":[],"pose_times":{},
+           "image_callbacks_total":0,"image_zero_stamp":0,
+           "image_repeated_stamp":0,"image_first_seen_wall":None,
+           "image_last_stamp_ns":None}
     failure=None
 
     def image_cb(msg):
+        state["image_callbacks_total"]+=1
         stamp=int(msg.header.stamp.sec)*1_000_000_000+int(msg.header.stamp.nanosec)
+        state["image_last_stamp_ns"]=stamp
+        if state["image_first_seen_wall"] is None:
+            state["image_first_seen_wall"]=time.monotonic()
         if stamp<=0:
+            state["image_zero_stamp"]+=1
             return
         if state["frame_stamps"] and stamp<=state["frame_stamps"][-1]:
+            state["image_repeated_stamp"]+=1
             return
         state["frame_stamps"].append(stamp)
         if state["frame"] is None:
@@ -158,39 +167,89 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         else:
             raise RuntimeError("A13_WORLD_CONTROL_NOT_READY_NO_CAPTURE")
 
-        # The first short steps make the sensor render *before* the 10s trial.
-        # Do not silently capture an already-fallen after-image.
-        # A 5 Hz camera's *first positive* frame commonly appears at t=0.2s.
-        # 35 x 5 x 0.001s = 0.175s is insufficient. Step just far enough
-        # to see an actual frame, but reject a late/post-fall capture.
+        # The renderer, bridge and ROS graph start on wall time; the 5Hz
+        # camera is gated by simulation time. Give DDS discovery its own
+        # bounded wall-time barrier *before* advancing physical dish poses.
+        discovery_deadline=time.monotonic()+12.0
+        while node.count_publishers(TOPIC)==0 and time.monotonic()<discovery_deadline:
+            spin(.15)
+        if node.count_publishers(TOPIC)==0:
+            raise RuntimeError("A13_ROS_IMAGE_BRIDGE_PUBLISHER_NOT_READY"
+                               " gz_partition="+env["GZ_PARTITION"]
+                               +" ros_domain="+env["ROS_DOMAIN_ID"])
+
+        # Independent Gazebo transport probe. This is ONLY diagnostics:
+        # exit=0 means one real gz Image was emitted, not a ROS frame.
+        # Never synthesize a ROS Image or mark a test PASS from topic adverts.
+        gz_probe_log=(directory_log/(directory.name+"_gz_image_probe.log")).open("w")
+        handles.append(gz_probe_log)
+        probe=subprocess.Popen(
+            ["gz","topic","-e","-n","1","-t",TOPIC],
+            env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,
+            stderr=gz_probe_log,start_new_session=True)
+        procs.append(probe)
+
+        def camera_ready():
+            if state["frame"] is None or not set(dish_names)<=set(state["poses"]):
+                return False
+            f=state["frame"].header.stamp
+            image_stamp=int(f.sec)*1_000_000_000+int(f.nanosec)
+            return state["sim_ns"]>=image_stamp and image_stamp>0
+
+        # Under 5Hz, the earliest positive stamp usually arrives near 0.2s.
+        # Crucially, rendering / DDS can lag many *wall-clock* seconds after
+        # that sim step. Hold the sim paused and wait for callbacks instead
+        # of advancing gravity simply because the renderer is late.
+        last_wait_bucket=-1
+        advance_deadline=time.monotonic()+48.0
         for _ in range(90):
+            if camera_ready():
+                break
+            if time.monotonic()>advance_deadline:
+                break
             gz_call(env,WORLD,"pause: true multi_step: 5")
             for _ in range(4):
                 spin(.06)
-                if (state["frame"] is not None and
-                    set(dish_names)<=set(state["poses"]) and
-                    state["sim_ns"]>=int(state["frame"].header.stamp.sec)*1_000_000_000+
-                                      int(state["frame"].header.stamp.nanosec)):
+                if camera_ready():
                     break
-            # Do not break on image+poses alone: /clock can lag the image
-            # callback by a few Gazebo physics steps in separate ROS topics.
-            # t2 observation_start must never be earlier than t1 capture.
-            if (state["frame"] is not None and
-                    set(dish_names)<=set(state["poses"]) and
-                    state["sim_ns"]>=
-                    int(state["frame"].header.stamp.sec)*1_000_000_000+
-                    int(state["frame"].header.stamp.nanosec)):
+            if camera_ready():
                 break
-            if state["sim_ns"]>300_000_000:
+            if state["sim_ns"]>=200_000_000:
+                bucket=state["sim_ns"]//40_000_000
+                if bucket>last_wait_bucket:
+                    last_wait_bucket=bucket
+                    for _ in range(35):
+                        spin(.10)
+                        if camera_ready():
+                            break
+            if camera_ready():
                 break
-        if state["frame"] is None:
-            topics=subprocess.run(["gz","topic","-l"],env=env,capture_output=True,
-                                  text=True,timeout=8)
-            seen=TOPIC in topics.stdout
-            raise RuntimeError("A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE"
-                               + " sim_ns="+str(state["sim_ns"])
-                               + " GZ_IMAGE_TOPIC_ADVERTISED="+str(seen)
-                               + " poses="+str(sorted(state["poses"])))
+            if state["sim_ns"]>310_000_000:
+                break
+
+        if not camera_ready():
+            diagnostics=dict(
+                sim_ns=state["sim_ns"],
+                gz_image_topic_advertised=TOPIC in subprocess.run(
+                    ["gz","topic","-l"],env=env,capture_output=True,
+                    text=True,timeout=8).stdout,
+                gz_image_frame_probe_exit=probe.poll(),
+                ros_image_publishers=node.count_publishers(TOPIC),
+                ros_image_callbacks=state["image_callbacks_total"],
+                ros_zero_stamp_callbacks=state["image_zero_stamp"],
+                ros_repeat_stamp_callbacks=state["image_repeated_stamp"],
+                ros_first_positive_stamp=state["frame_stamps"][0]
+                    if state["frame_stamps"] else None,
+                ros_last_image_stamp=state["image_last_stamp_ns"],
+                poses=sorted(state["poses"]),
+                expected_dishes=dish_names)
+            print("A13_CAMERA_FIRST_FRAME_DIAGNOSTICS="+
+                  json.dumps(diagnostics,sort_keys=True),flush=True)
+            if state["frame"] is None:
+                raise RuntimeError("A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE"
+                                   " evidence="+json.dumps(diagnostics,sort_keys=True))
+            raise RuntimeError("A13_PRE_EVENT_IMAGE_POSE_CLOCK_NOT_SYNCHRONIZED"
+                               " evidence="+json.dumps(diagnostics,sort_keys=True))
         msg=state["frame"]
         stamp=int(msg.header.stamp.sec)*1_000_000_000+int(msg.header.stamp.nanosec)
         if (stamp<=0 or stamp>300_000_000 or state["sim_ns"]>320_000_000):

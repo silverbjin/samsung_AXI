@@ -55,7 +55,11 @@ def test_real_physics_and_image_required_no_mock_success():
     assert "ROBOT_ONLY_REAL_GAZEBO" not in src
     assert "A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE" in src
     assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in src
-    assert "GZ_IMAGE_TOPIC_ADVERTISED" in src
+    assert "A13_CAMERA_FIRST_FRAME_DIAGNOSTICS" in src
+    assert "ros_zero_stamp_callbacks" in src
+    assert "gz_image_frame_probe_exit" in src
+    assert "node.count_publishers(TOPIC)" in src
+    assert 'if camera_ready():' in src
     assert "A13_GAZEBO_NAMED_POSE_BRIDGE_NO_DISH" in src
     assert '"/smartdish/tray/pose/"+name' in src
     assert "A13_TEN_SIM_SECONDS_OBSERVATION_TIMEOUT" in src
