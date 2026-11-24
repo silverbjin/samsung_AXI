@@ -23,14 +23,15 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml python3-pil python3-numpy
           python3 -m py_compile scripts/smartdish_e_live_witness.py
           bash -n scripts/smartdish_e_wsl2_one_shot.sh
           python3 -m pytest -q \
             tests/test_smartdish_a_contract.py tests/test_smartdish_a_package.py \
             tests/test_smartdish_d_service.py tests/test_smartdish_d_ui.py \
-            tests/test_smartdish_e_contract.py tests/test_s7_scene.py tests/test_s7_negative.py
-          echo SMARTDISH_E_AD_L0_CONTRACT_ONLY_PASS_NO_GAZEBO
+            tests/test_smartdish_e_contract.py tests/test_b_dataset.py \
+            tests/test_c_stability.py tests/test_s7_scene.py tests/test_s7_negative.py
+          echo SMARTDISH_E_ABCD_L0_CONTRACT_ONLY_PASS_NO_GAZEBO
   l1-ros-packages:
     name: E A+D L1 ROS Jazzy build and interface (NO_GOAL)
     needs: l0-ad-contract
@@ -57,13 +58,14 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           set -u
           colcon build --event-handlers console_direct+ \
-            --packages-select smartdish_robot smartdish_service
+            --packages-select smartdish_robot smartdish_service smartdish_ai
           set +u
           source install/setup.bash
           set -u
           ros2 pkg executables smartdish_robot | grep -Fx 'smartdish_robot navigation_adapter'
           ros2 pkg executables smartdish_service | grep -Fx 'smartdish_service smartdish_manager'
           ros2 pkg executables smartdish_service | grep -Fx 'smartdish_service smartdish_ui'
+          ros2 pkg executables smartdish_ai | grep -Fx 'smartdish_ai stability_inference_node'
           python3 - <<'PY'
           from smartdish_robot.contract import parse_goal
           from smartdish_service.mission_manager import MissionManager
