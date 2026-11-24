@@ -26,8 +26,8 @@ MU = 0.65
 MASS_KG = 0.22
 
 
-def el(parent, name, text=None, **attrs):
-    node = ET.SubElement(parent, name, attrs)
+def el(parent, tag, text=None, **attrs):
+    node = ET.SubElement(parent, tag, attrs)
     if text is not None:
         node.text = str(text)
     return node

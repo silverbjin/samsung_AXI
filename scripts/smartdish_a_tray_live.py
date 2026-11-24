@@ -265,7 +265,11 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
 
 def run(args):
     root=Path(__file__).resolve().parents[1]
-    local=os.popen("git -C "+shlex_quote(str(root))+" rev-parse HEAD").read().strip()
+    # CI checkout ownership may differ from container UID; only trust this exact
+    # checkout path in a single git invocation, never globally whitelist Git.
+    local=subprocess.check_output(
+        ["git","-C",str(root),"-c","safe.directory="+str(root),"rev-parse","HEAD"],
+        text=True,timeout=8).strip()
     if not re.fullmatch("[0-9a-f]{40}",local) or local!=args.expected_sha:
         raise RuntimeError("A13_SOURCE_SHA_PIN_MISMATCH_NO_GOAL")
     if args.gui and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
@@ -294,9 +298,11 @@ def run(args):
             summary["trials"].append(row)
         result={r["scene_id"]:r["motion"]["observation"] for r in summary["trials"]}
         if args.mode in ("batch","demo"):
-            if not any(result.get(s)=="HELD_OBSERVED" for s in ("ST-01","ST-02")):
+            if not all(result.get(s)=="HELD_OBSERVED" for s in
+                       (("ST-01","ST-02") if args.mode=="batch" else ("ST-01",)):
                 raise RuntimeError("A13_STABLE_PHYSICS_NOT_VERIFIED")
-            if not any(result.get(s)=="FALL_OBSERVED" for s in ("UN-01","UN-02")):
+            if not all(result.get(s)=="FALL_OBSERVED" for s in
+                       (("UN-01","UN-02") if args.mode=="batch" else ("UN-01",)):
                 raise RuntimeError("A13_UNSTABLE_PHYSICS_NOT_VERIFIED")
         summary["verdict"]="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS"
         print("SMARTDISH_A_TRAY_PHYSICS_OBSERVATION_PASS",flush=True)
@@ -318,10 +324,13 @@ def run(args):
         print("SMARTDISH_A_TRAY_EVIDENCE_BUNDLE="+str(archive.resolve()),flush=True)
         if summary["verdict"]=="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS":
             print("SMARTDISH_A_TRAY_EVIDENCE_EXPORT_PASS",flush=True)
-            if os.environ.get("WSL_DISTRO_NAME"):
-                print("SMARTDISH_A_TRAY_WSL2_L3_PASS",flush=True)
+            if args.mode=="batch" and len(summary["trials"])==4:
+                if os.environ.get("WSL_DISTRO_NAME"):
+                    print("SMARTDISH_A_TRAY_WSL2_L3_PASS",flush=True)
+                else:
+                    print("SMARTDISH_A_TRAY_GAZEBO_L2_PASS",flush=True)
             else:
-                print("SMARTDISH_A_TRAY_GAZEBO_L2_PASS",flush=True)
+                print("SMARTDISH_A_TRAY_PARTIAL_SCENARIOS_ONLY_NO_L3",flush=True)
 
 
 def shlex_quote(x):
