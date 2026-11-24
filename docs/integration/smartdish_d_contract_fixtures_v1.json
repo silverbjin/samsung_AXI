@@ -1,0 +1,63 @@
+{
+  "collection_request": {
+    "topic": "/collection/request",
+    "message": {
+      "request_id": "REQ-001",
+      "table_id": "T03",
+      "table_wait_s": 10,
+      "dropoff_wait_s": 5,
+      "ai_enabled": false
+    }
+  },
+  "nav_goal": {
+    "topic": "/collection/nav_goal",
+    "message": {
+      "request_id": "REQ-001",
+      "leg": "TO_TABLE",
+      "destination_id": "T03"
+    }
+  },
+  "nav_result": {
+    "topic": "/collection/nav_result",
+    "message": {
+      "request_id": "REQ-001",
+      "leg": "TO_TABLE",
+      "result": "SUCCEEDED",
+      "reason": ""
+    }
+  },
+  "collection_status": {
+    "topic": "/collection/status",
+    "message": {
+      "request_id": "REQ-001",
+      "state": "WAIT_LOADING",
+      "table_id": "T03",
+      "remaining_s": 10,
+      "reason": ""
+    }
+  },
+  "ai_check_request": {
+    "topic": "/collection/ai_check_request",
+    "message": {
+      "request_id": "REQ-002",
+      "capture_id": "REQ-002-AI-1"
+    }
+  },
+  "stability_result": {
+    "topic": "/collection/stability",
+    "message": {
+      "request_id": "REQ-002",
+      "capture_id": "REQ-002-AI-1",
+      "status": "UNKNOWN",
+      "confidence": null,
+      "model_version": "none"
+    }
+  },
+  "staff_confirm": {
+    "topic": "/collection/staff_confirm",
+    "message": {
+      "request_id": "REQ-002",
+      "action": "APPROVE_CONTINUE"
+    }
+  }
+}

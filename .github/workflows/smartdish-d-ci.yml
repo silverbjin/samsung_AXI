@@ -1,0 +1,94 @@
+name: SmartDish D service contract and ROS package smoke (no real Gazebo)
+on:
+  push:
+    branches: [feat/smartdish-d-service]
+  pull_request:
+    paths:
+      - "src/smartdish_service/**"
+      - "tests/test_smartdish_d_*.py"
+      - "scripts/smartdish_d_wsl2_one_shot.sh"
+      - ".github/workflows/smartdish-d-ci.yml"
+permissions:
+  contents: read
+jobs:
+  l0-contract:
+    name: D L0 / Python FSM + UI pixel contract (MOCK_ONLY)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies and tests
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+          python3 -m compileall -q src/smartdish_service tests/test_smartdish_d_service.py tests/test_smartdish_d_ui.py
+          bash -n scripts/smartdish_d_wsl2_one_shot.sh
+          python3 -m pytest -q tests/test_smartdish_d_service.py tests/test_smartdish_d_ui.py tests/test_smartdish_d_runner.py tests/test_s7_scene.py tests/test_s7_negative.py
+          echo SMARTDISH_D05_RUNNER_FIXTURES_PASS_NO_GOAL
+          echo SMARTDISH_D_L0_CONTRACT_PASS_MOCK_ONLY
+  l1-ros-build:
+    name: D L1 / ROS Jazzy ament build + manager no-goal smoke
+    needs: l0-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DOMAIN_ID: '86'
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # local bare immutable SHA push must have full history
+      - name: Install toolchain and build D package without touching S7
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-yaml python3-tk python3-pytest git
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-select smartdish_service --symlink-install
+          set +u
+          source install/setup.bash
+          set -u
+          ros2 pkg executables smartdish_service | grep 'smartdish_manager'
+          ros2 pkg executables smartdish_service | grep 'smartdish_ui'
+          python3 - <<'PY'
+          from smartdish_service.mission_manager import MissionManager
+          m=MissionManager()
+          assert m.state == 'IDLE'
+          print('SMARTDISH_D_L1_ROS_PACKAGE_IMPORT_PASS_NO_GOAL')
+          import rclpy
+          from rclpy.clock import Clock, ClockType
+          rclpy.init()
+          n = rclpy.create_node('smartdish_d_l1_steady_timer_probe')
+          timer = n.create_timer(0.2, lambda: None,
+                                 clock=Clock(clock_type=ClockType.STEADY_TIME))
+          n.destroy_timer(timer)
+          n.destroy_node()
+          rclpy.shutdown()
+          print('SMARTDISH_D_L1_STEADY_TIMER_API_PASS_NO_GOAL')
+          PY
+
+      - name: Real Jazzy D05 runner pinned to this workflow commit (NO_GOAL)
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          SMARTDISH_D_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          # Freeze an immutable local bare remote at THIS CI commit.
+          # The public feature branch can advance while jobs are queued.
+          git init --bare -q /tmp/smartdish_d_ci_remote.git
+          git -c safe.directory="$GITHUB_WORKSPACE" push -q \
+            /tmp/smartdish_d_ci_remote.git "$GITHUB_SHA:refs/heads/feat/smartdish-d-service"
+          export SMARTDISH_D_TEST_MODE=1
+          export SMARTDISH_D_TEST_REPO_URL=file:///tmp/smartdish_d_ci_remote.git
+          export SMARTDISH_D_TEST_WORKDIR=/tmp/smartdish_d_ci_worktree
+          export SMARTDISH_D_TEST_STATE_DIR=/tmp/smartdish_d_ci_state
+          export SMARTDISH_D_TEST_ROS_SETUP=/opt/ros/jazzy/setup.bash
+          bash scripts/smartdish_d_wsl2_one_shot.sh --verify
+          echo SMARTDISH_D05_L1_PINNED_COMMIT_REAL_ROS_PASS_NO_GOAL
