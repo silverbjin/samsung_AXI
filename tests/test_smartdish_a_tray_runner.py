@@ -38,8 +38,8 @@ def test_only_new_branch_and_unmodified_control():
     assert 'rclpy.init(args=None,domain_id=int(env["ROS_DOMAIN_ID"]))' in runner
     assert 'gz_call(env,WORLD,"pause: false")' in runner
     assert "save_unlabelled_frame" in runner
-    # Both the inner and outer break require /clock >= actual Image stamp.
-    assert runner.count('int(state["frame"].header.stamp.sec)*1_000_000_000+')>=2
+    # Guard logic moved to a pure function so L0 proves behavior, not text.
+    assert "pre_event_ready(state[\"frame\"],state[\"sim_ns\"]," in runner
     assert "ROBOT_ONLY" not in runner
     assert "smartdish_a_tray_evidence.tar.gz" in runner
     assert all(token not in s+runner+sh for token in ("pkill", "killall", "rm -rf", "git reset --hard"))
@@ -65,3 +65,18 @@ def test_real_physics_and_image_required_no_mock_success():
     assert "A13_TEN_SIM_SECONDS_OBSERVATION_TIMEOUT" in src
     assert "PHYSICS_OBSERVATION_PASS" in src
     assert 'ground_truth":"NOT_OPERATOR_APPROVED"' in src
+
+def test_pre_event_frame_requires_named_poses_and_monotonic_sim_clock():
+    from types import SimpleNamespace
+    import sys
+    sys.path.insert(0,str(ROOT/"scripts"))
+    from smartdish_a_tray_live import pre_event_ready
+
+    msg=SimpleNamespace(header=SimpleNamespace(
+        stamp=SimpleNamespace(sec=0,nanosec=200_000_000)))
+    assert not pre_event_ready(None,200_000_000,{"dish_01":{}},["dish_01"])
+    assert not pre_event_ready(msg,199_000_000,{"dish_01":{}},["dish_01"])
+    assert not pre_event_ready(msg,200_000_000,{},["dish_01"])
+    assert pre_event_ready(msg,200_000_000,{"dish_01":{}},["dish_01"])
+    msg.header.stamp.nanosec=0
+    assert not pre_event_ready(msg,200_000_000,{"dish_01":{}},["dish_01"])

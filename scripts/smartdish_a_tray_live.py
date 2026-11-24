@@ -29,6 +29,14 @@ from smartdish_tray_evidence import (
 )
 
 
+def pre_event_ready(frame, clock_ns, pose_names, required_names):
+    """Pure guard: real positive Image stamp, all named dishes and ROS clock."""
+    if frame is None or not set(required_names)<=set(pose_names):
+        return False
+    stamp=int(frame.header.stamp.sec)*1_000_000_000+int(frame.header.stamp.nanosec)
+    return stamp>0 and int(clock_ns)>=stamp
+
+
 def stop_owned(proc):
     if proc is None or proc.poll() is not None:
         return
@@ -190,11 +198,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         procs.append(probe)
 
         def camera_ready():
-            if state["frame"] is None or not set(dish_names)<=set(state["poses"]):
-                return False
-            f=state["frame"].header.stamp
-            image_stamp=int(f.sec)*1_000_000_000+int(f.nanosec)
-            return state["sim_ns"]>=image_stamp and image_stamp>0
+            return pre_event_ready(state["frame"],state["sim_ns"],
+                                   state["poses"],dish_names)
 
         # Under 5Hz, the earliest positive stamp usually arrives near 0.2s.
         # Crucially, rendering / DDS can lag many *wall-clock* seconds after
