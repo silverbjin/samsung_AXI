@@ -107,5 +107,7 @@ def test_integration_runner_syntax_contract():
     assert "SMARTDISH_D_UI_APPLIED" in s
     assert "gui:=true" in s
     assert "AI_OFF_REAL_RUN_PASS" in s
+    assert "ADAPTER_MANAGER_ORIGIN_NOT_PROVEN" in s
+    assert "SMARTDISH_A_NAV_GOAL_SENT" in s
     assert "pkill" not in s and "killall" not in s
     assert "samsungaxi_s7_wsl2_l3_once.sh" not in s
