@@ -108,3 +108,14 @@ def test_gui_gate_requires_real_frames_and_two_cold_runs():
     assert "gui_active_during_physics" in wf
     assert "xvfb-run -a" in wf
     assert "smartdish_a_tray_evidence.tar.gz" in wf
+
+def test_sensor_warmup_then_unmodified_dish_spawn_is_required():
+    runner=RUN.read_text()
+    assert "split_scene_for_sensor_warmup(sdf)" in runner
+    assert "A13_REAL_CAMERA_BRIDGE_WARMUP_NO_TWO_IMAGES" in runner
+    assert "len(state[\"frame_stamps\"])>=2" in runner
+    assert "gz_spawn_dynamic(env,WORLD,item)" in runner
+    assert "state[\"min_image_stamp_ns\"]=stage_start_ns" in runner
+    assert "stamp-stage_start_ns>300_000_000" in runner
+    assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in runner
+    assert "sensor_preflight_manifest.json" in runner

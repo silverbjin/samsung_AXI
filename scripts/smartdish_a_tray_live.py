@@ -22,7 +22,7 @@ import tarfile
 import time
 
 from smartdish_tray_camera import TOPIC, FRAME, WIDTH, HEIGHT
-from smartdish_tray_world import SCENARIOS, WORLD, TRAY_TOP, write_trial
+from smartdish_tray_world import SCENARIOS, WORLD, TRAY_TOP, write_trial, split_scene_for_sensor_warmup
 from smartdish_tray_evidence import (
     digest, manifest, pose_from_transform, classify_motion,
     verify_timing, verify_trial,
@@ -81,6 +81,23 @@ def gz_call(env, world, payload, timeout=15):
     return r.stdout
 
 
+def gz_spawn_dynamic(env, world, item, timeout=18):
+    """Spawn original dynamic model SDF through real Gazebo UserCommands."""
+    from pathlib import Path
+    path=Path(item["path"])
+    if not path.is_file() or digest(path)[0]!=item["sha256"]:
+        raise RuntimeError("A13_SPAWN_DISH_SDF_HASH_MISMATCH")
+    req='sdf_filename: "'+str(path.resolve())+'", name: "'+item["name"]+'"'
+    cmd=["gz","service","-s",f"/world/{world}/create",
+         "--reqtype","gz.msgs.EntityFactory","--reptype","gz.msgs.Boolean",
+         "--timeout",str(int(timeout*1000)),"--req",req]
+    result=subprocess.run(cmd,env=env,capture_output=True,text=True,timeout=timeout+5)
+    if result.returncode!=0 or not re.search(r"data\s*:\s*true",result.stdout,re.I):
+        raise RuntimeError("A13_GAZEBO_DYNAMIC_ENTITY_SPAWN_REJECTED "
+                           +item["name"]+" "+(result.stderr or result.stdout)[:200])
+    return True
+
+
 def run_trial(root:Path, directory:Path, scenario:str, seed:int,
               source_sha:str, gui:bool, index:int, run_id:str):
     import rclpy
@@ -92,6 +109,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
     directory.mkdir(parents=True,exist_ok=False)
     sdf=directory/"scenario.sdf"
     config=write_trial(scenario,seed,sdf,f"{run_id}_{index:02d}")
+    sensor_world_sdf,spawn_manifest=split_scene_for_sensor_warmup(sdf)
     dish_names=[x["name"] for x in config["initial_dishes"]]
     env=os.environ.copy()
     # isolate Gazebo Transport and ROS DDS from current AI-OFF robot session
@@ -107,6 +125,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
     node=None
     initialized=False
     state={"sim_ns":0,"frame":None,"frame_stamps":[],
+           "min_image_stamp_ns":0,"image_before_spawn_count":0,
            "poses":{},"traces":[],"pose_times":{},
            "image_callbacks_total":0,"image_zero_stamp":0,
            "image_repeated_stamp":0,"image_first_seen_wall":None,
@@ -123,6 +142,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             state["image_first_seen_wall"]=time.monotonic()
         if stamp<=0:
             state["image_zero_stamp"]+=1
+            return
+        if stamp<=state["min_image_stamp_ns"]:
+            state["image_before_spawn_count"]+=1
             return
         if state["frame_stamps"] and stamp<=state["frame_stamps"][-1]:
             state["image_repeated_stamp"]+=1
@@ -161,7 +183,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
 
     try:
         for name,cmd in [
-            ("gazebo",["gz","sim","-s","-v2",str(sdf.resolve())]),
+            ("gazebo",["gz","sim","-s","-v2",str(sensor_world_sdf.resolve())]),
             ("bridge",["ros2","run","ros_gz_bridge","parameter_bridge",
                        "--ros-args","-p","config_file:="+
                        str((root/"config/smartdish_tray_bridge.yaml").resolve())]),
@@ -228,39 +250,69 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             stderr=gz_probe_log,start_new_session=True)
         procs.append(probe)
 
+        # Stage 1: PRE-WARM the actual camera and ROS bridge with NO
+        # dynamic dishes. Missed first 5Hz frames cannot bias dataset X.
+        warmup_deadline=time.monotonic()+75.0
+        for _ in range(450):
+            if len(state["frame_stamps"])>=2:
+                break
+            if time.monotonic()>warmup_deadline:
+                break
+            gz_call(env,WORLD,"pause: true multi_step: 5")
+            for _ in range(3):
+                spin(.08)
+                if len(state["frame_stamps"])>=2:
+                    break
+        if len(state["frame_stamps"])<2:
+            print("A13_SENSOR_WARMUP_DIAGNOSTICS="+json.dumps({
+                "sim_ns":state["sim_ns"],
+                "ros_callbacks":state["image_callbacks_total"],
+                "gz_probe":image_probe_report(probe_data_path,probe.poll())},
+                sort_keys=True),flush=True)
+            raise RuntimeError("A13_REAL_CAMERA_BRIDGE_WARMUP_NO_TWO_IMAGES")
+        print("SMARTDISH_A_TRAY_SENSOR_WARMUP_PASS image_stamps="+
+              str(state["frame_stamps"][-2:]),flush=True)
+
+        # Stage 2: spawn the unchanged real physical dishes, then capture
+        # a FRESH image/pose. Neither the previous empty-tray RGB nor late
+        # duplicate messages can be training X.
+        stage_start_ns=state["sim_ns"]
+        state["min_image_stamp_ns"]=stage_start_ns
+        state["frame"]=None
+        state["frame_stamps"]=[]
+        state["poses"]={}
+        state["pose_times"]={}
+        state["traces"]=[]
+        for item in spawn_manifest["spawned_dynamic_models"]:
+            gz_spawn_dynamic(env,WORLD,item)
+        print("SMARTDISH_A_TRAY_DYNAMIC_SPAWN_REQUESTS_OK count="+
+              str(len(dish_names)),flush=True)
+
         def camera_ready():
             return pre_event_ready(state["frame"],state["sim_ns"],
                                    state["poses"],dish_names)
 
-        # Under 5Hz, the earliest positive stamp usually arrives near 0.2s.
-        # Crucially, rendering / DDS can lag many *wall-clock* seconds after
-        # that sim step. Hold the sim paused and wait for callbacks instead
-        # of advancing gravity simply because the renderer is late.
-        last_wait_bucket=-1
-        advance_deadline=time.monotonic()+48.0
-        for _ in range(90):
+        capture_deadline=time.monotonic()+50.0
+        for _ in range(100):
             if camera_ready():
                 break
-            if time.monotonic()>advance_deadline:
+            if time.monotonic()>capture_deadline:
                 break
             gz_call(env,WORLD,"pause: true multi_step: 5")
             for _ in range(4):
-                spin(.06)
+                spin(.075)
                 if camera_ready():
                     break
             if camera_ready():
                 break
-            if state["sim_ns"]>=200_000_000:
-                bucket=state["sim_ns"]//40_000_000
-                if bucket>last_wait_bucket:
-                    last_wait_bucket=bucket
-                    for _ in range(35):
-                        spin(.10)
-                        if camera_ready():
-                            break
+            if state["sim_ns"]-stage_start_ns>=180_000_000:
+                for _ in range(12):
+                    spin(.10)
+                    if camera_ready():
+                        break
             if camera_ready():
                 break
-            if state["sim_ns"]>310_000_000:
+            if state["sim_ns"]-stage_start_ns>310_000_000:
                 break
 
         if not camera_ready():
@@ -301,7 +353,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
               json.dumps(ready_diag,sort_keys=True),flush=True)
         msg=state["frame"]
         stamp=int(msg.header.stamp.sec)*1_000_000_000+int(msg.header.stamp.nanosec)
-        if (stamp<=0 or stamp>300_000_000 or state["sim_ns"]>320_000_000):
+        if (stamp<=stage_start_ns or stamp-stage_start_ns>300_000_000 or
+                state["sim_ns"]-stage_start_ns>320_000_000):
             raise RuntimeError("A13_PRE_EVENT_CAMERA_TOO_LATE_NO_VALID_TRAINING_INPUT")
         if not set(dish_names)<=set(state["poses"]):
             raise RuntimeError("A13_GAZEBO_NAMED_POSE_BRIDGE_NO_DISH"
@@ -334,6 +387,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         shutil.copyfile(private,dst)
         capture=dict(record)
         capture.update({"schema":2,"trial_id":config["trial_id"],
+                        "dynamic_spawn_world_manifest": "sensor_preflight_manifest.json",
+                        "pre_observation_spawn_sim_ns":stage_start_ns,
                         "image_sha256":digest(dst)[0],
                         "source": "GAZEBO_REAL_SENSOR_NOT_LABELLED",
                         "pre_observation_capture":True,
@@ -411,6 +466,10 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             "physics_sha256":sha,"physics_size_bytes":sz,
             "pose_sample_count":len(rows),"image_received_count":len(state["frame_stamps"]),
             "motion":motion,"gui_active_during_physics":gui,
+            "pre_observation_spawn_sim_ns":stage_start_ns,
+            "actual_runtime_world_sha256":spawn_manifest["sensor_preflight_sha256"],
+            "dynamic_spawn_sha256":{x["name"]:x["sha256"] for x in
+                                     spawn_manifest["spawned_dynamic_models"]},
             "gz_probe":image_probe_report(probe_data_path,probe.poll()),
             "label":"REVIEW_REQUIRED","ground_truth":"NOT_OPERATOR_APPROVED",
             "verdict":"GAZEBO_PHYSICS_OBSERVED_REVIEW_REQUIRED",
