@@ -56,6 +56,7 @@ def test_real_physics_and_image_required_no_mock_success():
     assert "A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE" in src
     assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in src
     assert "A13_CAMERA_FIRST_FRAME_DIAGNOSTICS" in src
+    assert "A13_CAMERA_READY_DIAGNOSTICS" in src
     assert "ros_zero_stamp_callbacks" in src
     assert "gz_image_frame_probe_exit" in src
     assert "node.count_publishers(TOPIC)" in src

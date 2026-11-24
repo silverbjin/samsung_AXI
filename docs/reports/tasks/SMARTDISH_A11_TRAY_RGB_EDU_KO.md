@@ -33,3 +33,22 @@ flowchart LR
 - 코드 및 정적 계약: 신규 A-11 기능 커밋에서 구현.
 - 실제 Camera Gazebo Transport→ROS 2 bridge frame과 B 파일 저장: **L2 검증 전 NOT_RUN**.
 - 사람 시각에서 트레이+식기 관측: **사용자 L3 확인 전 NOT_RUN**, 자동 이미지 내용 통과 판정 금지.
+
+## 2026-11-24 — 실제 Gazebo L2 전체 검증(최종 관측 사실)
+
+- [GitHub Actions #45325486957](https://github.com/silverbjin/samsung_AXI/actions/runs/45325486957), 실주행 코드 SHA `05779ae191ff41c922e067ec7cc5c2356dcffeaa`.
+- L0 **26 PASS**, ROS Jazzy L1 **PASS**, 독립 Gazebo L2 **4/4 PASS**.
+- `/smartdish/tray/image_raw` ROS Image 실제 도착 및 B `save_unlabelled_frame()` PNG 실저장 4건, 모든 첫 캡처 timestamp `200000000ns`. 센서 포맷은 런타임 validator에서 `rgb8` 또는 `bgr8`을 허용했으며 각 trial JSON에 원본 encoding/step 포함 여부를 인수에서 확인하십시오. 이미지에 트레이·식기가 모두 적절히 보이는지의 시각 검수는 **사용자 L3**입니다.
+- CI console에서 `SMARTDISH_A_TRAY_REAL_GAZEBO_L2_EVIDENCE_VERIFIED` 관측. 각 PNG와 별도 동적 Pose JSONL은 SHA256/size/시간정렬 검증기 통과.
+
+| Scene | 실제 Image→PNG | 10초 동적 Pose 관측 | 원본 관측 판정 |
+|---|---|---|---|
+| ST-01 | PASS / 0.200s stamp | PASS | `HELD_OBSERVED` |
+| ST-02 | PASS / 0.200s stamp | PASS | `HELD_OBSERVED` |
+| UN-01 | PASS / 0.200s stamp | PASS | `FALL_OBSERVED` |
+| UN-02 | PASS / 0.200s stamp | PASS | `FALL_OBSERVED` |
+
+**원본 시나리오 명칭을 정답 라벨로 사용하지 않습니다.** 모든 trial의 `label=REVIEW_REQUIRED`, `ground_truth=NOT_OPERATOR_APPROVED` 계약은 유지합니다.
+
+- 기존 운영 AI OFF Nav2·D UI·Map/CM 수정 없음. 독립 물리 World의 화면/배치가 실제 로봇 트레이 설치 환경과 동일하다는 검증은 아직 **NOT_RUN**.
+- B 담당 최종 안정성 라벨 승인 및 C 실모델 추론은 **NOT_RUN**, A 코드가 승격하지 않습니다.

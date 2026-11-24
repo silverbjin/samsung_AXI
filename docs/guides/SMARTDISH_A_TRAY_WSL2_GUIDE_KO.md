@@ -82,3 +82,11 @@ SMARTDISH_A_TRAY_WSL2_L3_PASS
 ## 7. B/C 실제 수집 연결
 
 [A Tray B/C 인계서](../handoff/A_TRAY_BC_HANDOFF_KO.md)를 따르십시오. `ST-01`을 바로 `STABLE`로 등록하지 않습니다. B 사람이 실제 동적 Pose와 RGB 상태를 검토한 뒤 기존 `collect_tableware.py`를 사용합니다. 그 후 C는 B 승인된 분할 데이터로 학습하고 ROS 입력을 구독합니다.
+
+## 8. 실제 L2 성공 이후 WSL2 인수 명령 출고 정책 (2026-11-24)
+
+[GitHub Actions #45325486957](https://github.com/silverbjin/samsung_AXI/actions/runs/45325486957)의 실제 4개 물리 시험에서 stable 후보 2 / fall 후보 2를 관측했습니다. GitHub L2 성공은 WSLg GUI 시각 검수를 대체하지 않습니다.
+
+최종 릴리스 커밋 SHA는 `feat/smartdish-a-tray-camera`의 **CI L0/L1/L2 GREEN과 동일 HEAD**로 확정한 뒤 PR #45와 최종 인수 안내에 PIN이 채워진 완성 명령을 게시합니다. 현재 문서의 `<FINAL_VERIFIED_SHA>`는 미확정 배포 SHA를 꾸며내지 않기 위한 자리 표시입니다.
+
+**기본 모드**: `batch --gui`; headless는 명시적인 `--headless` 옵션일 때만. 사용자 실행에서 `SMARTDISH_A_TRAY_WSL2_L3_PASS`가 실제 네 Trial 후 출력되는지와 생성된 `smartdish_a_tray_evidence.tar.gz` 원본을 별도로 확인하십시오.

@@ -255,6 +255,17 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                                    " evidence="+json.dumps(diagnostics,sort_keys=True))
             raise RuntimeError("A13_PRE_EVENT_IMAGE_POSE_CLOCK_NOT_SYNCHRONIZED"
                                " evidence="+json.dumps(diagnostics,sort_keys=True))
+        ready_diag={
+            "sim_ns":state["sim_ns"],
+            "image_callbacks":state["image_callbacks_total"],
+            "image_zero_stamp":state["image_zero_stamp"],
+            "image_repeated_stamp":state["image_repeated_stamp"],
+            "gz_real_image_probe_exit":probe.poll(),
+            "ros_image_publishers":node.count_publishers(TOPIC),
+            "pose_names":sorted(state["poses"]),
+        }
+        print("A13_CAMERA_READY_DIAGNOSTICS="+
+              json.dumps(ready_diag,sort_keys=True),flush=True)
         msg=state["frame"]
         stamp=int(msg.header.stamp.sec)*1_000_000_000+int(msg.header.stamp.nanosec)
         if (stamp<=0 or stamp>300_000_000 or state["sim_ns"]>320_000_000):

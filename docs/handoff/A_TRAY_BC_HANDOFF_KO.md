@@ -49,3 +49,11 @@ ros2 run smartdish_ai stability_inference_node
 - 신규 브랜치 `feat/smartdish-a-tray-camera`에서 Draft PR. 기존 A 브랜치 재병합하지 않음.
 - AI ON 통합은 원본 B 이미지+별도 물리 근거→사람 label 및 권리 승인→C 학습/평가→A 실제 RGB 1프레임/동일 capture_id→D 승인 분기 순.
 - 독립 world RGB 시야와 **실제 이동 로봇의 트레이 고정 구조/운동 중 시야 동등성은 현재 미검증**. 로봇 opt-in 카메라 SDF는 제공하되 이동 로봇 트레이 하중 물성을 재개발하지 않습니다.
+
+## 5. 2026-11-24 실제 Gazebo L2 출고 현황
+
+[GitHub Actions #45325486957](https://github.com/silverbjin/samsung_AXI/actions/runs/45325486957), 실행 SHA `05779ae191ff41c922e067ec7cc5c2356dcffeaa`: **4개 실제 RGB→PNG + 물리 10s Pose 시계열 모두 PASS**. ST-01/02 HELD, UN-01/02 FALL 실제 관측. `summary.json` / 개별 PNG·물리 JSONL SHA 검증 완료, B 권리·라벨 승인 전에는 TRAIN DATA로 자동 승격 금지.
+
+- B: 출고 tar.gz의 각 `tray_rgb.png`와 **서로 다른** `physics_observations.jsonl`를 먼저 해시 대조한 후 기존 B 도구로 별도 등록. 각 scene/stack 그룹 분할 품질 조건은 B 책임.
+- C: 실제 SensorData Image 5Hz 설정, 640×480 validator 통과. C의 `UNKNOWN` 경로와 실제 모델 평가/추론은 이 L2 실행에서 검증하지 않음.
+- E: AI OFF main 그대로, Draft #45 유지. 사용자 WSL2 GUI L3와 실제 로봇 상부 트레이의 설치 시야 일치성은 **NOT_RUN**.

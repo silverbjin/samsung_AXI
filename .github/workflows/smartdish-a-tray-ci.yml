@@ -126,6 +126,8 @@ jobs:
             generated/smartdish_tray/run_*/summary.json
             generated/smartdish_tray/run_*/source_manifest.json
             generated/smartdish_tray/run_*/trial_*/trial_summary.json
+            generated/smartdish_tray/run_*/SHA256SUMS
+            generated/smartdish_tray/run_*/smartdish_a_tray_evidence.tar.gz
             generated/smartdish_tray/run_*/logs/*.log
           if-no-files-found: ignore
           retention-days: 14

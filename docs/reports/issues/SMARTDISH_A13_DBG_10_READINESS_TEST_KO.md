@@ -6,3 +6,7 @@
 - 수정: `pre_event_ready(frame,clock_ns,pose_names,required_names)` 순수 함수를 분리하고 양의 stamp, clock≥stamp, 전체 Pose 명칭 조건을 **단위 테스트 5개 입력**으로 검증. 두 분기의 바이트 코드 문자열 모양을 요구하지 않도록 기존 정적 검사를 변경.
 - 진단용 GZ image probe와 ROS callback 카운트는 유지. 실패한 테스트를 삭제하거나 skip하지 않았으며 실질 조건의 테스트 강도를 개선함.
 - 다음 단계: 새 SHA L0 GREEN 확인→L1→실제 Gazebo L2. 실제 영상/물리 PASS를 선행 주장 금지.
+
+## GREEN 재검
+
+[GitHub Actions #45325486957](https://github.com/silverbjin/samsung_AXI/actions/runs/45325486957), 소스 `05779ae191ff41c922e067ec7cc5c2356dcffeaa`: **26 passed**, Jazzy L1 및 실제 Gazebo L2 네 장면 PASS. `pre_event_ready()` 정상/누락 Pose/클록 역전/제로 stamp 입력 L0 테스트 포함. 이전 RED는 테스트 계약 변경의 실패로 분리됐으며 Gazebo 원본 문제가 아님.
