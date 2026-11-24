@@ -218,6 +218,58 @@ def write_trial(scene_id, seed, output: Path, trial_id: str):
     return row
 
 
+
+def split_scene_for_sensor_warmup(full_sdf: Path):
+    """Preserve full physical contract, load a camera-only world for warmup.
+
+    Dish SDFs are spawned via Gazebo's real UserCommands EntityFactory API
+    AFTER an actual ROS camera frame has proved the bridge is ready.
+    Nothing is static/fixed: each spawned dish retains its original model
+    mass, inertial, friction, pose and PosePublisher parameters.
+    """
+    source=Path(full_sdf)
+    root=ET.parse(source).getroot()
+    w=root.find("./world[@name='%s']" % WORLD)
+    if w is None:
+        raise ValueError("A12_WARMUP_ORIGINAL_WORLD_MISSING")
+    dishes=[m for m in list(w.findall("model"))
+            if m.attrib.get("name","").startswith("dish_")]
+    if not 2<=len(dishes)<=3:
+        raise ValueError("A12_WARMUP_EXPECTED_DYNAMIC_DISHES")
+    validate_world(root)
+    plan=[]
+    for model in dishes:
+        name=model.attrib["name"]
+        if model.findtext("static")!="false":
+            raise ValueError("A12_WARMUP_DYNAMIC_DISH_REQUIRED")
+        individual=ET.Element("sdf",version="1.9")
+        individual.append(model)
+        dish_sdf=source.with_name(name+".sdf")
+        if dish_sdf.exists():
+            raise ValueError("A12_WARMUP_DISH_NO_OVERWRITE")
+        content='<?xml version="1.0"?>\n'+ET.tostring(individual,encoding="unicode")+"\n"
+        dish_sdf.write_text(content)
+        plan.append({"name":name,"path":str(dish_sdf.resolve()),
+                     "sha256":hashlib.sha256(content.encode()).hexdigest()})
+        w.remove(model)
+    world_sdf=source.with_name("sensor_preflight.sdf")
+    if world_sdf.exists():
+        raise ValueError("A12_WARMUP_WORLD_NO_OVERWRITE")
+    content='<?xml version="1.0"?>\n'+ET.tostring(root,encoding="unicode")+"\n"
+    world_sdf.write_text(content)
+    manifest={"schema":1,"original_scenario_sdf":source.name,
+              "sensor_preflight_sdf":world_sdf.name,
+              "sensor_preflight_sha256":hashlib.sha256(content.encode()).hexdigest(),
+              "spawned_dynamic_models":plan,
+              "method":"GAZEBO_REAL_ENTITYFACTORY_AFTER_LIVE_CAMERA_WARMUP",
+              "label":"REVIEW_REQUIRED"}
+    manifest_path=source.with_name("sensor_preflight_manifest.json")
+    if manifest_path.exists():
+        raise ValueError("A12_WARMUP_MANIFEST_NO_OVERWRITE")
+    manifest_path.write_text(json.dumps(manifest,indent=2,sort_keys=True)+"\n")
+    return world_sdf,manifest
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--scenario",choices=SCENARIOS,required=True)

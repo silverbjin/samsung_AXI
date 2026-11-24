@@ -69,3 +69,26 @@ def test_world_has_sensor_ogre2_physics_and_pose_broadcaster():
         assert d.find("./link/collision/geometry/cylinder") is not None
         assert float(d.findtext("./link/inertial/mass"))>0
         assert d.find("./joint") is None
+
+def test_warmup_world_is_sensor_only_and_dynamic_models_unchanged(tmp_path):
+    from smartdish_tray_world import split_scene_for_sensor_warmup
+    import hashlib, json
+    src=tmp_path/"scenario.sdf"
+    row=write_trial("UN-01",33,src,"trial_un_01")
+    pre,manifest=split_scene_for_sensor_warmup(src)
+    original=ET.parse(src).getroot()
+    staged=ET.parse(pre).getroot()
+    assert not any(m.get("name","").startswith("dish_")
+                   for m in staged.findall("./world/model"))
+    assert len(manifest["spawned_dynamic_models"])==2
+    assert src.is_file() and row["world_sha256"]==hashlib.sha256(src.read_bytes()).hexdigest()
+    for item in manifest["spawned_dynamic_models"]:
+        dish=ET.parse(item["path"]).getroot().find("model")
+        assert dish.get("name")==item["name"]
+        assert dish.findtext("static")=="false"
+        assert dish.find("./plugin[@name='gz::sim::systems::PosePublisher']") is not None
+        old=original.find("./world/model[@name='%s']" % item["name"])
+        assert ET.tostring(dish)==ET.tostring(old)
+        assert hashlib.sha256(Path(item["path"]).read_bytes()).hexdigest()==item["sha256"]
+    with pytest.raises(ValueError,match="NO_OVERWRITE"):
+        split_scene_for_sensor_warmup(src)
