@@ -159,22 +159,33 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
 
         # The first short steps make the sensor render *before* the 10s trial.
         # Do not silently capture an already-fallen after-image.
-        for _ in range(35):
+        # A 5 Hz camera's *first positive* frame commonly appears at t=0.2s.
+        # 35 x 5 x 0.001s = 0.175s is insufficient. Step just far enough
+        # to see an actual frame, but reject a late/post-fall capture.
+        for _ in range(90):
             gz_call(env,WORLD,"pause: true multi_step: 5")
-            for _ in range(8):
-                spin(.07)
+            for _ in range(4):
+                spin(.06)
                 if (state["frame"] is not None and
                     set(dish_names)<=set(state["poses"]) and
                     state["sim_ns"]>=int(state["frame"].header.stamp.sec)*1_000_000_000+
                                       int(state["frame"].header.stamp.nanosec)):
                     break
-            if (state["frame"] is not None and set(dish_names)<=set(state["poses"])):
+            if state["frame"] is not None and set(dish_names)<=set(state["poses"]):
+                break
+            if state["sim_ns"]>300_000_000:
                 break
         if state["frame"] is None:
-            raise RuntimeError("A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE")
+            topics=subprocess.run(["gz","topic","-l"],env=env,capture_output=True,
+                                  text=True,timeout=8)
+            seen=TOPIC in topics.stdout
+            raise RuntimeError("A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE"
+                               + " sim_ns="+str(state["sim_ns"])
+                               + " GZ_IMAGE_TOPIC_ADVERTISED="+str(seen)
+                               + " poses="+str(sorted(state["poses"])))
         msg=state["frame"]
         stamp=int(msg.header.stamp.sec)*1_000_000_000+int(msg.header.stamp.nanosec)
-        if (stamp<=0 or stamp>200_000_000 or state["sim_ns"]>225_000_000):
+        if (stamp<=0 or stamp>300_000_000 or state["sim_ns"]>320_000_000):
             raise RuntimeError("A13_PRE_EVENT_CAMERA_TOO_LATE_NO_VALID_TRAINING_INPUT")
         if not set(dish_names)<=set(state["poses"]):
             raise RuntimeError("A13_GAZEBO_DYNAMIC_POSE_BRIDGE_NO_DISH")
@@ -183,6 +194,13 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         if msg.header.frame_id!=FRAME:
             raise RuntimeError("A13_LIVE_CAMERA_FRAME_MISMATCH_"+str(msg.header.frame_id))
         snapshot={n:dict(state["poses"][n]) for n in dish_names}
+        # An input image after an actual fall is label leakage. The camera
+        # startup may advance physics slightly: compare observed capture pose
+        # against the configured initial pose, NOT a guessed stable label.
+        by_name={x["name"]:x for x in config["initial_dishes"]}
+        if any((by_name[n]["z"]-snapshot[n]["z"]>.24 or
+                snapshot[n]["z"]<TRAY_TOP-.08) for n in dish_names):
+            raise RuntimeError("A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED")
         pose_at_capture_ns=max(state["pose_times"][n] for n in dish_names)
         if abs(pose_at_capture_ns-stamp)>250_000_000:
             raise RuntimeError("A13_IMAGE_POSE_STAMP_MISMATCH")

@@ -103,6 +103,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          trap 'echo SMARTDISH_A_TRAY_L2_FIRST_FAILURE_DIAGNOSTICS; find generated/smartdish_tray -path "*/logs/*.log" -type f -print -exec tail -n 100 {} \; 2>/dev/null || true' ERR
           set +u
           source /opt/ros/jazzy/setup.bash
           set -u
