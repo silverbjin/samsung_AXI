@@ -196,5 +196,27 @@ assert len(d["results"])==3 and all(x["result"]=="SUCCEEDED" for x in d["results
 d["verdict"]="AI_OFF_REAL_RUN_PASS";d["ui_applied_completed"]=True
 p.write_text(json.dumps(d,indent=2,ensure_ascii=False)+"\n")
 PY
+python3 - "$EVD" "$REQ" <<'PY' || fail ADAPTER_MANAGER_ORIGIN_NOT_PROVEN
+import json,sys
+from pathlib import Path
+d=Path(sys.argv[1]); rid=sys.argv[2]
+expected=["TO_TABLE","TO_RETURN","TO_HOME"]
+def events(file,marker):
+    out=[]
+    for line in (d/file).read_text(errors="replace").splitlines():
+        if marker in line:
+            try: out.append(json.loads(line.split(marker,1)[1]))
+            except (ValueError,TypeError): pass
+    return [x for x in out if x.get("request_id")==rid]
+a_goals=events("adapter.log","SMARTDISH_A_NAV_GOAL_SENT ")
+a_results=events("adapter.log","SMARTDISH_A_NAV_RESULT ")
+d_goals=events("service.log","SMARTDISH_D_EVENT topic=/collection/nav_goal json=")
+assert [x.get("leg") for x in a_goals]==expected, "ADAPTER_NAV2_GOAL_3_NOT_PROVEN"
+assert [x.get("leg") for x in a_results]==expected, "ADAPTER_RESULT_3_NOT_PROVEN"
+assert [x.get("leg") for x in d_goals]==expected, "D_MANAGER_GOAL_3_NOT_PROVEN"
+assert all(x.get("result")=="SUCCEEDED" and x.get("reason")=="" and
+           x.get("odom_max_displacement_m",0)>=.25 for x in a_results)
+print("SMARTDISH_E_ORIGIN_CROSSCHECK_PASS request_id="+rid,flush=True)
+PY
 PASS=1
 echo SMARTDISH_E_AI_OFF_LIVE_VERIFIED
