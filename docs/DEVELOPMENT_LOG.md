@@ -119,3 +119,24 @@
 
 - 2026-11-23 **B-09 더미/실데이터 격리**: [개발 보고서](reports/tasks/2026-11-23_B-09_mock_real_isolation.md), [B-DEBUG-05](reports/issues/2026-11-23_B-DEBUG-05_mock_real_mix.md). 혼합 fixture RED → 로컬 25 PASS. 실제 데이터/학습 NOT_RUN.
 - 2026-11-23 **B-08R 동시 등록 및 고아 파일 복구 최소 보강**: [작업 보고서](reports/tasks/2026-11-23_B-08R_writer_lock_orphan_recovery.md) / [B-DEBUG-06](reports/issues/2026-11-23_B-DEBUG-06_concurrent_orphan_recovery.md) — 로컬 30/30 PASS, 실제 트레이 데이터 및 ROS NOT_RUN, 원격 CI 결과는 PR #37에서 추적.
+
+
+## SmartDish C 교육·디버깅 이력 (E 통합시 충돌 보존)
+
+
+- 2026-11-23 **SmartDish C01 PARTIAL / 학습 BLOCKED**: B PR #37에 실제 물리 검증 이미지 0건, ResNet18 frozen/fine-tuning·독립 test 평가 실행기 구현 및 mock-only 20건 계약 검증. [개발 보고서](reports/tasks/2026-11-23_C01_TRAIN_EVAL_EDU_KO.md), [데이터 차단 원인](reports/issues/2026-11-23_C_ISSUE_01_B_DATA_BLOCKED_KO.md). 실제 Training/Accuracy/F1 NOT_RUN.
+
+- 2026-11-23 **SmartDish C02 L0 계약 PASS / ROS LIVE NOT_RUN**: `/smartdish/tray/image_raw` + `/collection/ai_check_request` → `/collection/stability` JSON, 요청 1건에 응답 최대 1건, stale/저신뢰/모델 누락 UNKNOWN 처리. [교육 보고서](reports/tasks/2026-11-23_C02_ROS_INFERENCE_EDU_KO.md). 실제 ROS/Gazebo 통합은 미실행.
+
+- 2026-11-23 **SmartDish C03 로컬·GitHub CI 20 PASS / PR #39 Draft**: 독립 contract-only workflow, 20개 테스트, Model Card·C 인계 및 main 대상 Draft PR 준비. [교육 보고서](reports/tasks/2026-11-23_C03_CI_DRAFT_PR_EDU_KO.md), [C_HANDOFF](handoff/C_HANDOFF.md). AI ON 실제 추론/학습 NOT_RUN.
+
+- 2026-11-23 **SmartDish C 교육용 CI 증거 보강**: [Draft PR #39](https://github.com/silverbjin/samsung_AXI/pull/39), [C-L0 Push #45121818110](https://github.com/silverbjin/samsung_AXI/actions/runs/45121818110) 20 PASS, [C-L0 PR #45121859983](https://github.com/silverbjin/samsung_AXI/actions/runs/45121859983) SUCCESS. 코드 3단위 C01 `d6de15d`, C02 `ada4b14`, C03 `9f4ce58`. [C03 보고서](reports/tasks/2026-11-23_C03_CI_DRAFT_PR_EDU_KO.md) 참조; 학습/실 ROS 통합 NOT_RUN.
+
+- 2026-11-23 | **SmartDish C04** B `MOCK_ONLY` synthetic data isolation, fail-closed loader, ResNet18 offline smoke | [`C04 report`](reports/tasks/2026-11-23_C04_B_MOCK_DATA_PIPELINE_EDU_KO.md) | local L0 27 PASS / dummy E2E PASS; real physics BLOCKED | code commit `dda19ea5e0d972f7b5b5c478f41d65d8a65fffd8`.
+- 2026-11-23 | **SmartDish C05** real-data switching plan, B pinned generator contract CI, educational handoff | [`C05 report`](reports/tasks/2026-11-23_C05_DEMO_REVIEW_REAL_SWITCH_EDU_KO.md) | B pinned mock contract CI PASS #45124546580 (code SHA e69ec3c); L2/WSL2 NOT_RUN | Draft PR #39.
+
+- 2026-11-23 | **SmartDish C06 (PASS local L0 / real-data BLOCKED)** B-06 separate physics evidence SHA/size/file integrity + read-only training readiness | [작업보고](reports/tasks/2026-11-23_C06_REAL_DATA_READINESS_EDU_KO.md), [C-ISSUE-02 RED→GREEN](reports/issues/2026-11-23_C_ISSUE_02_PHYSICS_EVIDENCE_GUARD_EDU_KO.md) | code SHA `c785de8582a9b8f83f82db2fabbbc4d57f3e7336`; B 실제 데이터 0건, training NOT_RUN.
+- 2026-11-23 | **SmartDish C07 (GitHub L0 40 PASS, MOCK_ONLY)** B@1bfc19e + D@195a8ee pinned read-only checkout; C UNKNOWN/UNSTABLE/low confidence/timeout + D 직원 승인·AI OFF FSM 교차검사 | [작업보고](reports/tasks/2026-11-23_C07_D_CROSS_BRANCH_CONTRACT_EDU_KO.md) | code SHA `55ae46a36c637c352d8c851614ee4a650f6c2939`; [Push CI #45125969828](https://github.com/silverbjin/samsung_AXI/actions/runs/45125969828) and [PR CI #45125976380](https://github.com/silverbjin/samsung_AXI/actions/runs/45125976380) SUCCESS; ROS/Gazebo/WSL2, 물리 모델 성능 NOT_RUN.
+- 2026-11-23 | **SmartDish C08 (독립 ROS 2 Jazzy DDS + B/D 최신 pin·통합 리뷰)** B@c9c5280 / D@2824370, CROS L1 패키지/UNKNOWN 및 중복 대응 smoke 추가 | [C08 보고서](reports/tasks/2026-11-23_C08_STANDALONE_ROS_AND_INTEGRATION_REVIEW_EDU_KO.md) | 로컬 syntax + C 기존 34 PASS/1 SKIP; GitHub C08 ROS 결과는 후속 원격 확인, 실물 model/Gazebo NOT_RUN.
+
+- 2026-11-23 | **SmartDish C08 GitHub 실증** [CI #45126686463](https://github.com/silverbjin/samsung_AXI/actions/runs/45126686463) | `6c4c10f`: ROS2 Jazzy smartdish_ai L1 build PASS, DDS 모델 미설치 UNKNOWN 2응답·중복 0, C L0 40 PASS; 원격 결과만 [C08 보고서](reports/tasks/2026-11-23_C08_STANDALONE_ROS_AND_INTEGRATION_REVIEW_EDU_KO.md)에 보강. B 물리 데이터 0건/모델 성능 NOT_RUN.
