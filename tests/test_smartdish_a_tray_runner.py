@@ -116,6 +116,7 @@ def test_sensor_warmup_then_unmodified_dish_spawn_is_required():
     assert "len(state[\"frame_stamps\"])>=2" in runner
     assert "gz_spawn_dynamic(env,WORLD,item)" in runner
     assert "state[\"min_image_stamp_ns\"]=stage_start_ns" in runner
-    assert "stamp-stage_start_ns>300_000_000" in runner
+    assert "stamp-stage_start_ns>500_000_000" in runner
+    assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in runner
     assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in runner
     assert "sensor_preflight_manifest.json" in runner

@@ -312,7 +312,10 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                         break
             if camera_ready():
                 break
-            if state["sim_ns"]-stage_start_ns>310_000_000:
+            # At 5Hz allow the second *post-spawn* camera period when
+            # Gazebo must rebuild its render scene after EntityFactory.
+            # Actual capture-time dish displacement still gates the sample.
+            if state["sim_ns"]-stage_start_ns>510_000_000:
                 break
 
         if not camera_ready():
@@ -353,8 +356,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
               json.dumps(ready_diag,sort_keys=True),flush=True)
         msg=state["frame"]
         stamp=int(msg.header.stamp.sec)*1_000_000_000+int(msg.header.stamp.nanosec)
-        if (stamp<=stage_start_ns or stamp-stage_start_ns>300_000_000 or
-                state["sim_ns"]-stage_start_ns>320_000_000):
+        if (stamp<=stage_start_ns or stamp-stage_start_ns>500_000_000 or
+                state["sim_ns"]-stage_start_ns>520_000_000):
             raise RuntimeError("A13_PRE_EVENT_CAMERA_TOO_LATE_NO_VALID_TRAINING_INPUT")
         if not set(dish_names)<=set(state["poses"]):
             raise RuntimeError("A13_GAZEBO_NAMED_POSE_BRIDGE_NO_DISH"
