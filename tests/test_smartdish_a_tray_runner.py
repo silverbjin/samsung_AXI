@@ -98,3 +98,13 @@ def test_image_probe_requires_actual_bytes_not_exit_code(tmp_path):
     d=image_probe_report(p,0)
     assert d["bytes"]>0 and d["contains_image_dimensions"]
     assert len(d["sha256"])==64
+
+def test_gui_gate_requires_real_frames_and_two_cold_runs():
+    wf=(ROOT/".github/workflows/smartdish-a-tray-ci.yml").read_text()
+    assert "tray-l2-gui:" in wf
+    assert "needs: tray-l2" in wf
+    assert "SMARTDISH_A_TRAY_L2_GUI_COLD_2_OF_2_PASS" in wf
+    assert "image_received_count" in wf
+    assert "gui_active_during_physics" in wf
+    assert "xvfb-run -a" in wf
+    assert "smartdish_a_tray_evidence.tar.gz" in wf
