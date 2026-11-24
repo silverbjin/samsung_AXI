@@ -52,7 +52,7 @@
       → UI on_status() 적용 로그 SMARTDISH_D_UI_APPLIED state=COMPLETED
       → E witness 결과와 화면 콜백 교차 점검 → ZIP 출고
 
-E 관측기는 goal/result를 발행하거나 성공을 합성하지 않습니다. 실패 발생 시 first_error를 기록하고, UI↔D, D↔A, A↔Nav2, Gazebo·TF 중 **최초 문제 한 경계**만 수정하도록 로그를 분리합니다. 종료는 자기 실행기가 실행한 PID/프로세스 그룹에만 신호를 보냅니다.
+E 관측기는 goal/result를 발행하거나 성공을 합성하지 않습니다. 최종 PASS 직전 A Adapter 원본 로그의 NAV_GOAL_SENT·NAV_RESULT와 D Manager 원본 로그의 /collection/nav_goal 3건을 동일 request_id로 대조하고 A의 odom 변위도 확인합니다. 실패 발생 시 first_error를 기록하고, UI↔D, D↔A, A↔Nav2, Gazebo·TF 중 **최초 문제 한 경계**만 수정하도록 로그를 분리합니다. 종료는 자기 실행기가 실행한 PID/프로세스 그룹에만 신호를 보냅니다.
 
 ### 사용자 WSL2 GUI 원샷 절차
 
