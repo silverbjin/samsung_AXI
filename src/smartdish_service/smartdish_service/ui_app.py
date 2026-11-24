@@ -300,6 +300,7 @@ def main(argv=None):
             self.active_state = "TO_TABLE"
             self.reason_var.set("")
             self.start_button.configure(state="disabled")
+            print("SMARTDISH_D_UI_CLICK request_id=" + self.active_request + " table_id=T03", flush=True)
             self.node.send(self.node.request_pub, {
                 "request_id": self.active_request,
                 "table_id": "T03", "table_wait_s": wait,
@@ -314,6 +315,7 @@ def main(argv=None):
                 return
             self.active_state = state
             self.status_var.set(STATES_KO[state])
+            print("SMARTDISH_D_UI_APPLIED request_id=" + self.active_request + " state=" + state, flush=True)
             remaining = data.get("remaining_s")
             self.remaining_var.set(f"{remaining}초" if isinstance(remaining, int) else "—")
             self.reason_var.set(str(data.get("reason") or ""))
