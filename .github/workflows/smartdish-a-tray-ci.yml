@@ -63,8 +63,10 @@ jobs:
           set -u
           ros2 pkg prefix smartdish_robot
           ros2 pkg prefix ros_gz_bridge
-          ros2 interface show sensor_msgs/msg/Image | grep -q encoding
-          ros2 interface show tf2_msgs/msg/TFMessage | grep -q transforms
+          ros2 interface show sensor_msgs/msg/Image > /tmp/a_tray_image_interface.txt
+          ros2 interface show tf2_msgs/msg/TFMessage > /tmp/a_tray_tf_interface.txt
+          grep -q encoding /tmp/a_tray_image_interface.txt
+          grep -q transforms /tmp/a_tray_tf_interface.txt
           python3 - <<'PY'
           import rclpy, yaml
           from sensor_msgs.msg import Image
