@@ -59,6 +59,11 @@ def test_real_physics_and_image_required_no_mock_success():
     assert "A13_CAMERA_READY_DIAGNOSTICS" in src
     assert "ros_zero_stamp_callbacks" in src
     assert "gz_image_frame_probe_exit" in src
+    assert "A13_GUI_ACTIVE_BUT_NO_LIVE_RGB_FRAMES" in src
+    assert "A13_GAZEBO_GUI_START_FAILED_RC" in src
+    assert "A13_RENDER_ENV_DIAGNOSTICS" in src
+    assert "image_probe_report" in src
+    assert 'env["LIBGL_ALWAYS_SOFTWARE"]=env.get(' not in src
     assert "node.count_publishers(TOPIC)" in src
     assert 'if camera_ready():' in src
     assert "A13_GAZEBO_NAMED_POSE_BRIDGE_NO_DISH" in src
@@ -81,3 +86,15 @@ def test_pre_event_frame_requires_named_poses_and_monotonic_sim_clock():
     assert pre_event_ready(msg,200_000_000,{"dish_01":{}},["dish_01"])
     msg.header.stamp.nanosec=0
     assert not pre_event_ready(msg,200_000_000,{"dish_01":{}},["dish_01"])
+
+def test_image_probe_requires_actual_bytes_not_exit_code(tmp_path):
+    import sys
+    sys.path.insert(0,str(ROOT/"scripts"))
+    from smartdish_a_tray_live import image_probe_report
+    p=tmp_path/"probe.txt"
+    assert image_probe_report(p,0)["bytes"]==0
+    assert not image_probe_report(p,0)["contains_image_dimensions"]
+    p.write_bytes(b'header { stamp: 1 } width: 640 height: 480 data: "x"')
+    d=image_probe_report(p,0)
+    assert d["bytes"]>0 and d["contains_image_dimensions"]
+    assert len(d["sha256"])==64

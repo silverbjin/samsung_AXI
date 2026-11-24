@@ -37,6 +37,23 @@ def pre_event_ready(frame, clock_ns, pose_names, required_names):
     return stamp>0 and int(clock_ns)>=stamp
 
 
+def image_probe_report(path, returncode):
+    """Report actual GZ CLI message bytes; process exit alone proves nothing."""
+    p=Path(path)
+    size=p.stat().st_size if p.is_file() else 0
+    preview=b""
+    if size:
+        with p.open("rb") as f:
+            preview=f.read(min(size,65536))
+    # gz topic echo normally emits readable protobuf field names.
+    # Keep a diagnostic only; the ROS callback remains the acceptance gate.
+    return {"exit_code":returncode,"bytes":size,
+            "sha256":digest(p)[0] if size else None,
+            "contains_image_dimensions":(b"width:" in preview and
+                                          b"height:" in preview),
+            "evidence_file":p.name}
+
+
 def stop_owned(proc):
     if proc is None or proc.poll() is not None:
         return
@@ -80,8 +97,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
     # isolate Gazebo Transport and ROS DDS from current AI-OFF robot session
     env["GZ_PARTITION"]=f"smartdish_tray_{run_id}_{index}"
     env["ROS_DOMAIN_ID"]=str(55+(os.getpid()+index)%40)
-    env["LIBGL_ALWAYS_SOFTWARE"]=env.get("LIBGL_ALWAYS_SOFTWARE","1")
-    env["GALLIUM_DRIVER"]=env.get("GALLIUM_DRIVER","llvmpipe")
+    # CI explicitly sets Mesa llvmpipe; WSLg inherits its own GPU/Mesa
+    # defaults. Do not unconditionally force slow llvmpipe on user's WSLg.
+    # Users may still explicitly set either variable when diagnosing.
     directory_log=directory.parent/"logs"
     directory_log.mkdir(parents=True,exist_ok=True)
     handles=[]
@@ -93,6 +111,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
            "image_callbacks_total":0,"image_zero_stamp":0,
            "image_repeated_stamp":0,"image_first_seen_wall":None,
            "image_last_stamp_ns":None}
+    gui_process=None
+    probe_data_path=None
     failure=None
 
     def image_cb(msg):
@@ -150,11 +170,19 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             handles.append(handle)
             procs.append(subprocess.Popen(cmd,env=env,stdout=handle,
                                           stderr=subprocess.STDOUT,start_new_session=True))
-        if gui:
-            handle=(directory_log/(directory.name+"_gui.log")).open("w")
-            handles.append(handle)
-            procs.append(subprocess.Popen(["gz","sim","-g","-v2"],env=env,
-                         stdout=handle,stderr=subprocess.STDOUT,start_new_session=True))
+        print("A13_RENDER_ENV_DIAGNOSTICS="+json.dumps({
+            "gui_requested":gui,
+            "display_set":bool(env.get("DISPLAY")),
+            "wayland_display_set":bool(env.get("WAYLAND_DISPLAY")),
+            "xdg_runtime_dir_set":bool(env.get("XDG_RUNTIME_DIR")),
+            "libgl_always_software":env.get("LIBGL_ALWAYS_SOFTWARE"),
+            "gallium_driver":env.get("GALLIUM_DRIVER"),
+            "gz_sim_render_engine":env.get("GZ_SIM_RENDER_ENGINE"),
+            "ros_domain_id":env["ROS_DOMAIN_ID"],
+            "gz_partition":env["GZ_PARTITION"]},sort_keys=True),flush=True)
+        # GUI deliberately starts AFTER genuine pre-observation RGB capture.
+        # It remains active during physics and must receive subsequent frames.
+        # WSLg Ogre/Qt UI initialization cannot starve the first sensor frame.
         # The ROS node must share the exact DDS domain with the per-trial
         # bridge. A subprocess env alone does NOT change this parent's rclpy.
         rclpy.init(args=None,domain_id=int(env["ROS_DOMAIN_ID"]))
@@ -191,9 +219,12 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         # Never synthesize a ROS Image or mark a test PASS from topic adverts.
         gz_probe_log=(directory_log/(directory.name+"_gz_image_probe.log")).open("w")
         handles.append(gz_probe_log)
+        probe_data_path=directory_log/(directory.name+"_gz_image_probe_data.txt")
+        probe_data=probe_data_path.open("wb")
+        handles.append(probe_data)
         probe=subprocess.Popen(
             ["gz","topic","-e","-n","1","-t",TOPIC],
-            env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,
+            env=env,stdin=subprocess.DEVNULL,stdout=probe_data,
             stderr=gz_probe_log,start_new_session=True)
         procs.append(probe)
 
@@ -239,6 +270,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                     ["gz","topic","-l"],env=env,capture_output=True,
                     text=True,timeout=8).stdout,
                 gz_image_frame_probe_exit=probe.poll(),
+                gz_probe=image_probe_report(probe_data_path,probe.poll()),
                 ros_image_publishers=node.count_publishers(TOPIC),
                 ros_image_callbacks=state["image_callbacks_total"],
                 ros_zero_stamp_callbacks=state["image_zero_stamp"],
@@ -261,6 +293,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             "image_zero_stamp":state["image_zero_stamp"],
             "image_repeated_stamp":state["image_repeated_stamp"],
             "gz_real_image_probe_exit":probe.poll(),
+            "gz_probe":image_probe_report(probe_data_path,probe.poll()),
             "ros_image_publishers":node.count_publishers(TOPIC),
             "pose_names":sorted(state["poses"]),
         }
@@ -312,6 +345,21 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                         "dishes":snapshot,"scenario_sha256":config["world_sha256"]},
                        indent=2,sort_keys=True)+"\n")
         print("SMARTDISH_A_TRAY_RGB_CAPTURE_PASS trial="+directory.name,flush=True)
+        if gui:
+            handle=(directory_log/(directory.name+"_gui.log")).open("w")
+            handles.append(handle)
+            gui_process=subprocess.Popen(
+                ["gz","sim","-g","-v2"],env=env,stdout=handle,
+                stderr=subprocess.STDOUT,start_new_session=True)
+            procs.append(gui_process)
+            # A real GUI client must be alive when physical observation starts.
+            # The actual server camera is checked again during the 10-sim-s phase.
+            for _ in range(10):
+                spin(.10)
+                if gui_process.poll() is not None:
+                    raise RuntimeError("A13_GAZEBO_GUI_START_FAILED_RC="+
+                                       str(gui_process.returncode))
+            print("SMARTDISH_A_TRAY_GUI_CLIENT_STARTED",flush=True)
 
         # Only now unpause the actual physics simulation for 10 simulated s.
         observation_start_ns=state["sim_ns"]
@@ -325,6 +373,14 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         for _ in range(6):
             spin(.1)
         observation_end_ns=state["sim_ns"]
+        if gui:
+            if gui_process.poll() is not None:
+                raise RuntimeError("A13_GAZEBO_GUI_EARLY_EXIT_RC="+
+                                   str(gui_process.returncode))
+            if not state["frame_stamps"] or state["frame_stamps"][-1]<=stamp:
+                raise RuntimeError("A13_GUI_ACTIVE_BUT_NO_LIVE_RGB_FRAMES")
+            print("SMARTDISH_A_TRAY_GUI_LIVE_RGB_PASS last_stamp_ns="+
+                  str(state["frame_stamps"][-1]),flush=True)
         final={n:dict(state["poses"][n]) for n in dish_names if n in state["poses"]}
         motion=classify_motion(snapshot,final,dish_names,TRAY_TOP)
         rows=[x for x in state["traces"] if x["entity"] in dish_names]
@@ -354,7 +410,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             "image_sha256":digest(dst)[0],
             "physics_sha256":sha,"physics_size_bytes":sz,
             "pose_sample_count":len(rows),"image_received_count":len(state["frame_stamps"]),
-            "motion":motion,"label":"REVIEW_REQUIRED","ground_truth":"NOT_OPERATOR_APPROVED",
+            "motion":motion,"gui_active_during_physics":gui,
+            "gz_probe":image_probe_report(probe_data_path,probe.poll()),
+            "label":"REVIEW_REQUIRED","ground_truth":"NOT_OPERATOR_APPROVED",
             "verdict":"GAZEBO_PHYSICS_OBSERVED_REVIEW_REQUIRED",
             **timing}
         (directory/"trial_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
