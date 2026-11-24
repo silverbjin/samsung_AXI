@@ -1,0 +1,10 @@
+# SmartDish A-06 — verified Nav2 map-frame access poses, no SDF World coordinates.
+# HOME/T03: released S3 map (S2 map provenance).
+# DISH_RETURN: real S2-MAP-03 surveyed kitchen north approach waypoint #5.
+# Actual ROS/Gazebo 3-leg L2: Run 45124877004 / source 6d7e3508ea1f4a5d32ab257904b2335f859b3f0b
+# 3 Nav2 SUCCEEDED + odom movement + AMCL errors 0.098/0.196/0.166 m.
+frame: map
+poses:
+  HOME: {x: 0.0, y: 0.0, yaw: 0.0}
+  T03: {x: 5.25, y: 0.38, yaw: -1.57079632679}
+  DISH_RETURN: {x: -1.15, y: 1.60, yaw: -1.57079632679}

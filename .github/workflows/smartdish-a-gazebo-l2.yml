@@ -1,0 +1,128 @@
+name: SmartDish A / actual Gazebo Nav2 3-leg L2
+on:
+  push:
+    branches: [feat/smartdish-a-robot]
+    paths:
+      - 'src/smartdish_robot/**'
+      - 'scripts/smartdish_a_real_gazebo_l2.py'
+      - 'tests/test_smartdish_a_return_candidate.py'
+      - '.github/workflows/smartdish-a-gazebo-l2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: smartdish-a-real-nav-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  candidate-map-l0:
+    name: A-04 L0 / source waypoint, real saved occupancy and clearance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Map source and ROS-free candidate contract tests
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-yaml python3-pytest
+          python3 -m pytest -q tests/test_smartdish_a_return_candidate.py tests/test_smartdish_a_tty.py
+          python3 -m py_compile scripts/smartdish_a_real_gazebo_l2.py
+          echo SMARTDISH_A_CANDIDATE_MAP_L0_PASS
+  gazebo-nav2-3leg-l2:
+    name: A-05 L2 / real Gazebo adapter ROS JSON 3 goals physical odom
+    needs: candidate-map-l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 58
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      GITHUB_ACTIONS: 'true'
+      ROS_DISTRO: jazzy
+      ROS_DOMAIN_ID: '94'
+      GZ_PARTITION: smartdish_a_${{ github.run_id }}_${{ github.run_attempt }}
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      RESTAURANT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install reviewed ROS Jazzy/Nav2 and Gazebo Harmonic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git python3-colcon-common-extensions python3-yaml \
+            xvfb xauth mesa-utils ros-jazzy-ros-base ros-jazzy-ros-gz \
+            ros-jazzy-ros-gz-image ros-jazzy-nav2-bringup \
+            ros-jazzy-navigation2 ros-jazzy-slam-toolbox \
+            ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+      - name: Checkout exact reviewed official ROBOTIS Waffle Pi
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p src/upstream
+          git clone -q --depth 1 -b jazzy https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git src/upstream/turtlebot3_simulations
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          if [[ "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" != "$PIN" ]]; then
+            git -C src/upstream/turtlebot3_simulations fetch -q --depth 1 origin "$PIN"
+            git -C src/upstream/turtlebot3_simulations checkout -q --detach "$PIN"
+          fi
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+      - name: Build existing ROS stack and A overlay, no goal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --event-handlers console_direct+ \
+            --packages-up-to restaurant_world restaurant_bringup restaurant_delivery smartdish_robot
+          set +u
+          source install/setup.bash
+          set -u
+          ros2 pkg executables smartdish_robot | grep 'smartdish_robot navigation_adapter'
+          mkdir -p generated/smartdish_a logs
+          ROBOTIS_SDF="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
+          python3 scripts/prepare_waffle_rgbd.py --source "$ROBOTIS_SDF" \
+            --out generated/smartdish_a/waffle.sdf --rgbd-rate-hz 2
+          NAV_PARAMS="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+          python3 scripts/prepare_nav2_params.py --source "$NAV_PARAMS" \
+            --out generated/smartdish_a/nav2.yaml --auto-initial-pose --s6-bt-ack-ms 200
+          echo SMARTDISH_A_GAZEBO_BUILD_PASS_NO_GOAL
+      - name: Real Gazebo three NavigateToPose goals through A String JSON adapter
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=25s 1650s \
+            python3 scripts/smartdish_a_real_gazebo_l2.py \
+              --robot-sdf "$PWD/generated/smartdish_a/waffle.sdf" \
+              --map "$PWD/maps/candidates/s2_map03/restaurant_map.yaml" \
+              --params "$PWD/generated/smartdish_a/nav2.yaml" \
+              --poses "$PWD/src/smartdish_robot/config/table_poses.yaml" \
+              --log "$PWD/logs/smartdish_a_gazebo.log" \
+              --evidence "$PWD/generated/smartdish_a/l2_evidence.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('generated/smartdish_a/l2_evidence.json').read_text())
+          assert d['verdict']=='ROBOT_ONLY_REAL_GAZEBO_L2_PASS'
+          assert [x['result'] for x in d['nav_results']]==['SUCCEEDED']*3
+          assert len(d['legs'])==3
+          assert all(x['odom_max_m']>.25 for x in d['legs'])
+          print('SMARTDISH_A_REAL_GAZEBO_L2_EVIDENCE_VERIFIED')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-a-l2-evidence-${{ github.run_id }}
+          path: |
+            generated/smartdish_a/l2_evidence.json
+            logs/smartdish_a_gazebo.log
+          if-no-files-found: ignore
+          retention-days: 14
