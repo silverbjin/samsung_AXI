@@ -299,10 +299,10 @@ def run(args):
         result={r["scene_id"]:r["motion"]["observation"] for r in summary["trials"]}
         if args.mode in ("batch","demo"):
             if not all(result.get(s)=="HELD_OBSERVED" for s in
-                       (("ST-01","ST-02") if args.mode=="batch" else ("ST-01",)):
+                       (("ST-01","ST-02") if args.mode=="batch" else ("ST-01",))):
                 raise RuntimeError("A13_STABLE_PHYSICS_NOT_VERIFIED")
             if not all(result.get(s)=="FALL_OBSERVED" for s in
-                       (("UN-01","UN-02") if args.mode=="batch" else ("UN-01",)):
+                       (("UN-01","UN-02") if args.mode=="batch" else ("UN-01",))):
                 raise RuntimeError("A13_UNSTABLE_PHYSICS_NOT_VERIFIED")
         summary["verdict"]="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS"
         print("SMARTDISH_A_TRAY_PHYSICS_OBSERVATION_PASS",flush=True)
