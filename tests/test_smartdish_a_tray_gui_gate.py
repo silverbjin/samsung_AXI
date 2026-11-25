@@ -117,5 +117,9 @@ def test_qualification_must_preflight_before_expensive_physics():
     assert "A13_GUI_FAILURE_SENSOR_CONTINUES=" in live
     assert live.index('(directory/"trial_summary.json").write_text')<live.index("raise RuntimeError(gui_failure_reason)")
     assert 'os.environ.get("SMARTDISH_A_TRAY_GUI_PROFILE","native")' in live
+    preflight=(ROOT/"scripts/smartdish_a_tray_gui_preflight.py").read_text()
+    assert '"-c","safe.directory="+str(root)' in preflight
+    assert 'git config --global' not in preflight
+    assert "pkill" not in preflight and "killall" not in preflight
     assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in live
     assert 'ground_truth":"NOT_OPERATOR_APPROVED"' in live

@@ -90,7 +90,7 @@ def run_gui_preflight(root:Path, source_sha:str, profile="xcb", seconds=9.0,
                       out_dir:Path|None=None):
     if not re.fullmatch("[0-9a-f]{40}",source_sha):
         raise RuntimeError("A13_GUI_PREFLIGHT_SHA_INVALID")
-    actual=subprocess.check_output(["git","-C",str(root),"rev-parse","HEAD"],
+    actual=subprocess.check_output(["git","-C",str(root),"-c","safe.directory="+str(root),"rev-parse","HEAD"],
                                    text=True,timeout=8).strip()
     if actual!=source_sha:
         raise RuntimeError("A13_GUI_PREFLIGHT_SOURCE_SHA_MISMATCH")
