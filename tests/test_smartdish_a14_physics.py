@@ -47,6 +47,14 @@ def test_static_tray_is_sdf_authentic_and_contact_instrumentation_optin(tmp_path
     assert pose["qw"]==pytest.approx(1.)
     txt=sdf.read_text()
     assert "sensor name=\"a14_contact\"" in txt
+    import xml.etree.ElementTree as ET
+    parsed=ET.parse(sdf).getroot()
+    sensors=parsed.findall(".//sensor[@type='contact']")
+    assert len(sensors)==2+len(cfg["initial_dishes"])
+    for sensor in sensors:
+        assert sensor.find("topic") is None
+        assert sensor.find("contact/topic") is not None
+        assert sensor.findtext("contact/topic").startswith("/smartdish/tray/contact/")
     assert "smartdish_tray_rgb" in txt
     assert "/smartdish/tray/contact/tray_platform" in txt
     assert "ros_gz_interfaces/msg/Contacts" in Path(info["bridge"]).read_text()

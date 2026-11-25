@@ -52,8 +52,12 @@ def configure_sdf(sdf, config):
         sensor=ET.SubElement(link,"sensor",{"name":"a14_contact","type":"contact"})
         ET.SubElement(sensor,"always_on").text="true"
         ET.SubElement(sensor,"update_rate").text="50"
-        ET.SubElement(sensor,"topic").text=CONTACT_PREFIX+model_name
-        ET.SubElement(ET.SubElement(sensor,"contact"),"collision").text=name
+        # Gazebo Harmonic Contact System reads the output topic from
+        # <contact><topic>, NOT from the generic <sensor><topic>. A14 L2
+        # showed the latter was silently ignored (default /world/... topic).
+        contact=ET.SubElement(sensor,"contact")
+        ET.SubElement(contact,"collision").text=name
+        ET.SubElement(contact,"topic").text=CONTACT_PREFIX+model_name
     content='<?xml version="1.0"?>\n'+ET.tostring(root,encoding="unicode")+"\n"
     Path(sdf).write_text(content)
     config["world_sha256"]=hashlib.sha256(content.encode()).hexdigest()
