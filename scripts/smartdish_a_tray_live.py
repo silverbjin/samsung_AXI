@@ -51,7 +51,72 @@ def image_probe_report(path, returncode):
             "sha256":digest(p)[0] if size else None,
             "contains_image_dimensions":(b"width:" in preview and
                                           b"height:" in preview),
-            "evidence_file":p.name}
+            "evidence_file":p.name,
+            "observed_gz_image_blocks":(p.read_bytes().count(b"\nwidth: ")
+                                         if size else 0)}
+
+
+
+def failure_snapshot(phase, error, state, env, processes, node, probe_path,
+                     source_sha, scenario, seed, elapsed_wall_seconds):
+    """Diagnostic only. Never treat advertised topics or sample bytes as PASS."""
+    publishers = None
+    endpoints = []
+    endpoint_error = None
+    if node is not None:
+        try:
+            publishers = node.count_publishers(TOPIC)
+            for info in node.get_publishers_info_by_topic(TOPIC):
+                qos = info.qos_profile
+                endpoints.append({
+                    "node_name": str(info.node_name),
+                    "topic_type": str(info.topic_type),
+                    "qos_reliability": str(qos.reliability),
+                    "qos_durability": str(qos.durability)})
+        except Exception as err:
+            endpoint_error = repr(err)
+    owned = []
+    for proc in processes:
+        try:
+            code = proc.poll()
+            owned.append({"pid": proc.pid, "returncode_at_failure": code,
+                          "running_at_failure": code is None})
+        except Exception as err:
+            owned.append({"pid": getattr(proc, "pid", None),
+                          "inspection_error": repr(err)})
+    probe = None
+    if probe_path is not None:
+        try:
+            probe = image_probe_report(probe_path, None)
+        except Exception as err:
+            probe = {"inspection_error": repr(err)}
+    return {
+        "schema": 1, "verdict": "FAIL", "stage": phase,
+        "first_error": type(error).__name__ + ": " + str(error),
+        "source_sha": source_sha, "scenario_id": scenario, "seed": seed,
+        "wall_elapsed_seconds": round(elapsed_wall_seconds, 3),
+        "diagnostic_monotonic_ns": time.monotonic_ns(),
+        "diagnostic_utc_ns": time.time_ns(),
+        "ros_domain_id": env.get("ROS_DOMAIN_ID"),
+        "gz_partition": env.get("GZ_PARTITION"),
+        "renderer_env": {k: env.get(k) for k in
+            ("DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR",
+             "LIBGL_ALWAYS_SOFTWARE", "GALLIUM_DRIVER",
+             "MESA_D3D12_DEFAULT_ADAPTER_NAME", "GZ_SIM_RENDER_ENGINE")},
+        "sim_ns": state.get("sim_ns"),
+        "ros_image_callbacks_total": state.get("image_callbacks_total"),
+        "ros_image_zero_stamp": state.get("image_zero_stamp"),
+        "ros_image_repeat_stamp": state.get("image_repeated_stamp"),
+        "ros_image_before_spawn": state.get("image_before_spawn_count"),
+        "ros_image_valid_stamps": list(state.get("frame_stamps", [])),
+        "ros_image_last_stamp_ns": state.get("image_last_stamp_ns"),
+        "ros_image_first_seen_monotonic": state.get("image_first_seen_wall"),
+        "ros_image_publisher_count": publishers,
+        "ros_image_publisher_endpoints": endpoints,
+        "ros_endpoint_lookup_error": endpoint_error,
+        "gz_image_probe": probe,
+        "owned_processes_before_cleanup": owned,
+    }
 
 
 def stop_owned(proc):
@@ -133,6 +198,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
     gui_process=None
     probe_data_path=None
     failure=None
+    trial_wall_start=time.monotonic()
+    phase="initializing"
 
     def image_cb(msg):
         state["image_callbacks_total"]+=1
@@ -181,6 +248,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             raise RuntimeError("A13_OWNED_GAZEBO_OR_BRIDGE_EXITED")
         rclpy.spin_once(node,timeout_sec=seconds)
 
+    phase="launch_gazebo_bridge"
     try:
         for name,cmd in [
             ("gazebo",["gz","sim","-s","-v2",str(sensor_world_sdf.resolve())]),
@@ -228,6 +296,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         # The renderer, bridge and ROS graph start on wall time; the 5Hz
         # camera is gated by simulation time. Give DDS discovery its own
         # bounded wall-time barrier *before* advancing physical dish poses.
+        phase="dds_discovery"
         discovery_deadline=time.monotonic()+12.0
         while node.count_publishers(TOPIC)==0 and time.monotonic()<discovery_deadline:
             spin(.15)
@@ -245,13 +314,14 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         probe_data=probe_data_path.open("wb")
         handles.append(probe_data)
         probe=subprocess.Popen(
-            ["gz","topic","-e","-n","1","-t",TOPIC],
+            ["gz","topic","-e","-n","2","-t",TOPIC],
             env=env,stdin=subprocess.DEVNULL,stdout=probe_data,
             stderr=gz_probe_log,start_new_session=True)
         procs.append(probe)
 
         # Stage 1: PRE-WARM the actual camera and ROS bridge with NO
         # dynamic dishes. Missed first 5Hz frames cannot bias dataset X.
+        phase="sensor_warmup"
         warmup_deadline=time.monotonic()+75.0
         for _ in range(450):
             if len(state["frame_stamps"])>=2:
@@ -276,6 +346,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         # Stage 2: spawn the unchanged real physical dishes, then capture
         # a FRESH image/pose. Neither the previous empty-tray RGB nor late
         # duplicate messages can be training X.
+        phase="dynamic_dish_spawn"
         stage_start_ns=state["sim_ns"]
         state["min_image_stamp_ns"]=stage_start_ns
         state["frame"]=None
@@ -292,6 +363,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             return pre_event_ready(state["frame"],state["sim_ns"],
                                    state["poses"],dish_names)
 
+        phase="post_spawn_camera_pose"
         capture_deadline=time.monotonic()+50.0
         for _ in range(100):
             if camera_ready():
@@ -403,6 +475,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                         "dishes":snapshot,"scenario_sha256":config["world_sha256"]},
                        indent=2,sort_keys=True)+"\n")
         print("SMARTDISH_A_TRAY_RGB_CAPTURE_PASS trial="+directory.name,flush=True)
+        phase="gui_client_start"
         if gui:
             handle=(directory_log/(directory.name+"_gui.log")).open("w")
             handles.append(handle)
@@ -420,6 +493,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             print("SMARTDISH_A_TRAY_GUI_CLIENT_STARTED",flush=True)
 
         # Only now unpause the actual physics simulation for 10 simulated s.
+        phase="physics_observation"
         observation_start_ns=state["sim_ns"]
         gz_call(env,WORLD,"pause: false")
         deadline=time.monotonic()+190
@@ -460,7 +534,10 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         verify_timing(stamp, observation_start_ns, observation_end_ns,
                       pose_at_capture_ns, state["frame_stamps"])
         sha,sz=digest(physics)
+        phase="evidence_verification"
         summary={
+            "ros_domain_id":env["ROS_DOMAIN_ID"],
+            "gz_partition":env["GZ_PARTITION"],
             "trial_id":config["trial_id"],"scene_id":scenario,"seed":seed,
             "source_sha":source_sha,"config_world_sha256":config["world_sha256"],
             "source_topic":TOPIC,"frame_id":FRAME,
@@ -480,13 +557,35 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         (directory/"trial_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
         verify_trial(directory)
         return summary
+    except BaseException as exc:
+        try:
+            diagnostic=failure_snapshot(
+                phase,exc,state,env,procs,node,probe_data_path,
+                source_sha,scenario,seed,time.monotonic()-trial_wall_start)
+            diag_path=directory/"failure_diagnostics.json"
+            diag_path.write_text(json.dumps(diagnostic,indent=2,sort_keys=True)+"\n")
+            print("A13_FAILURE_DIAGNOSTICS_PATH="+str(diag_path),flush=True)
+        except Exception as diagnostic_error:
+            print("A13_FAILURE_DIAGNOSTICS_WRITE_FAILED="+repr(diagnostic_error),
+                  flush=True)
+        raise
     finally:
         if node is not None:
             node.destroy_node()
         if initialized and rclpy.ok():
             rclpy.shutdown()
+        cleanup=[]
         for p in reversed(procs):
             stop_owned(p)
+            cleanup.append({"pid":p.pid,"returncode_after_cleanup":p.poll(),
+                            "stopped":p.poll() is not None})
+        (directory/"process_cleanup.json").write_text(
+            json.dumps({"source_sha":source_sha,"scenario_id":scenario,
+                        "ros_domain_id":env["ROS_DOMAIN_ID"],
+                        "gz_partition":env["GZ_PARTITION"],
+                        "owned_processes":cleanup,
+                        "all_owned_processes_stopped":all(x["stopped"] for x in cleanup)},
+                       indent=2,sort_keys=True)+"\n")
         for h in handles:
             h.close()
 
