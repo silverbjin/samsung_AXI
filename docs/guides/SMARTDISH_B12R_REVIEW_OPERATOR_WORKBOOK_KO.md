@@ -11,23 +11,29 @@
 기존 작업공간을 버리거나 Gazebo를 재실행하지 마십시오. `--archive`로 B-15 원본 **진단 TAR**을 입력합니다. A-13 전체 TAR를 이 CLI에 넣으면 안 됩니다.
 
 ```bash
+# 이 블록은 최종 GitHub commit SHA가 출고된 뒤 해당 SHA로만 실행합니다.
 cd ~/samsung_AXI_B_REAL
-PIN="$(git rev-parse HEAD)"
-# 새 commit 적용 후에는 반드시 PIN을 실제 배포 SHA로 고정하여 입력
-ARCHIVE="$(find "$PWD/ai/data/private/b_a13_diagnostics" -maxdepth 1 -type f \
-  -name 'smartdish_b_a13_*_diagnostics.tar.gz' -printf '%T@ %p\n' \
-  | sort -n | tail -1 | cut -d' ' -f2-)"
-test -f "$ARCHIVE"
-sha256sum -c "$ARCHIVE.sha256"
-OUT="$PWD/ai/data/private/b12_operator_review_$(date -u +%Y%m%dT%H%M%SZ)_$$"
-python3 ai/scripts/receive_b15_diagnostics.py \
-  --archive "$ARCHIVE" --sha256-file "$ARCHIVE.sha256" --output "$OUT"
-python3 ai/scripts/audit_a13_independent_groups.py \
-  --candidate-manifest "$OUT/review/candidate_manifest.csv" \
-  --report "$OUT/B14_INDEPENDENCE_AUDIT.json"
-cat "$OUT/B12_REVIEW_RECEIPT.json"
-cat "$OUT/B14_INDEPENDENCE_AUDIT.json"
+PIN="<PR_46_실제_출고_SHA_40자리>"
+
+git fetch origin feat/smartdish-b-real-dataset
+git merge --ff-only "$PIN"
+# 단 한 개의 자식 bash 프로세스로 실행 — 실패하더라도 터미널은 유지됩니다.
+bash scripts/smartdish_b12r_one_shot.sh --sha "$PIN" --mode review
 ```
+
+검증된 실제 PIN은 PR #46 / acceptance 원장의 최신 GitHub SHA와 일치해야 합니다. 위 플레이스홀더는 **문서의 개념 예시**이며 사용자 최종 복사·붙여넣기 명령으로 배포하지 않습니다. 실제 최종 안내에는 검증된 40자리 PIN을 직접 입력하십시오.
+
+원본을 수동으로 지정하려면 `--archive "/실제/B15_진단.tar.gz"` 옵션을 추가하십시오. 기본값은 `ai/data/private/b_a13_diagnostics/`에서 가장 최근 진단 TAR를 자동 선택합니다. 사용자가 별도로 `sha256sum -c`를 실행하지 않습니다. SHA 검증은 `receive_b15_diagnostics.py::read_sidecar()`가 입력 TAR 절대경로의 바이트와 SHA 파일 내용을 직접 대조합니다.
+
+B12R 진단 아카이브는 다음 위치에 자동 생성됩니다.
+
+```
+ai/data/private/b12r_diagnostics/smartdish_b12r_*_diagnostics.tar.gz
+ai/data/private/b12r_diagnostics/smartdish_b12r_*_diagnostics.tar.gz.sha256
+```
+
+성공 시 `B12R_REVIEW_DIR=<실제 폴더>` 경로를 복사하여 `review/review.html`, `B14_INDEPENDENCE_AUDIT.json`을 열고, 오류 시 `B12R_DIAGNOSTIC_ARCHIVE_CREATED path=...`를 전달하십시오. 파일의 외부 SHA 체크는 파일이 있는 폴더에서 수행하거나 Python 수신기를 사용하십시오. 대화형 셸에서 `|| exit 1`을 입력하면 세션이 종료될 수 있으므로 사용하지 않습니다.
+
 
 이 작업은 `RUN_SUCCESS`, 내부 53개 SHA, 후보 원본 PNG·physics 개별 SHA를 실제로 재검합니다. 진단 TAR는 **A 원본 88개 전체를 포함하지 않는** 검토용 부분집합입니다.
 

@@ -70,3 +70,12 @@ B 원샷 실행 성공·실패 시 `ai/data/private/b_a13_diagnostics/*_diagnost
 - `ai/scripts/receive_b15_diagnostics.py`로 비공개 폴더에 SHA 검증 후 복원, `B12_REVIEW_DECISIONS_TEMPLATE.csv`는 승인 칸 공란입니다. [운영자 가이드](../guides/SMARTDISH_B12R_REVIEW_OPERATOR_WORKBOOK_KO.md).
 - A13 기존 네 scene의 seed 변화는 좌표 ±1mm이므로 독립 배치로 세지 않음. B13은 지정 A13 SHA에서 동일 `source_scene_id`가 다른 `stack_id`로 분리되거나 승인 라벨 충돌하면 C split 전 Fail-Closed 합니다. 추후 A 신규 `physical_layout_id` 계약 필요. [A 요청](../plans/SMARTDISH_B14_REAL_LAYOUT_EXPANSION_REQUEST_KO.md).
 - 현 상태: B-15 Owner PASS / B-12R 후보 4 PASS / 운영자 승인 0 / C 데이터셋 split BLOCKED / 모델 학습 NOT_RUN. S2 Robot CI 실패는 별도 E 소유로 인계.
+
+
+## B12R-DBG-02 — SHA 경로 독립 원샷 출고 및 C 인계 경계
+
+- 이전 워크북의 `sha256sum -c "$ARCHIVE.sha256"`는 호출자 CWD 기준으로 내부 basename을 검사해서 루트에서 파일을 찾지 못했습니다. 사용자 셸의 최상위 `|| exit 1` 때문에 터미널 종료까지 발생했습니다.
+- 최종 출고 진입점은 `bash scripts/smartdish_b12r_one_shot.sh --sha <정확한_Git_SHA> --mode review`입니다. 진단 TAR를 SHA가 일치하는 기존 `ai/data/private/b_a13_diagnostics/`에서 자동 검색합니다. Python `read_sidecar()`를 재사용해 CWD 의존 수동 `sha256sum -c`를 제거했습니다.
+- 실행 결과는 private `ai/data/private/b12r_diagnostics/*_diagnostics.tar.gz`와 `.sha256`로 무조건 자동 패키징하며, 실패 시에도 CLI 자체 종료코드를 유지하고 사용자 대화형 셸은 종료하지 않습니다. 다른 SHA·파일 손상·승인 위조는 Fail-Closed.
+- 검증된 WSL2 B15 원본 진단 TAR SHA `912bfbc759e3fde3f48e70316638bc86dd30c52461ecd19410281bd7edf1f515`; 현재 B12R 신규 버전 로컬 오프라인 검증은 후보 4 / 독립 2+2 BLOCKED / 승인 0. GitHub CI 동일 SHA 및 Owner 실물 결과 별도.
+- 코드·QA 상세: [DBG-02](../reports/issues/SMARTDISH_B12R_DBG_02_SHA_RELATIVE_PATH_CWD_KO.md) / [사용자용 원샷 워크북](../guides/SMARTDISH_B12R_REVIEW_OPERATOR_WORKBOOK_KO.md) / [게이트 원장](../reports/acceptance/SMARTDISH_B12R_CLI_PREFLIGHT_ACCEPTANCE_KO.md).

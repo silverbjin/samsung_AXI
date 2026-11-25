@@ -58,6 +58,10 @@ def safe_rel(path: str) -> str:
 
 
 def read_sidecar(archive: Path, sidecar: Path):
+    if not archive.is_file():
+        error('B12R_ARCHIVE_NOT_FOUND')
+    if not sidecar.is_file():
+        error('B12R_SIDECAR_MISSING')
     if archive.stat().st_size > MAX_ARCHIVE_BYTES:
         error('B12R_COMPRESSED_SIZE_LIMIT')
     try:
