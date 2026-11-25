@@ -86,6 +86,11 @@ def imported(tmp_path):
     src,archive=make_fixture(tmp_path)
     root=tmp_path/'raw'
     result=import_archive(archive,root,expected_archive=sha256(archive),expected_count=None)
+    # This helper returns TEST-ONLY mutable copies for negative tampering tests.
+    # Production import_archive() keeps all verified raw files mode 0444.
+    for path in root.rglob('*'):
+        if path.is_file():
+            path.chmod(0o600)
     return root,archive,result
 
 
@@ -332,3 +337,9 @@ def test_b10_9s_min_limit_underflow_rejected(tmp_path):
     write(rowfile,row);rearchive(src,archive)
     with pytest.raises(EvidenceError,match='B10_TEMPORAL_CONTRACT_FAIL'):
         import_archive(archive,tmp_path/'out',expected_archive=sha256(archive),expected_count=None)
+
+def test_b10_real_import_preserves_readonly_verified_bytes(tmp_path):
+    _,archive=make_fixture(tmp_path)
+    dest=tmp_path/'immutable_raw'
+    import_archive(archive,dest,expected_archive=sha256(archive),expected_count=None)
+    assert (dest/'trial_0001/tray_rgb.png').stat().st_mode & 0o222 == 0
