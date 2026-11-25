@@ -85,3 +85,12 @@ Ubuntu/WSL2 수집기 `collect_tableware.py`는 동일 manifest에 대한 동시
 - B12R 안전 복원기: 진단 SHA/내부 해시, 원본 PNG 4·물리 SHA·RGB/크기, 리뷰 HTML이 참조하는 SVG 12개 확인. 승인 공란 템플릿만 작성, 운영자 승인 0, 모델 학습 0.
 - B14R: 현재 A13 `placements(scene_id,seed)`는 4개 고정 레이아웃에서 seed가 x/y를 ±0.001m 흔들 뿐입니다. 같은 `source_scene_id`가 다중 legacy stack_id로 분리되면 B13 split을 `B14_A13_SEED_JITTER_SPLIT_LEAKAGE`로 차단, 같은 템플릿 라벨 충돌도 차단합니다. 이는 A13 지정 SHA에 한정하며 기존 다른 소스 계약은 유지합니다.
 - 실제 클래스별 독립 템플릿 최대 2/2, C 학습 여전히 HOLD. [Owner 인수](../../docs/reports/acceptance/SMARTDISH_B15_OWNER_DIAGNOSTIC_ACCEPTANCE_20261125_KO.md), [운영자 워크북](../../docs/guides/SMARTDISH_B12R_REVIEW_OPERATOR_WORKBOOK_KO.md).
+
+## B-DATA-QA-01 — DACON baseline v1.0 compatibility audit (2026-11-25)
+
+- 사용자 첨부 [DACON 기준선](../../docs/quality/SMARTDISH_B_DACON_DATA_QUALITY_BASELINE_20261125_KO.md)의 **B-Q01~B-Q07**을 제품 승인 이전의 QA 제안 기준으로 보존합니다. DACON audit ZIP 2,100 scenes/4,200 PNG 통계, Dev↔Test 100 scene exact front/top duplicates는 첨부 문서의 기록이며 **현재 B 작업에서 DACON audit ZIP을 다시 직접 재검한 것은 아님**.
+- A13 원본 SHA `bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e`의 내부 88개를 직접 재계산하면 **B-Q01 PASS**. B15 진단 subset만 있으면 원본 전체 88개 SHA 재검으로 주장하지 않으며 Q01 HOLD입니다.
+- B-Q02 RGB(t0) 640×480 카메라 SDF·50ms 동기화 구조 확인에도 시각적 가림 승인 부재 **HOLD**. B-Q03 실제 식기 JSONL은 WORLD pose 위주이므로 tray-relative pose / measured velocity/contact / 독립 GT 규칙 부족 **HOLD**. B-Q04 사람 승인 0 및 독립 규칙 없음 **HOLD**.
+- B-Q05 4 fixed A13 scenes/가림·환경×클래스 커버리지 부족 **HOLD**. B-Q06 승인된 분할 없음, file SHA/pixel SHA exact 0 overlaps within 4 pilot images, aHash 유사 후보 2쌍은 사람 검토 대기 **HOLD**. B-Q07 실제 human-approved manifest/C release 미확보 **HOLD**.
+- DACON 384×384 front/top, 10s 및 0.015m cumulative movement는 **비교 후보**, 기존 제품 640×480 원본/단일 카메라와 구분. 0.015m와 월드 누적 이동으로 사람 라벨을 자동 승인하지 않음.
+- 최종: **B-DATA-QA-01 감사 실행 PASS / 데이터셋 출고 HOLD**, 운영자 승인 0, C 모델 학습 NOT_RUN. [교육 보고](../../docs/reports/tasks/SMARTDISH_B_DATA_QA01_DACON_EDU_KO.md) / [실제 게이트 원장](../../docs/reports/acceptance/SMARTDISH_B_DATA_QA01_ACCEPTANCE_20261125_KO.md) / [WSL2 원샷](../../docs/guides/SMARTDISH_B_DATA_QA01_WSL2_RUNBOOK_KO.md).

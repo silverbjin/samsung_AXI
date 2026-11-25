@@ -79,3 +79,11 @@ B 원샷 실행 성공·실패 시 `ai/data/private/b_a13_diagnostics/*_diagnost
 - 실행 결과는 private `ai/data/private/b12r_diagnostics/*_diagnostics.tar.gz`와 `.sha256`로 무조건 자동 패키징하며, 실패 시에도 CLI 자체 종료코드를 유지하고 사용자 대화형 셸은 종료하지 않습니다. 다른 SHA·파일 손상·승인 위조는 Fail-Closed.
 - 검증된 WSL2 B15 원본 진단 TAR SHA `912bfbc759e3fde3f48e70316638bc86dd30c52461ecd19410281bd7edf1f515`; 현재 B12R 신규 버전 로컬 오프라인 검증은 후보 4 / 독립 2+2 BLOCKED / 승인 0. GitHub CI 동일 SHA 및 Owner 실물 결과 별도.
 - 코드·QA 상세: [DBG-02](../reports/issues/SMARTDISH_B12R_DBG_02_SHA_RELATIVE_PATH_CWD_KO.md) / [사용자용 원샷 워크북](../guides/SMARTDISH_B12R_REVIEW_OPERATOR_WORKBOOK_KO.md) / [게이트 원장](../reports/acceptance/SMARTDISH_B12R_CLI_PREFLIGHT_ACCEPTANCE_KO.md).
+
+## B-DATA-QA-01 — 사용자 DACON v1.0 기준 인계 (2026-11-25)
+
+- 적용 문서: [DACON 품질 기준선 v1.0](../quality/SMARTDISH_B_DACON_DATA_QUALITY_BASELINE_20261125_KO.md); 384×384 front/top·0.015m은 비교 후보로만 유지. DACON audit ZIP 원본은 이번 작업에서 독립적으로 재검증하지 않았습니다.
+- B QA 실행기: `scripts/smartdish_b_dacon_qa01_one_shot.sh --sha <exact code SHA> [--workspace ...] [--source-archive ...]`. 기존 B12R raw+review 재사용; 원본 A13 전체 TAR 공급 시 B-Q01 SHA 88/88 직접 검증. 전체 TAR 없으면 Q01 HOLD.
+- 실제 결과: B-Q01 **PASS**, B-Q02~B-Q07 **HOLD**. 원본 640×480 RGB4, t0 0.60s/pose0.55s, SDF camera pose, WORLD frame trajectory; tray-relative/velocity/contact 미완성, 사람 승인0, 4 fixed scenes/독립 커버리지 부족, approved split 없음. 모델 학습 NOT_RUN.
+- 소스 및 임계치: `0.015m` 누적 기준은 미승인 후보이며 WORLD-frame displacement는 tray 상대 변위와 다릅니다. 뒤따르는 물리 trace는 C RGB inference feature가 아니라 GT 검토 증거입니다.
+- A 담당: tray 상대 Pose·contact·velocity 동기화와 새로운 geometry/환경 클래스 교차 장면 수집 계획. B 담당: 오프라인 SHA·형상/중복/사람 승인·그룹 누수 검증, C 담당: 승인된 manifest만 읽기 전용 재검 후 학습. [Gate 원장](../reports/acceptance/SMARTDISH_B_DATA_QA01_ACCEPTANCE_20261125_KO.md).
