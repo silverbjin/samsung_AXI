@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "scope": "B_ACTUAL_UPLOADED_A13_ARCHIVE_OFFLINE_REVALIDATION",
+  "archive_sha256": "bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e",
+  "source_git_sha": "6cb5b6bfc69687ded0b565b1a3ed6b0cf34b36df",
+  "archive_member_count": 89,
+  "verified_internal_files": 88,
+  "accepted_zero_diagnostic_logs": 8,
+  "verified_trial_count": 4,
+  "approved_count": 0,
+  "training_manifest_created": false,
+  "label_approval_status": "B_LABEL_APPROVAL_PENDING",
+  "class_independent_group_min_required": 3,
+  "class_groups_observed_pilot": {
+    "STABLE_SUGGESTED": 2,
+    "UNSTABLE_SUGGESTED": 2
+  },
+  "c_readiness": "B_DATASET_SPLIT_BLOCKED",
+  "candidates": [
+    {
+      "candidate_id": "B13-e7d88ff434e61ef45a3d",
+      "source_scene_id": "ST-01",
+      "stack_id": "stack-db9937ec14506162",
+      "seed": "102",
+      "pose_samples": "407",
+      "dish_count": "2",
+      "observation": "HELD_OBSERVED",
+      "suggested_label": "STABLE",
+      "temporal_review": "PASS",
+      "label_status": "REVIEW_REQUIRED",
+      "source_image_sha256": "d50238253a3cda86fd4d90edbb97d130c7e1bd62f07c5c3d99c9a68c51a725c2",
+      "physics_sha256": "dce85eccee95924fb1df4be4f882165ee4361eec69949cb71ee6f9ae54f4846a"
+    },
+    {
+      "candidate_id": "B13-1a7814fbd21a93239ca1",
+      "source_scene_id": "ST-02",
+      "stack_id": "stack-e7e8e0bb18c948eb",
+      "seed": "103",
+      "pose_samples": "609",
+      "dish_count": "3",
+      "observation": "HELD_OBSERVED",
+      "suggested_label": "STABLE",
+      "temporal_review": "PASS",
+      "label_status": "REVIEW_REQUIRED",
+      "source_image_sha256": "e7b622afebcccd5539f1fc3433d5ce2690353982b1ba80713c47989f2dcdc38a",
+      "physics_sha256": "f6456d55ad87e63c594c901638b4d05ca17e5c93af1cfc6f2f33049c7ab4b40b"
+    },
+    {
+      "candidate_id": "B13-18d55d6968c4548e77ba",
+      "source_scene_id": "UN-01",
+      "stack_id": "stack-17293955a193ca49",
+      "seed": "104",
+      "pose_samples": "407",
+      "dish_count": "2",
+      "observation": "FALL_OBSERVED",
+      "suggested_label": "UNSTABLE",
+      "temporal_review": "PASS",
+      "label_status": "REVIEW_REQUIRED",
+      "source_image_sha256": "6d1b36498c335a81696e175aaf1c34e2ca0b5c6535a7c65d16d3a7bad88af35e",
+      "physics_sha256": "6af4ea13b08572651e6c262a78750a44d3418004c55bc5bf43a41cec516c0965"
+    },
+    {
+      "candidate_id": "B13-95f2a62dcbe847317439",
+      "source_scene_id": "UN-02",
+      "stack_id": "stack-326862581cfec6d2",
+      "seed": "105",
+      "pose_samples": "407",
+      "dish_count": "2",
+      "observation": "FALL_OBSERVED",
+      "suggested_label": "UNSTABLE",
+      "temporal_review": "PASS",
+      "label_status": "REVIEW_REQUIRED",
+      "source_image_sha256": "e4b01357c4449db84049efec9cabad3c45c107f8dc9d7b29b9e5c438eff7777d",
+      "physics_sha256": "0ea8ac7f40fbcace5c150d38034fe1a1e4d05a3289e272f1a0a68859312efac7"
+    }
+  ],
+  "verification_note": "Real TAR processed offline in ChatGPT container. WSL2 new user acceptance and human labels not executed."
+}

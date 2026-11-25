@@ -1,6 +1,6 @@
 # SmartDish B 실습 워크북 — A-13 원본부터 승인된 학습 이미지까지
 
-**대상:** ROS 2·Python 입문자 / **실습 목표:** SHA·시간·원본·라벨을 구별합니다. A 원본이 없어도 보안/형식 테스트는 할 수 있으나, 실제 그래프나 승인 결과는 얻을 수 없습니다.
+**대상:** ROS 2·Python 입문자 / **실습 목표:** SHA·시간·원본·라벨을 구별합니다. A 원본으로부터 후보 그래프를 만들 수 있으나, 그래프나 A 자동 관측이 사람의 승인 라벨을 의미하지는 않습니다. 2026-11-25 B 오프라인 직접 TAR 인수 88/88·후보 4건 PASS, 운영자 승인 0건입니다.
 
 ## 먼저 완성된 사용 흐름
 
@@ -16,11 +16,13 @@ F --> G[그룹 분할 / C readiness]
 
 ## 실습 1 — SHA가 세 가지인 이유
 
-**입력:** A 실행 Git SHA, archive SHA, 내부 `SHA256SUMS`는 역할이 다릅니다. 입력 데이터가 없다면 `A13_ARCHIVE_BYTES_NOT_AVAILABLE`이 정답입니다.
+**입력:** A 실행 Git SHA, archive SHA, 내부 `SHA256SUMS`는 역할이 다릅니다. B 직접 검증한 A TAR SHA는 `bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e`입니다. 경로를 찾지 못하거나 다른 파일이면 반드시 fail-fast입니다.
 
 ```bash
-sha256sum '/path/to/smartdish_a_tray_evidence.tar(5).gz'
-# 보고서 기대값과 같을 때만 안전한 B 전용 인수기 실행
+# A가 기존에 출고한 실제 파일이 있는지 확인합니다. 새 Gazebo 실행은 불필요합니다.
+find "$HOME/samsung_AXI_A_TRAY/generated/smartdish_tray" \
+  -maxdepth 6 -type f -name 'smartdish_a_tray_evidence*.gz' -print
+# 파일이 없으면 B 원샷은 안전하게 차단되며, GitHub에서 원본 TAR를 자동 다운로드하지 않습니다.
 ```
 
 **해설:** Git SHA는 실행 코드의 버전, Archive SHA는 운송된 바이트, 내부 SHA는 개별 파일 변경 탐지입니다. 일치가 사람 라벨 승인까지 증명하지 않습니다.
@@ -31,15 +33,16 @@ WSL2에 **B 브랜치를 별도 clone**하고 변경사항을 보존합니다. �
 
 ```bash
 cd ~/samsung_AXI_B_REAL
-# git fetch origin feat/smartdish-b-real-dataset
-# git checkout feat/smartdish-b-real-dataset
-SHA="$(git rev-parse HEAD)"
+git fetch origin feat/smartdish-b-real-dataset
+git merge --ff-only origin/feat/smartdish-b-real-dataset
+# 원본은 기존 A_TRAY generated run 폴더에서 SHA가 일치하는 파일만 자동 선택합니다.
 bash scripts/smartdish_b_real_data_one_shot.sh \
-  --archive '/path/to/smartdish_a_tray_evidence.tar(5).gz' \
-  --sha "$SHA" --mode review
+  --sha "$(git rev-parse HEAD)" --mode review
 ```
 
-성공 시 출력될 보고서 경로: `ai/data/private/b_a13_review_*/review/review.html`. `--mode review`는 실제 학습 manifest를 생성하지 않습니다. 원본이 없으면 상태 `A13_ARCHIVE_BYTES_NOT_AVAILABLE` 및 비정상 종료로 끝나야 정상입니다.
+원본 파일이 다른 위치라면 `--archive '/home/jinho/실제_원본_파일.tar.gz'`처럼 **존재하는 실제 경로**를 입력하십시오. `/path/to/` 문구를 그대로 붙여넣지 마십시오. `--archive`가 없으면 A_TRAY generated / Downloads만 제한적으로 검색합니다. 원본이 존재하지만 SHA가 다르면 `B10_ARCHIVE_SHA_MISMATCH`, 파일 자체가 없으면 `B_A13_ORIGINAL_ARCHIVE_NOT_FOUND`, 예시 경로가 그대로 입력됐으면 `B_A13_ARCHIVE_PLACEHOLDER_PATH`입니다.
+
+성공 시 `ai/data/private/b_a13_review_*/review/review.html`와 후보 PNG·12개 SVG가 생성됩니다. 실제 업로드 A-13 원본은 **88/88 SHA PASS, 후보 4개(시간 검토 4 PASS), 승인 0건**을 확인했습니다. `--mode review`는 실제 학습 manifest를 생성하지 않습니다.
 
 ## 실습 3 — 이미지는 물리 결과보다 먼저인가?
 

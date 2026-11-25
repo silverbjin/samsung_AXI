@@ -343,3 +343,68 @@ def test_b10_real_import_preserves_readonly_verified_bytes(tmp_path):
     dest=tmp_path/'immutable_raw'
     import_archive(archive,dest,expected_archive=sha256(archive),expected_count=None)
     assert (dest/'trial_0001/tray_rgb.png').stat().st_mode & 0o222 == 0
+
+# B10-DBG-03: the accepted A-13 batch has eight legitimate 0-byte
+# diagnostic stdout logs. Critical evidence must remain non-empty.
+def test_b10_real_archive_optional_empty_probe_logs_contract(tmp_path):
+    src,archive=make_fixture(tmp_path)
+    for i in range(1,5):
+        for stem in ('gz_image_probe','post_spawn_gz_probe'):
+            p=src/'logs'/f'trial_{i:04d}_{stem}.log'
+            p.parent.mkdir(parents=True,exist_ok=True)
+            p.write_bytes(b'')
+    rearchive(src,archive)
+    root=tmp_path/'verified'
+    report=import_archive(archive,root,expected_archive=sha256(archive),expected_count=None)
+    assert report['trial_count']==4
+    assert len(list((root/'logs').glob('*.log')))==8
+    assert all(f.stat().st_size==0 and f.stat().st_mode & 0o222==0
+               for f in (root/'logs').glob('*.log'))
+
+
+@pytest.mark.parametrize('relative',[
+    'trial_0001/tray_rgb.png',
+    'trial_0001/physics_observations.jsonl',
+    'trial_0001/trial_summary.json',
+    'logs/trial_0001_gui.log',
+])
+def test_b10_zero_byte_critical_or_unlisted_log_rejected(tmp_path,relative):
+    src,archive=make_fixture(tmp_path)
+    target=src/relative
+    target.parent.mkdir(parents=True,exist_ok=True)
+    target.write_bytes(b'')
+    rearchive(src,archive)
+    output=tmp_path/'rejected'
+    with pytest.raises(EvidenceError,match='B10_ARCHIVE_MEMBER_SIZE_INVALID'):
+        import_archive(archive,output,expected_archive=sha256(archive),expected_count=None)
+    assert not output.exists()
+
+
+def test_b10_optional_empty_log_unlisted_in_sha_rejected(tmp_path):
+    src,archive=make_fixture(tmp_path)
+    extra=src/'logs/trial_0001_gz_image_probe.log'
+    extra.parent.mkdir(parents=True,exist_ok=True)
+    extra.write_bytes(b'')
+    # Intentionally DO NOT update SHA256SUMS.
+    with tarfile.open(archive,'w:gz') as tar:
+        for p in sorted(x for x in src.rglob('*') if x.is_file()):
+            tar.add(p,arcname=p.relative_to(src).as_posix())
+    with pytest.raises(EvidenceError,match='B10_INTERNAL_FILE_SET_MISMATCH'):
+        import_archive(archive,tmp_path/'rejected',expected_archive=sha256(archive),expected_count=None)
+
+
+def test_b10_optional_empty_log_bad_sha_rejected(tmp_path):
+    src,archive=make_fixture(tmp_path)
+    extra=src/'logs/trial_0001_gz_image_probe.log'
+    extra.parent.mkdir(parents=True,exist_ok=True)
+    extra.write_bytes(b'')
+    rearchive(src,archive)
+    sums=src/'SHA256SUMS'
+    sums.write_text(sums.read_text().replace(
+        sha256(extra)+'  '+extra.relative_to(src).as_posix(),
+        '0'*64+'  '+extra.relative_to(src).as_posix()))
+    with tarfile.open(archive,'w:gz') as tar:
+        for p in sorted(x for x in src.rglob('*') if x.is_file()):
+            tar.add(p,arcname=p.relative_to(src).as_posix())
+    with pytest.raises(EvidenceError,match='B10_INTERNAL_SHA_MISMATCH'):
+        import_archive(archive,tmp_path/'rejected',expected_archive=sha256(archive),expected_count=None)

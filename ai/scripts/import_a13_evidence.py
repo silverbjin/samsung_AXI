@@ -16,6 +16,12 @@ ARCHIVE_SHA = 'bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e'
 EXPECTED_SCENES = ('ST-01','ST-02','UN-01','UN-02')
 SHA_PATTERN = re.compile(r'^[0-9a-f]{64}$')
 MAX_MEMBERS, MAX_MEMBER, MAX_TOTAL = 512, 160 * 1024 * 1024, 600 * 1024 * 1024
+# A-13's real 4-scene batch includes legitimate empty diagnostic stdout logs.
+# Only these optional logs may be zero bytes; all evidence/manifest files must
+# remain non-empty. SHA256SUMS still authenticates the empty files.
+OPTIONAL_EMPTY_LOG = re.compile(
+    r'^logs/trial_000[1-4]_(?:gz_image_probe|post_spawn_gz_probe)\.log$'
+)
 
 class EvidenceError(ValueError):
     pass
@@ -185,8 +191,9 @@ def import_archive(archive:Path, output:Path, expected_sha=SOURCE_SHA,
                     names.add(name)
                     if not info.isfile():
                         fail('B10_ARCHIVE_LINK_OR_SPECIAL_FORBIDDEN')
-                    if info.size<=0 or info.size>MAX_MEMBER:
-                        fail('B10_ARCHIVE_MEMBER_SIZE_INVALID')
+                    if (info.size<0 or info.size>MAX_MEMBER
+                            or (info.size==0 and not OPTIONAL_EMPTY_LOG.fullmatch(name))):
+                        fail('B10_ARCHIVE_MEMBER_SIZE_INVALID name='+name+' size='+str(info.size))
                     total+=info.size
                     if total>MAX_TOTAL:
                         fail('B10_ARCHIVE_TOTAL_SIZE_LIMIT')

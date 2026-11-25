@@ -8,6 +8,8 @@ on:
       - 'tests/test_b_tray_capture.py'
       - 'tests/test_b_intake_recovery.py'
       - 'tests/test_b_a13_real_data.py'
+      - 'tests/test_b_a13_runner.py'
+      - 'scripts/smartdish_b_real_data_one_shot.sh'
       - '.github/workflows/smartdish-b-dataset-ci.yml'
   pull_request:
     paths:
@@ -16,6 +18,8 @@ on:
       - 'tests/test_b_tray_capture.py'
       - 'tests/test_b_intake_recovery.py'
       - 'tests/test_b_a13_real_data.py'
+      - 'tests/test_b_a13_runner.py'
+      - 'scripts/smartdish_b_real_data_one_shot.sh'
       - '.github/workflows/smartdish-b-dataset-ci.yml'
 permissions:
   contents: read
@@ -35,8 +39,9 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python -m compileall -q ai/scripts tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_intake_recovery.py tests/test_b_a13_real_data.py
-          python -m pytest -q tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_intake_recovery.py tests/test_b_a13_real_data.py
+          python -m compileall -q ai/scripts tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_intake_recovery.py tests/test_b_a13_real_data.py tests/test_b_a13_runner.py
+          bash -n scripts/smartdish_b_real_data_one_shot.sh
+          python -m pytest -q tests/test_b_dataset.py tests/test_b_tray_capture.py tests/test_b_intake_recovery.py tests/test_b_a13_real_data.py tests/test_b_a13_runner.py
           TMP="$(mktemp -d)"
           python ai/scripts/prepare_dataset.py --make-fixtures "$TMP"
           python ai/scripts/prepare_dataset.py --manifest "$TMP/manifest.csv" \

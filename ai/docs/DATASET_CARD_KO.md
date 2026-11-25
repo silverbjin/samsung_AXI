@@ -1,7 +1,7 @@
 # SmartDish B 데이터셋 카드 v1.0 — 식기 적재 안정성
 
 - 작성: 2026-11-23 / 데이터 책임 B / 모델 책임 C
-- 실제 데이터: **0건**. manifest/split_manifest는 헤더만 있음. 실제 `STABLE`/`UNSTABLE` 성능은 **NOT_RUN**.
+- 운영자가 **승인한 학습 데이터는 0건**이며 manifest/split_manifest는 헤더만 있습니다. B-10/11이 직접 검증한 실제 A-13 원본 후보는 **4장**, 사람 승인 0건, 실제 `STABLE`/`UNSTABLE` 모델 성능은 **NOT_RUN**.
 - 베이스: samsung_AXI main `2dd7f968dd3d24e2afb48e0917ef8c9d054ac894`.
 - S7의 TABLE_3 전방 영상과 static fixture는 **트레이 안정성 ground truth가 아님**.
 
@@ -23,7 +23,7 @@
 
 | 출처 | 범주 | 사용 결정 |
 |---|---|---|
-| A가 제작할 `/smartdish/tray/image_raw` 및 물리 로그 | Gazebo 트레이 RGB | 장면과 기록이 완성된 후 `GAZEBO_TRAY`, `OWNED` |
+| A가 제작한 `/smartdish/tray/image_raw` 및 검증된 물리 로그 | Gazebo 트레이 RGB | A 원본 SHA 및 사람 승인·권리 검토 후 `GAZEBO_TRAY`, `OWNED/AUTHORIZED` |
 | 실제 트레이 촬영 + 동의 | 카메라 RGB | 사용 허가를 문서화한 뒤 `REAL_TRAY`, `AUTHORIZED` |
 | DACON 236686 | 구조물 2뷰 + train simulation.mp4 | **도메인 다름. 원본 다운로드·사용·재배포 권리 미확정. 공개 저장소 반입 금지.** |
 | 로컬 코드가 생성한 단색 fixture | `CONTRACT_FIXTURE` | 오직 데이터 파이프라인 체크, `MOCK_ONLY` |
@@ -50,7 +50,7 @@ DACON 설명은 `open.zip` 아래 `train/{id}/{front.png,top.png,simulation.mp4}
 
 ## 5. 실물 데이터 수집 의존성 및 한계
 
-A의 전용 트레이 카메라와 실제 Gazebo 물리 배치 4/4는 **A-13 WSL2 인수에서 검증됨**. 그러나 B 작업환경에는 해당 TAR 바이트가 없으므로 **B의 직접 파일 검증·사람 라벨 승인·분할/성능 평가 NOT_RUN**. B-05는 ROS 2의 `/smartdish/tray/image_raw`를 1회 읽고 **라벨 없이 `ai/data/private`에 저장하는 선택형 루틴**을 추가했습니다. 이 기능의 ROS/Gazebo 실제 수신은 여전히 NOT_RUN입니다. `collect_tableware.py`는 운영자가 물리 상태를 **별도로 관측**하고 증거 파일을 제공한 경우에만 CSV를 등록합니다. 단색 fixture 6장은 실제 물리 표본으로 전환 금지.
+A의 전용 트레이 카메라와 실제 Gazebo 물리 배치 4/4는 **A-13 WSL2 인수에서 검증됨**. 2026-11-25 이후 사용자 TAR 직접 업로드로 **B의 원본 SHA와 내부 88/88 및 후보 PNG 4장/시간 정렬·물리 궤적 검사가 PASS**했습니다. 다만 **사람 라벨 승인 0건·분할/성능 평가 NOT_RUN**, 사용자 WSL2의 새 B 원샷 직접 수락은 별도입니다. B-05는 ROS 2의 `/smartdish/tray/image_raw`를 1회 읽고 **라벨 없이 `ai/data/private`에 저장하는 선택형 루틴**을 추가했습니다. 이 기능의 ROS/Gazebo 실제 수신은 여전히 NOT_RUN입니다. `collect_tableware.py`는 운영자가 물리 상태를 **별도로 관측**하고 증거 파일을 제공한 경우에만 CSV를 등록합니다. 단색 fixture 6장은 실제 물리 표본으로 전환 금지.
 
 ## B-08R 데이터 등록 일관성 경계
 
@@ -60,12 +60,20 @@ Ubuntu/WSL2 수집기 `collect_tableware.py`는 동일 manifest에 대한 동시
 ## 6. B-10~B-14 — A-13 실물리 원본 인수 후보·사람 승인 정책 (2026-11-25)
 
 - A 인수 출처: [A-13 PR #45](https://github.com/silverbjin/samsung_AXI/pull/45), `main@63e147289e307e0b9900ca365e9c4557c5921804`; 실제 WSL2 실행 SHA `6cb5b6bfc69687ded0b565b1a3ed6b0cf34b36df`.
-- A 인수 보고의 원본 압축파일 SHA256 `bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e`, 내부 88/88 PASS, GUI batch 4/4 PASS. **B에서는 아직 원본 TAR를 직접 재계산하지 않았음** (`A13_ARCHIVE_BYTES_NOT_AVAILABLE`).
-- A 출처 보고에서 RGB 640×480 rgb8, 이미지 0.6s/가까운 Pose 0.55s(50ms), trial 물리 관측 >10s, ST 유지·UN 낙하. 이는 이전 A 실측이며 B 재계산 결과가 아님. RGB callback 52×4는 학습 이미지 208장이 아님; trial별 대표 PNG가 원본에 확인되면 파일 수로만 집계.
-- 현재 **B 실제 검증 후보 0장, 운영자 승인 0장, 학습 manifest에 신규 승인 샘플 0장, 독립 그룹 출고 0**. 원본이 없는 단계에서 기존 4장 기대값을 B 실측으로 기재하지 않음.
+- 원본 압축 SHA256 `bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e`는 이번 B 업로드 TAR `(6).gz`에서 **직접 일치 확인**, 내부 **88/88 PASS**, trial 4/4 PASS를 B가 재검했습니다. 0바이트 선택형 진단 로그 8건은 SHA 검증 뒤에만 허용합니다.
+- A 출처 보고에서 RGB 640×480 rgb8, 이미지 0.6s/가까운 Pose 0.55s(50ms), trial 물리 관측 >10s, ST 유지·UN 낙하. 동일 수치를 이번 B 직접 TAR에서도 대조했습니다. RGB callback 52×4는 학습 이미지 208장이 아니며, 실제 저장 대표 PNG는 **4장**입니다.
+- 현재 **B 실제 검증 후보 4장 (HELD 2, FALL 2), 운영자 승인 0장, 학습 manifest 신규 샘플 0장, split 출고 0**. 시간 정렬 검토 4/4 PASS, 독립 stack 후보는 각 클래스 최대 2개로 분할에 부족합니다.
 - B-10 안전 TAR 해시/파일집합/링크 거부 → B-11 PNG/Trace·Image/Pose/시계열 SVG → B-12 별도 사람 승인 JSONL → B-13 기존 10열 manifest와 224×224 이미지 → B-14 상대경로 물리 증거·SHA 재검·C readiness.
 - A 자동 observation(HELD/FALL)은 검토 추천일 뿐 확정 학습 라벨 아님. `REVIEW_REQUIRED`, `NOT_OPERATOR_APPROVED`, `NOT_OBSERVED` 원본 유지. `UNKNOWN` 학습 클래스로 사용하지 않음.
 - 근접중복: 초기 식기 기하를 기준으로 stack_id를 보수적으로 묶으며, 실제 독립성 최종 판단은 사람 리뷰. 클래스별 독립 ≥3그룹 전에는 train/val/test 미생성.
 - 권리: Gazebo 환경 산출물은 출처·모델/텍스처 권리 검토 후 `GAZEBO_TRAY`+적절한 `OWNED/AUTHORIZED`로 등록; `REAL_TRAY` 또는 DACON으로 표시하지 않음.
 - 정적 독립 트레이의 물리 결과는 실제 주행 중 동적 안정성/로봇 부착 카메라 도메인 성능 또는 안전 인증이 아님.
 - 수집/승인/출고 절차: [B 원샷 워크북](../../docs/guides/SMARTDISH_B_A13_EVIDENCE_WORKBOOK_KO.md), [C 인계](../../docs/handoff/B_REAL_DATA_C_HANDOFF_KO.md).
+
+
+### B-10 DBG-04 실제 원본 확인 추가 기록
+
+- 실제 사용자 첨부 Archive SHA와 내부 88개를 B에서 모두 재검하고 RGB·JSONL 후보 4건을 생성했습니다. 이전의 'TAR 미확보' 기록은 당시 상태로, **현재 판정은 직접 원본 PASS**입니다.
+- TAR 전체 89개 구성원 중 SHA256SUMS 88개; 선택적 probe stdout `.log` 8개는 올바르게 비어 있고 `e3b0c442...b855` 해시로 봉인됐습니다. B 인수기에서는 정확한 패턴에 한하여 비어 있는 로그를 허용하며 필수 PNG·물리·메타데이터는 빈 파일 거부를 유지합니다.
+- 사람 승인 전 원본 `REVIEW_REQUIRED`를 그대로 유지하며 승인된 학습 이미지 0, C readiness BLOCKED 상태입니다.
+- [직접 인수 원장](../../docs/reports/acceptance/SMARTDISH_B_REAL_DATA_ACCEPTANCE_KO.md), [DBG-04](../../docs/reports/issues/SMARTDISH_B10_DBG_04_REAL_ARCHIVE_EMPTY_DIAGNOSTIC_LOGS_KO.md).

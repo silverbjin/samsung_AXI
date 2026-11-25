@@ -1,8 +1,8 @@
 # SmartDish B → C / E — A-13 실데이터 인계 문서
 
 - 기준 main: `63e147289e307e0b9900ca365e9c4557c5921804`; A-13 실행 `6cb5b6bfc69687ded0b565b1a3ed6b0cf34b36df`.
-- A 원본 TAR SHA 기대: `bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e`, **B 직접 검증 아직 BLOCKED**.
-- 라벨 승인 0건, 실제 B 이미지 학습 dataset 0건, 실제 `split_manifest.csv` 출고 0건. C 모델 학습 NOT_RUN.
+- A 원본 TAR SHA: `bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e`, **B 직접 업로드 원본 검증 88/88 PASS / 4개 원본 이미지 후보**. 단, 이번 검증은 ChatGPT Linux 컨테이너이며 사용자 WSL2 B 원샷 재인수는 별도입니다.
+- 물리적으로 관측된 원본 이미지 후보는 4건이고 **라벨 승인 0건**, 실제 B 학습용 224×224 승인 이미지 0건, `split_manifest.csv` 출고 0건입니다. C 모델 학습 NOT_RUN.
 
 ## 소비 가능한 계약 (미변경)
 
@@ -47,3 +47,13 @@ B의 provenance는 `capture_config`의 `source_archive_sha256`, `source_image_sh
 - C 사람 검토 및 모델 학습은 별도 승인 후 진행.
 
 현재 이 목록은 충족 전이며 `B_LABEL_APPROVAL_PENDING`, `B_DATASET_SPLIT_BLOCKED`, `C_TRAINING_NOT_RUN` 상태입니다.
+
+
+## B-10 실증 재검·운영자 검토 인계(2026-11-25)
+
+- 실제 user TAR `(6).gz` 바이트 SHA 일치; B-10 안전 추출 / 내부 88/88 / B-11 각 trial RGB-Pose/물리 JSONL 및 10초 구간 PASS.
+- 후보: ST-01/02 각각 `HELD_OBSERVED` → STABLE **추천만**, UN-01/02 `FALL_OBSERVED` → UNSTABLE **추천만**. `label_status=REVIEW_REQUIRED` 4건.
+- `review.html` 및 후보 CSV/12 SVG는 **비공개 검토 패키지**로 전달 가능; JSONL 미래 관측값은 C RGB 모델 입력으로 넣지 않습니다.
+- 그룹 수: 추천 라벨별 2개씩으로 기존 분할 규정 클래스별 >=3에 부족. 승인 후에도 최초 파일럿만으로 C readiness PASS는 불가.
+- 현재 C 핸드오프 완료 여부: `B_EVIDENCE_IMPORT_PASS` **PASS**, `B_LABEL_APPROVAL_PENDING` **HOLD**, `B_DATASET_SPLIT_BLOCKED` **HOLD**. C 모델 학습 NOT_RUN.
+- 상세 [실제 TAR 디버깅](../reports/issues/SMARTDISH_B10_DBG_04_REAL_ARCHIVE_EMPTY_DIAGNOSTIC_LOGS_KO.md) 및 [최신 인수 원장](../reports/acceptance/SMARTDISH_B_REAL_DATA_ACCEPTANCE_KO.md).

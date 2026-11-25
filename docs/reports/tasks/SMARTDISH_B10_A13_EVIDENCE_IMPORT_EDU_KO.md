@@ -2,7 +2,7 @@
 
 - 기준 main: `63e147289e307e0b9900ca365e9c4557c5921804`; A 실행: `6cb5b6bfc69687ded0b565b1a3ed6b0cf34b36df`.
 - 개발 코드: `ai/scripts/import_a13_evidence.py`; 단위검증: `tests/test_b_a13_real_data.py`.
-- 실제 A TAR 직접 검증: **NOT_RUN / 원본 바이트 없음**. 계약 fixture 성공은 별도.
+- 최초 개발 시 원본 미확보였으나 2026-11-25 사용자 TAR 추가 업로드 후 **직접 Archive SHA 및 내부 88/88 PASS**. 계약 fixture CI와 분리합니다.
 
 ## 문제·설계 판단
 
@@ -28,11 +28,21 @@ E --> F[B_PRIVATE_STAGE]
 
 ```bash
 python3 -m pytest -q tests/test_b_a13_real_data.py
-python3 ai/scripts/import_a13_evidence.py \
-  --archive '/path/to/smartdish_a_tray_evidence.tar(5).gz' \
-  --output ai/data/private/b_a13_review/raw
+# 실제 검증된 A 인수 원본을 보존한 상태에서 자동 탐색 및 review 진행
+bash scripts/smartdish_b_real_data_one_shot.sh \
+  --sha "$(git rev-parse HEAD)" --mode review
 ```
 
-실제 파일이 없으면 `A13_ARCHIVE_BYTES_NOT_AVAILABLE` / `B_EVIDENCE_IMPORT_BLOCKED`로 실패하는 것이 정상입니다. 원본 A 인수 보고의 88/88 PASS를 이번 B 재검의 실제 결과라고 적지 않습니다.
+원본 경로를 자동 검색한 뒤 SHA가 일치하지 않으면 `B10_ARCHIVE_SHA_MISMATCH`, 파일이 없다면 `B_A13_ORIGINAL_ARCHIVE_NOT_FOUND`로 차단합니다. **B 이번 직접 실증은 TAR 88/88 PASS, 실제 후보 4장 PASS**이며, 운영자 승인 0건은 별도로 유지합니다.
 
 **주니어 질문:** 파일 내부 88개가 해시 검증되더라도 시뮬레이션의 `FALL_OBSERVED`가 인간 승인된 `UNSTABLE`이 아닌 이유는 무엇일까요?
+
+
+## 2026-11-25 사용자 TAR 업로드 후 직접 재검
+
+- 원본: `smartdish_a_tray_evidence.tar(6).gz` (SHA256 `bfc346...f8e6e`, A 원본 `(5)`와 같은 바이트).
+- 기존 인수기 RED: 선택형 진단 stdout 로그 8개가 0바이트인데 `size<=0` 검사로 B10_ARCHIVE_MEMBER_SIZE_INVALID.
+- 최소 수정: `logs/trial_000[1-4]_(gz_image_probe|post_spawn_gz_probe).log` 패턴만 선택적으로 0 허용. 모든 파일 SHA256SUMS/압축 해제 제한/위험 경로 차단 유지.
+- 실제 TAR: 안전 재인수 PASS, 내부 SHA **88/88**, `summary.json` batch 4/4 PASS, 원본 읽기 전용. 이는 코드 계약 CI fixture가 아니라 실제 파일 바이트 직접 확인임.
+- 운영자 라벨 승인 **0**, 후속 B-11 후보 추출 전과 후 모두 학습 manifest 자동 갱신 없음.
+- [B10 DBG-04](../issues/SMARTDISH_B10_DBG_04_REAL_ARCHIVE_EMPTY_DIAGNOSTIC_LOGS_KO.md) 참조.
