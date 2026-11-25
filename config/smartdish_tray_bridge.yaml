@@ -1,0 +1,40 @@
+# A-11 opt-in tray lab; do not add to existing S7 navigation bridge.
+# Gazebo Sensors OGRE2 camera is active only in the standalone tray world.
+- ros_topic_name: /smartdish/tray/image_raw
+  gz_topic_name: /smartdish/tray/image_raw
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+- ros_topic_name: /smartdish/tray/camera_info
+  gz_topic_name: /smartdish/tray/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+- ros_topic_name: /smartdish/tray/poses
+  gz_topic_name: /world/smartdish_tray/dynamic_pose/info
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+- ros_topic_name: /clock
+  gz_topic_name: /clock
+  ros_type_name: rosgraph_msgs/msg/Clock
+  gz_type_name: gz.msgs.Clock
+  direction: GZ_TO_ROS
+
+# Official Gazebo PosePublisher, unique topic per model; unlike
+# SceneBroadcaster /world/.../dynamic_pose/info, model names survive bridge.
+- ros_topic_name: /smartdish/tray/pose/dish_01
+  gz_topic_name: /smartdish/tray/gz_pose/dish_01
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+- ros_topic_name: /smartdish/tray/pose/dish_02
+  gz_topic_name: /smartdish/tray/gz_pose/dish_02
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+- ros_topic_name: /smartdish/tray/pose/dish_03
+  gz_topic_name: /smartdish/tray/gz_pose/dish_03
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS

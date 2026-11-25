@@ -1,0 +1,336 @@
+name: SmartDish A11-A13 Tray RGB physics evidence
+on:
+  push:
+    branches: [feat/smartdish-a-tray-camera]
+    paths:
+      - 'scripts/smartdish_tray_*.py'
+      - 'scripts/smartdish_a_tray_*.py'
+      - 'scripts/smartdish_a_tray_*.sh'
+      - 'config/smartdish_tray_bridge.yaml'
+      - 'tests/test_smartdish_tray_*.py'
+      - 'tests/test_smartdish_a_tray_runner.py'
+      - 'tests/test_smartdish_a_tray_batch_diagnostics.py'
+      - 'tests/test_smartdish_a_tray_boundary_probes.py'
+      - 'tests/test_smartdish_a_tray_release_gate.py'
+      - 'tests/test_smartdish_a_tray_warmup_transport.py'
+      - 'tests/test_smartdish_a_tray_gui_gate.py'
+      - 'scripts/smartdish_a_tray_release_gate.py'
+      - '.github/workflows/smartdish-a-tray-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: smartdish-a-tray-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  tray-l0:
+    name: A11-13 L0 / SDF, RGB/physics evidence, GUI default, safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Python L0 tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-yaml python3-pytest python3-pil
+      - name: Parse new sources, test no simulated PASS
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/smartdish_tray_camera.py scripts/smartdish_tray_world.py scripts/smartdish_tray_evidence.py scripts/smartdish_a_tray_live.py scripts/smartdish_a_tray_release_gate.py scripts/smartdish_a_tray_gui_preflight.py
+          bash -n scripts/smartdish_a_tray_bootstrap.sh
+          bash -n scripts/smartdish_a_tray_one_shot.sh
+          python3 -m pytest -q tests/test_smartdish_tray_camera.py tests/test_smartdish_tray_world.py tests/test_smartdish_tray_evidence.py tests/test_smartdish_a_tray_runner.py tests/test_smartdish_a_tray_batch_diagnostics.py tests/test_smartdish_a_tray_boundary_probes.py tests/test_smartdish_a_tray_release_gate.py tests/test_smartdish_a_tray_warmup_transport.py tests/test_smartdish_a_tray_gui_gate.py
+          echo SMARTDISH_A_TRAY_L0_PASS
+  tray-l1:
+    name: A11-13 L1 / ROS Jazzy image/TF bridge + A package build NO GOAL
+    runs-on: ubuntu-24.04
+    needs: tray-l0
+    timeout-minutes: 30
+    container:
+      image: ros:jazzy-ros-base-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ROS/Gazebo Harmonic bridge and build tools
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends             git python3-yaml python3-pil python3-colcon-common-extensions             ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge             ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs             ros-jazzy-nav2-simple-commander
+      - name: Build unchanged A ROS package, check bridge types NO GOAL
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --event-handlers console_direct+ --packages-select smartdish_robot
+          set +u
+          source install/setup.bash
+          set -u
+          ros2 pkg prefix smartdish_robot
+          ros2 pkg prefix ros_gz_bridge
+          ros2 interface show sensor_msgs/msg/Image > /tmp/a_tray_image_interface.txt
+          ros2 interface show tf2_msgs/msg/TFMessage > /tmp/a_tray_tf_interface.txt
+          grep -q encoding /tmp/a_tray_image_interface.txt
+          grep -q transforms /tmp/a_tray_tf_interface.txt
+          python3 - <<'PY'
+          import rclpy, yaml
+          from sensor_msgs.msg import Image
+          from tf2_msgs.msg import TFMessage
+          from pathlib import Path
+          cfg = yaml.safe_load(Path('config/smartdish_tray_bridge.yaml').read_text())
+          assert [x['ros_topic_name'] for x in cfg].count('/smartdish/tray/image_raw')==1
+          assert all(x['direction']=='GZ_TO_ROS' for x in cfg)
+          print('SMARTDISH_A_TRAY_L1_ROS_BRIDGE_CONTRACT_PASS_NO_GOAL')
+          PY
+  tray-l2:
+    name: A11-13 L2 / REAL Gazebo camera + physical dish motion, four trials
+    needs: tray-l1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 48
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual Gazebo / ros_gz_bridge + CPU renderer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends             git python3-yaml python3-pil python3-colcon-common-extensions             ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-base             ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs             xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Real Gazebo four scenarios, reject absent sensor/pose/timestamps
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trap 'echo SMARTDISH_A_TRAY_L2_FIRST_FAILURE_DIAGNOSTICS; find generated/smartdish_tray -path "*/logs/*.log" -type f -print -exec tail -n 100 {} \; 2>/dev/null || true' ERR
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24'             timeout --signal=INT --kill-after=20s 1800s             python3 -u scripts/smartdish_a_tray_live.py batch --headless               --seed 101 --expected-sha "$GITHUB_SHA"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          found=sorted(Path('generated/smartdish_tray').glob('run_*/summary.json'))
+          assert len(found)==1, 'One actual Gazebo run expected'
+          d=json.loads(found[0].read_text())
+          assert d['verdict']=='GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS'
+          assert len(d['trials'])==4
+          print('SMARTDISH_A_TRAY_REAL_GAZEBO_L2_EVIDENCE_VERIFIED')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-a-tray-l2-metadata-${{ github.run_id }}
+          path: |
+            generated/smartdish_tray/run_*/summary.json
+            generated/smartdish_tray/run_*/source_manifest.json
+            generated/smartdish_tray/run_*/trial_*/trial_summary.json
+            generated/smartdish_tray/run_*/SHA256SUMS
+            generated/smartdish_tray/run_*/failure_context.json
+            generated/smartdish_tray/run_*/trial_*/transport_boundary_probes.json
+            generated/smartdish_tray/run_*/smartdish_a_tray_evidence.tar.gz
+            generated/smartdish_tray/run_*/logs/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  tray-l2-gui:
+    name: A11-13 L2-G GUI real RGB and two cold-start ST-01 trials
+    needs: tray-l2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual Gazebo GUI and ROS bridge
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git python3-yaml python3-pil python3-colcon-common-extensions \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-base \
+            ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs \
+            xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Real Gazebo GUI and two independent cold starts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trap 'echo SMARTDISH_A_TRAY_L2_GUI_COLD_FIRST_FAILURE; find generated/smartdish_tray -path "*/logs/*.log" -type f -print -exec tail -n 90 {} \; 2>/dev/null || true' ERR
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          # One lightweight actual Gazebo GUI Qt/GLX startup smoke on Xvfb.
+          # Cloud evidence is not a substitute for NVIDIA D3D12 WSLg preflight.
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=10s 100s \
+            python3 -u scripts/smartdish_a_tray_gui_preflight.py \
+              --sha "$GITHUB_SHA" --profile xcb --seconds 9
+          for i in 1 2; do
+            echo "SMARTDISH_A_TRAY_GUI_COLD_RUN_START=$i"
+            xvfb-run -a -s '-screen 0 1280x720x24' \
+              timeout --signal=INT --kill-after=20s 840s \
+              python3 -u scripts/smartdish_a_tray_live.py single \
+                --scene ST-01 --gui --seed $((200 + i * 17)) \
+                --expected-sha "$GITHUB_SHA"
+            echo "SMARTDISH_A_TRAY_GUI_COLD_RUN_END=$i"
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          found=sorted(Path('generated/smartdish_tray').glob('run_*/summary.json'))
+          assert len(found)==2, len(found)
+          trial_ids=[]
+          for p in found:
+              summary=json.loads(p.read_text())
+              assert summary['verdict']=='GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS'
+              assert summary['gui'] is True and len(summary['trials'])==1
+              trial=summary['trials'][0]
+              assert trial['scene_id']=='ST-01'
+              assert trial['motion']['observation']=='HELD_OBSERVED'
+              assert trial['gui_active_during_physics'] is True
+              assert trial['image_received_count']>=3
+              assert trial['image_stamp_samples'][-1]>trial['capture_stamp_ns']
+              assert trial['physics_size_bytes']>0
+              trial_ids.append(trial['trial_id'])
+              print('SMARTDISH_A_TRAY_L2_GUI_REAL_FRAME_PASS='+trial['trial_id'])
+          assert len(set(trial_ids))==2
+          print('SMARTDISH_A_TRAY_L2_GUI_COLD_2_OF_2_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-a-tray-l2-gui-cold
+          path: |
+            generated/smartdish_tray/run_*/summary.json
+            generated/smartdish_tray/run_*/source_manifest.json
+            generated/smartdish_tray/run_*/trial_*/trial_summary.json
+            generated/smartdish_tray/run_*/SHA256SUMS
+            generated/smartdish_tray/run_*/failure_context.json
+            generated/smartdish_tray/run_*/trial_*/transport_boundary_probes.json
+            generated/smartdish_tray/run_*/smartdish_a_tray_evidence.tar.gz
+            generated/smartdish_tray/run_*/logs/*.log
+            generated/smartdish_tray/run_*/logs/*gz_image_probe_data.txt
+            generated/smartdish_tray/gui_preflight_*/gui_preflight_result.json
+            generated/smartdish_tray/gui_preflight_*/gui_preflight_evidence.tar.gz
+            generated/smartdish_tray/gui_preflight_*/gazebo_gui.log
+            generated/smartdish_tray/gui_preflight_*/gazebo_server.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  tray-l2-gui-batch:
+    name: A11-13 L2-G-BATCH / same-process GUI transition
+    needs: tray-l2-gui
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install real Gazebo and ROS bridge with GUI renderer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            git python3-yaml python3-pil python3-colcon-common-extensions \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-base \
+            ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs \
+            xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Real production GUI batch across four scenes in one process
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trap 'echo SMARTDISH_A_TRAY_L2_GUI_BATCH_FIRST_FAILURE; find generated/smartdish_tray -type f \( -name "failure_diagnostics.json" -o -name "process_cleanup.json" \) -print -exec cat {} \; 2>/dev/null || true' ERR
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24' \
+            timeout --signal=INT --kill-after=20s 1950s \
+            python3 -u scripts/smartdish_a_tray_live.py batch --gui \
+              --seed 101 --expected-sha "$GITHUB_SHA"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          roots=list(Path("generated/smartdish_tray").glob("run_*/summary.json"))
+          assert len(roots)==1, roots
+          root=roots[0].parent
+          summary=json.loads(roots[0].read_text())
+          assert summary["verdict"]=="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS"
+          assert summary["gui"] is True and summary["source_sha"]==os.environ["GITHUB_SHA"]
+          trials=summary["trials"]
+          assert [t["scene_id"] for t in trials]==["ST-01","ST-02","UN-01","UN-02"]
+          assert [t["motion"]["observation"] for t in trials]==[
+              "HELD_OBSERVED","HELD_OBSERVED","FALL_OBSERVED","FALL_OBSERVED"]
+          assert len({t["ros_domain_id"] for t in trials})==4
+          assert len({t["gz_partition"] for t in trials})==4
+          for i,t in enumerate(trials,1):
+              directory=root/("trial_%04d"%i)
+              warmup=json.loads((directory/"warmup_transport_metrics.json").read_text())
+              assert warmup["step_count_per_request"]==100
+              assert len(warmup["ros_image_valid_stamps"])>=2
+              assert warmup["ros_image_valid_stamps"]==sorted(set(warmup["ros_image_valid_stamps"]))
+              assert warmup["gz_image_probe"]["observed_gz_image_blocks"]>=1
+              assert warmup["wall_elapsed_seconds"]>0
+              png=directory/"tray_rgb.png"
+              phy=directory/"physics_observations.jsonl"
+              assert png.is_file() and png.stat().st_size>0
+              assert phy.is_file() and phy.stat().st_size>0
+              assert hashlib.sha256(png.read_bytes()).hexdigest()==t["image_sha256"]
+              assert hashlib.sha256(phy.read_bytes()).hexdigest()==t["physics_sha256"]
+              assert t["gui_active_during_physics"] is True
+              assert t["image_received_count"]>=3
+              assert len(set(t["image_stamp_samples"]))>=3
+              assert t["image_stamp_samples"][-1]>t["capture_stamp_ns"]
+              assert t["pose_sample_count"]>=4
+              assert json.loads((directory/"capture_metadata.json").read_text())["ground_truth"]=="NOT_OBSERVED"
+              post=t.get("post_spawn_gz_probe",{})
+              assert post.get("observed_gz_image_blocks",0)>=1, (
+                  "A13_POST_SPAWN_GZ_IMAGE_MONITOR_NO_SAMPLES",t["scene_id"],post)
+              cleanup=json.loads((directory/"process_cleanup.json").read_text())
+              assert cleanup["all_owned_processes_stopped"] is True
+              assert not (directory/"failure_diagnostics.json").exists()
+              print("SMARTDISH_A_TRAY_L2_GUI_BATCH_TRIAL_PASS="+t["scene_id"])
+          print("SMARTDISH_A_TRAY_L2_GUI_BATCH_FOUR_OF_FOUR_PASS")
+          print("SMARTDISH_A_TRAY_CLOUD_GATE_READY_FOR_WSLG_QUALIFICATION")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-a-tray-l2-gui-batch-${{ github.run_id }}
+          path: |
+            generated/smartdish_tray/run_*/summary.json
+            generated/smartdish_tray/run_*/source_manifest.json
+            generated/smartdish_tray/run_*/SHA256SUMS
+            generated/smartdish_tray/run_*/failure_context.json
+            generated/smartdish_tray/run_*/trial_*/transport_boundary_probes.json
+            generated/smartdish_tray/run_*/smartdish_a_tray_evidence.tar.gz
+            generated/smartdish_tray/run_*/trial_*/trial_summary.json
+            generated/smartdish_tray/run_*/trial_*/failure_diagnostics.json
+            generated/smartdish_tray/run_*/trial_*/process_cleanup.json
+            generated/smartdish_tray/run_*/trial_*/warmup_transport_metrics.json
+            generated/smartdish_tray/run_*/logs/*post_spawn_gz_probe*
+            generated/smartdish_tray/run_*/logs/*.log
+          if-no-files-found: ignore
+          retention-days: 14
