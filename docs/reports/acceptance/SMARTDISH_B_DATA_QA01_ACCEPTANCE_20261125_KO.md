@@ -41,3 +41,11 @@
 ### 완료 상태
 
 `B_QA01_AUDIT_COMPLETED` = **오프라인 감사 기능 PASS**. `B_DATA_QA01_DATASET_HOLD` = **실제 학습 데이터셋 출고 부적합(조건 미충족)**. `B-15 USER WSL2 PASS`와 B-12R B-CI 기존 증거를 덮어쓰지 않으며, B-Q03~07을 우회하지 않습니다.
+
+## 2026-11-25 B-DATA-QA-01 Owner 실제 진단 수신 및 DBG-01 사후 수정
+
+- 사용자 WSL2 TAR `b_dacon_qa01_diagnostics.tar.gz` SHA `483c859767566d1d46bd7da07014dd1dfcda7f0804b9b833c33136cc81bc0dbe` sidecar 일치, 내부 12/12 PASS, 13 regular members, 코드 `ff1e2e2c32f8d3f53df3352b1bc0601a003d0b81`, `AUDIT_COMPLETED exit_code=0` / `quality_verdict=HOLD`. **Owner B QA 실행 PASS / 데이터셋 HOLD**.
+- 이전 B-Q02의 `B_Q02_CAMERA_POSE_MISSING`은 B12R 부분증거에 원본 SDF가 누락돼 발생한 **B QA artifact scope 오판**. 실제 A13 88/88 authenticated TAR에서 camera SDF 4개가 모두 존재(센서 `smartdish_tray_rgb`, pose `0 0 1.50 0 1.57079632679 0`, 640×480, topic/frame match). B QA에서 authenticated TAR SDF fallback 추가, 변조·해시 불일치 fail-closed. 수정후 ChatGPT Linux 오프라인 실제 A13 재검 **B-Q02 HOLD (occlusion human QA missing only)**. SDF 정적 설정 != 동적 카메라 TF 실측.
+- 기존 B-Q05에서 60장면 권고 미달을 gate blocker로 처리한 것은 첨부 v1 baseline의 nonbinding 목표에 부합하지 않아 별도 `nonbinding_advisories`로 변경. B-Q05는 geometry/environment cross coverage 부족으로 HOLD 유지.
+- 사람 승인 0건/원장 미존재, B-Q03 tray-relative/velocity/contact 증거 부족, B-Q06 split 없음, B-Q07 C release 없음. 장면별 WORLD 누적 값은 진단 통계이며 0.015m DACON 비교 후보 제품 임계치 승격 금지.
+- 새 SHA의 B CI/Owner 인수는 별도 추적. 사용자 진단 SHA는 이전 Owner 실행 코드의 증거이며 새 코드 Owner PASS로 재분류하지 않음. [상세 Owner 원장](SMARTDISH_B_DATA_QA01_OWNER_20261125_KO.md) / [DBG-01](../issues/SMARTDISH_B_DATA_QA01_DBG_01_CAMERA_SDF_SUBSET_KO.md).

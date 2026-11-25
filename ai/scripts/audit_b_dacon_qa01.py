@@ -162,15 +162,52 @@ def trace_metrics(path: Path, observation_start_ns: int, capture_ns:int) -> dict
             'has_contact':all(x['has_contact'] for x in out),
             'movement_frame':'WORLD_DIAGNOSTIC_ONLY','observation_start_s':observation_start_ns/1e9}
 
-def camera_sdf(root:Path, trial:str) -> dict:
+def verified_camera_sdf_members(archive:Path, member_sha256:dict) -> dict[str,bytes]:
+    """Return camera configuration from the already SHA-verified *full* A13 TAR.
+
+    B15/B12R diagnostic subsets intentionally omit SDF. They must not trigger
+    a false claim that A never captured the camera's configured sensor pose.
+    Individual SDF bytes are checked against the same verified A13 member index.
+    """
+    names=[f'trial_{n:04d}/sensor_preflight.sdf' for n in range(1,5)]
+    output={}
     try:
-        path=safe_file(root,f'{trial}/sensor_preflight.sdf')
-        xml=ET.parse(path)
+        with tarfile.open(archive,'r:gz') as stream:
+            for name in names:
+                expected=member_sha256.get(name)
+                if not expected:
+                    continue
+                member=stream.getmember(name)
+                if not member.isfile() or not 0 < member.size <= 2*1024*1024:
+                    raise QAError('B_Q02_CAMERA_SDF_MEMBER_INVALID '+name)
+                handle=stream.extractfile(member)
+                if handle is None:
+                    raise QAError('B_Q02_CAMERA_SDF_UNREADABLE '+name)
+                data=handle.read(member.size+1)
+                if len(data)!=member.size or sha_bytes(data)!=expected:
+                    raise QAError('B_Q02_CAMERA_SDF_HASH_DRIFT '+name)
+                output[name]=data
+    except (OSError,tarfile.TarError,KeyError,EOFError) as exc:
+        raise QAError('B_Q02_CAMERA_SDF_SOURCE_UNREADABLE') from exc
+    return output
+
+
+def camera_sdf(root:Path, trial:str, authenticated_sdf:bytes|None=None) -> dict:
+    """A configuration pose is not a live dynamic TF/calibration measurement."""
+    try:
+        if authenticated_sdf is not None:
+            xml=ET.fromstring(authenticated_sdf)
+            origin='VERIFIED_A13_TAR_SENSOR_PREFLIGHT_SDF'
+        else:
+            path=safe_file(root,f'{trial}/sensor_preflight.sdf')
+            xml=ET.parse(path).getroot()
+            origin='RAW_SENSOR_PREFLIGHT_SDF_NOT_SOURCE_ARCHIVE_REVERIFIED'
         sensor=xml.find('.//sensor[@name="smartdish_tray_rgb"]')
-        if sensor is None: return {'camera_pose_source':'MISSING'}
+        if sensor is None:return {'camera_pose_source':'MISSING'}
         image=sensor.find('camera/image')
-        return {'camera_pose_source':'sensor_preflight.sdf',
-                'camera_pose_sdf':sensor.findtext('pose'),
+        pose=sensor.findtext('pose')
+        return {'camera_pose_source':origin,'camera_pose_sdf':pose,
+                'camera_pose_scope':'STATIC_SENSOR_SDF_LOCAL_POSE_NOT_OBSERVED_DYNAMIC_TF',
                 'sdf_width':image.findtext('width') if image is not None else None,
                 'sdf_height':image.findtext('height') if image is not None else None,
                 'topic_sdf':sensor.findtext('topic'),
@@ -226,6 +263,8 @@ def stage_audit(raw:Path,review:Path,out:Path, *, source_archive:Path|None=None,
         try:provenance=verified_archive(source_archive)
         except QAError as exc: provenance={'status':'HOLD','reason':str(exc)}
     source_member_sha=provenance.pop('_member_sha256',{})
+    camera_source_sdf=(verified_camera_sdf_members(source_archive,source_member_sha)
+                       if source_archive is not None and provenance['status']=='PASS' else {})
     ledger=review_ledger(review/'approval_ledger.jsonl',{r['candidate_id'] for r in candidates})
     all_samples=[];image_rows=[];physics_rows=[];camera_rows=[];duplicates=[];thumbnail_paths=[]
     errors={x:[] for x in range(1,8)}
@@ -256,7 +295,7 @@ def stage_audit(raw:Path,review:Path,out:Path, *, source_archive:Path|None=None,
         t0=int(r['capture_stamp_ns']);pose=int(r['pose_at_capture_ns'])
         if t0<=0 or abs(t0-pose)>250_000_000 or int(r['observation_end_ns'])-int(r['observation_start_ns'])<10_000_000_000:
             errors[2].append('B_Q02_TIME_ALIGNMENT_OR_DURATION')
-        cam=camera_sdf(raw,trial)
+        cam=camera_sdf(raw,trial,camera_source_sdf.get(f'{trial}/sensor_preflight.sdf'))
         if not cam.get('camera_pose_sdf'):errors[2].append('B_Q02_CAMERA_POSE_MISSING')
         elif cam.get('sdf_width')!='640' or cam.get('sdf_height')!='480' or cam.get('topic_sdf')!=capture.get('topic') or cam.get('frame_id_sdf')!=capture.get('frame_id'):
             errors[2].append('B_Q02_CAMERA_SDF_CAPTURE_CONFIG_MISMATCH')
@@ -315,7 +354,8 @@ def stage_audit(raw:Path,review:Path,out:Path, *, source_archive:Path|None=None,
     errors[3].append('B_Q03_RULE_VERSION_AND_TRAY_DYNAMIC_TRACE_NOT_APPROVED')
     errors[2].append('B_Q02_OCCLUSION_VISUAL_QA_NOT_SIGNED')
     errors[5].append('B_Q05_GEOMETRY_ENVIRONMENT_CROSS_COVERAGE_NOT_DEMONSTRATED')
-    if len(candidates)<60: errors[5].append('B_Q05_PILOT_60_SCENES_RECOMMENDATION_NOT_MET')
+    advisory=[]
+    if len(candidates)<60: advisory.append('B_Q05_PILOT_60_SCENES_NONBINDING_RECOMMENDATION_GAP')
     if split['status']!='PROVIDED':errors[6].append('B_Q06_SPLIT_NOT_PRESENT')
     errors[6].append('B_Q06_NEAR_DUPLICATE_REVIEW_NOT_SIGNED')
     if release_manifest is None or not release_manifest.is_file():errors[7].append('B_Q07_APPROVED_C_RELEASE_NOT_PRESENT')
@@ -332,7 +372,7 @@ def stage_audit(raw:Path,review:Path,out:Path, *, source_archive:Path|None=None,
             'training_executed':False,'automatic_label_approval':False,'human_approval':ledger,
             'candidate_count':len(candidates),'candidate_suggested_counts':dict(by_class),
             'unique_scenarios':len(by_scene),'scene_counts':dict(by_scene),
-            'source_archive_audit':provenance,'gates':gates,
+            'source_archive_audit':provenance,'gates':gates,'nonbinding_advisories':advisory,
             'dacon_comparison':{'image_reference':'384x384 RGB front+top; product raw stays 640x480 single camera',
                                 'reference_train_scenes':1000,'reference_dev_scenes':100,'reference_test_scenes':1000,
                                 'reference_dev_test_exact_duplicate_note':'100 Dev scenes duplicate 100 Test scenes by front/top hashes per supplied baseline',
@@ -342,6 +382,7 @@ def stage_audit(raw:Path,review:Path,out:Path, *, source_archive:Path|None=None,
                                 'candidate_threshold_product_approved':False},
             'observability':{'actual_tray_relative_vel_contact':'NOT_AVAILABLE',
                              'world_pose_metrics_are_labels':False,'visual_occlusion_human_review':'PENDING',
+                             'camera_sdf_static_pose_not_dynamic_tf':True,
                              'geometry_family_annotation':'NOT_AVAILABLE','temporal_pre_fall':'CHECK_REQUIRED'},
             'split_audit':split,'near_duplicate_pair_count':len(duplicates)}
     out.parent.mkdir(parents=True,exist_ok=True)
@@ -363,7 +404,7 @@ def stage_audit(raw:Path,review:Path,out:Path, *, source_archive:Path|None=None,
             x=(i%2)*320; y=(i//2)*280
             sheet.paste(thumb,(x,y))
         sheet.save(stage/'representative_product_camera_4_scenes.png')
-        guide='''# B-DATA-QA-01 — DACON 기준 기반 실제 데이터 품질 감사\n\n본 파일은 사람이 정답을 승인한 모델 학습 데이터가 아닙니다.\n\n- `qa_report.json`: B-Q01~07 PASS/HOLD 원장\n- `sample_manifest_qa.csv`: 후보/출처/세계 좌표계 거리(진단 전용)\n- `image_stats.csv`: RGB brightness/file SHA/pixel SHA/near-duplicate aHash\n- `camera_metadata.csv`: B13 카메라 SDF 포즈와 t0/pose 시간차\n- `physics_trace_metrics.csv`: world pose time/cumulative/net distance (NOT tray-relative)\n- `duplicate_summary.csv`: exact/near candidates, near matches require human review\n- `class_geometry_environment_coverage.csv`: label suggestion x scene x environment, NOT accepted GT\n- `split_overlap.csv`: split provided then cross-split hash/geometry duplicates\n- `representative_product_camera_4_scenes.png`: 제품 단일 카메라 4개 후보 시트\n\nDACON 제안 0.015m는 제품의 최종 GT 임계치가 아니며, 누적 world movement는 tray-relative GT가 아닙니다.\nB-13 approval ledger 및 C 학습은 자동 실행하지 않습니다.\n'''
+        guide='''# B-DATA-QA-01 — DACON 기준 기반 실제 데이터 품질 감사\n\n본 파일은 사람이 정답을 승인한 모델 학습 데이터가 아닙니다.\n\n- `qa_report.json`: B-Q01~07 PASS/HOLD 원장\n- `sample_manifest_qa.csv`: 후보/출처/세계 좌표계 거리(진단 전용)\n- `image_stats.csv`: RGB brightness/file SHA/pixel SHA/near-duplicate aHash\n- `camera_metadata.csv`: 원본 A13 TAR SDF(있는 경우)의 정적 센서 설정 포즈와 t0/pose 시간차; 동적 TF는 별도\n- `physics_trace_metrics.csv`: world pose time/cumulative/net distance (NOT tray-relative)\n- `duplicate_summary.csv`: exact/near candidates, near matches require human review\n- `class_geometry_environment_coverage.csv`: label suggestion x scene x environment, NOT accepted GT\n- `split_overlap.csv`: split provided then cross-split hash/geometry duplicates\n- `representative_product_camera_4_scenes.png`: 제품 단일 카메라 4개 후보 시트\n\nDACON 제안 0.015m는 제품의 최종 GT 임계치가 아니며, 누적 world movement는 tray-relative GT가 아닙니다.\nB-13 approval ledger 및 C 학습은 자동 실행하지 않습니다.\n'''
         (stage/'README_QA_KO.md').write_text(guide,encoding='utf-8')
         sums=[f'{sha_file(f)}  {f.relative_to(stage).as_posix()}' for f in sorted(stage.rglob('*')) if f.is_file()]
         (stage/'SHA256SUMS').write_text('\n'.join(sums)+'\n')

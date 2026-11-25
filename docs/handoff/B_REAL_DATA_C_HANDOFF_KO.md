@@ -87,3 +87,10 @@ B 원샷 실행 성공·실패 시 `ai/data/private/b_a13_diagnostics/*_diagnost
 - 실제 결과: B-Q01 **PASS**, B-Q02~B-Q07 **HOLD**. 원본 640×480 RGB4, t0 0.60s/pose0.55s, SDF camera pose, WORLD frame trajectory; tray-relative/velocity/contact 미완성, 사람 승인0, 4 fixed scenes/독립 커버리지 부족, approved split 없음. 모델 학습 NOT_RUN.
 - 소스 및 임계치: `0.015m` 누적 기준은 미승인 후보이며 WORLD-frame displacement는 tray 상대 변위와 다릅니다. 뒤따르는 물리 trace는 C RGB inference feature가 아니라 GT 검토 증거입니다.
 - A 담당: tray 상대 Pose·contact·velocity 동기화와 새로운 geometry/환경 클래스 교차 장면 수집 계획. B 담당: 오프라인 SHA·형상/중복/사람 승인·그룹 누수 검증, C 담당: 승인된 manifest만 읽기 전용 재검 후 학습. [Gate 원장](../reports/acceptance/SMARTDISH_B_DATA_QA01_ACCEPTANCE_20261125_KO.md).
+
+## B-DATA-QA-01 Owner 결과 및 A14 선행 요구 (2026-11-25)
+
+- Owner WSL2 B QA 실행진단 checksum 12/12/exit0 PASS. 후보 4, 승인 0, 데이터셋 출고 HOLD는 정상. 신규 B QA는 full A13 authenticated TAR에서 카메라 SDF 정적 pose를 확인하므로 기존 B12R subset SDF 누락에 따른 `CAMERA_POSE_MISSING` 오판을 제거했습니다. 사용자 시각적 가림 QA는 계속 HOLD.
+- 60 scene은 선택적 파일럿 권고이며 데이터셋 hard pass 규모가 아님; 기본 4 scene의 geometry/env coverage, class pairing 부족은 별도 실측 문제.
+- A가 먼저 개발할 것은 데이터량이 아니라 **A14-P0 tray-relative time-aligned pose + velocity provenance + Gazebo Harmonic contact/support + t0/10s capture metadata + invalid/UNKNOWN boundary**입니다. 이 계약이 GREEN이 된 뒤에만 P1 `physical_layout_id`/`geometry_family_id`/environment slice를 가진 새로운 geometry 장면으로 확대합니다.
+- [A14 인계 요청 명세](../plans/SMARTDISH_A14_PHYSICS_DATA_EVIDENCE_REQUIREMENTS_KO.md) / [Owner 검수 원장](../reports/acceptance/SMARTDISH_B_DATA_QA01_OWNER_20261125_KO.md). A 코드 직접 수정하지 않음, B 후보 승인·C 실학습 금지.

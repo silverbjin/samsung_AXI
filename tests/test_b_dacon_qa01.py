@@ -268,3 +268,61 @@ def test_qa01_cli_does_not_kill_caller_shell(tmp_path):
     command=f'bash "{root}/scripts/smartdish_b_dacon_qa01_one_shot.sh" --sha {sha0} --workspace /nonexistent; echo PARENT_SHELL_ALIVE'
     r=subprocess.run(['bash','-c',command],cwd=tmp_path,capture_output=True,text=True)
     assert 'PARENT_SHELL_ALIVE' in r.stdout
+
+
+def test_qa01_camera_sdf_restored_from_sha_verified_full_a13_tar(tmp_path,monkeypatch):
+    """Synthetic-only contract: absent B12R subset SDF must not hide A's original SDF."""
+    import audit_b_dacon_qa01 as audit
+    raw,review,rows=fixture(tmp_path)
+    tar_path=tmp_path/'synthetic_full_a13.tar.gz'
+    index={}
+    with tarfile.open(tar_path,'w:gz') as archive:
+        for n in range(1,5):
+            name=f'trial_{n:04d}/sensor_preflight.sdf'
+            bs=(raw/name).read_bytes()
+            index[name]=hashlib.sha256(bs).hexdigest()
+            meta=tarfile.TarInfo(name);meta.size=len(bs)
+            archive.addfile(meta,io.BytesIO(bs))
+            (raw/name).unlink()
+    for row in rows:
+        index[row['source_image_path']]=row['source_image_sha256']
+        index[row['physics_path']]=row['physics_sha256']
+    # The actual verified_archive() performs full A13 SHA and 88-member checks.
+    # This monkeypatch injects a trusted synthetic member index only for camera fallback.
+    monkeypatch.setattr(audit,'verified_archive',lambda path:{'status':'PASS','source_archive_sha256':'SYNTHETIC_ONLY','verified_members':len(index),'_member_sha256':index})
+    result=stage_audit(raw,review,tmp_path/'qa',source_archive=tar_path)
+    assert result['gates']['B-Q01']['status']=='PASS'
+    assert 'B_Q02_CAMERA_POSE_MISSING' not in result['gates']['B-Q02']['reasons']
+    assert result['gates']['B-Q02']['status']=='HOLD'
+    with (tmp_path/'qa/camera_metadata.csv').open(newline='') as f: cameras=list(csv.DictReader(f))
+    assert len(cameras)==4
+    assert all(c['camera_pose_source']=='VERIFIED_A13_TAR_SENSOR_PREFLIGHT_SDF' for c in cameras)
+    assert all(c['camera_pose_sdf']=='0 0 1.5 0 1.57 0' for c in cameras)
+    assert all(c['camera_pose_scope']=='STATIC_SENSOR_SDF_LOCAL_POSE_NOT_OBSERVED_DYNAMIC_TF' for c in cameras)
+    assert not any((raw/f'trial_{n:04d}/sensor_preflight.sdf').exists() for n in range(1,5))
+
+
+def test_qa01_camera_sdf_tampering_does_not_publish(tmp_path,monkeypatch):
+    import audit_b_dacon_qa01 as audit
+    raw,review,rows=fixture(tmp_path)
+    tar_path=tmp_path/'synthetic_camera_sdf.tar.gz'
+    with tarfile.open(tar_path,'w:gz') as archive:
+        name='trial_0001/sensor_preflight.sdf'
+        bs=(raw/name).read_bytes();meta=tarfile.TarInfo(name);meta.size=len(bs)
+        archive.addfile(meta,io.BytesIO(bs))
+    fake_index={'trial_0001/sensor_preflight.sdf':'0'*64}
+    for row in rows:
+        fake_index[row['source_image_path']]=row['source_image_sha256']
+        fake_index[row['physics_path']]=row['physics_sha256']
+    monkeypatch.setattr(audit,'verified_archive',lambda path:{'status':'PASS','_member_sha256':fake_index})
+    with pytest.raises(QAError,match='B_Q02_CAMERA_SDF_HASH_DRIFT'):
+        stage_audit(raw,review,tmp_path/'qa',source_archive=tar_path)
+    assert not (tmp_path/'qa').exists()
+
+
+def test_qa01_recommended_60_is_not_an_approval_gate(tmp_path):
+    raw,review,_=fixture(tmp_path)
+    report=stage_audit(raw,review,tmp_path/'qa')
+    assert 'B_Q05_PILOT_60_SCENES_NONBINDING_RECOMMENDATION_GAP' in report['nonbinding_advisories']
+    assert not any('60_SCENES' in reason for reason in report['gates']['B-Q05']['reasons'])
+    assert 'B_Q05_GEOMETRY_ENVIRONMENT_CROSS_COVERAGE_NOT_DEMONSTRATED' in report['gates']['B-Q05']['reasons']
