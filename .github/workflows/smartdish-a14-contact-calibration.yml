@@ -56,7 +56,9 @@ jobs:
           set +u
           source /opt/ros/jazzy/setup.bash
           set -u
-          ros2 interface show ros_gz_interfaces/msg/Contacts | grep -q contacts
+          ros2 interface show ros_gz_interfaces/msg/Contacts > /tmp/a14_contacts_interface.txt
+          grep -q 'contacts' /tmp/a14_contacts_interface.txt
+          echo A14_CAL_ROS_CONTACT_INTERFACE_PASS
           timeout --signal=INT --kill-after=10s 115s \
             python3 -u scripts/a14_contact_calibration.py --sha "$GITHUB_SHA" \
               --max-wall-seconds 95

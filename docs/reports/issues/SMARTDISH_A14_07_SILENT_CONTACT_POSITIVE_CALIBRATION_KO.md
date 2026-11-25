@@ -82,3 +82,11 @@ flowchart LR
 4. 그 다음에만 B 실제 데이터 계약 재검수; 독립 Geometry Family(P1)는 P0 증거 품질 및 사용자 승인 후 시작.
 
 **참고:** Gazebo Harmonic Sensors 및 ROS 2 연계 공식 문서: https://gazebosim.org/docs/harmonic/sensors/ / https://gazebosim.org/docs/harmonic/ros2_integration/.
+
+## 7. CI RED — ROS CLI 확인 단계의 BrokenPipeError
+
+- 최초 전용 CI: [Run #45649071682](https://github.com/silverbjin/samsung_AXI/actions/runs/45649071682). L0 **13/13 PASS**.
+- L2는 **실제 Gazebo 실행 전** `ros2 interface show ros_gz_interfaces/msg/Contacts | grep -q contacts`에서 종료 코드 120으로 중단.
+- 원인: `set -o pipefail` 환경에서 `grep -q`가 찾자마자 파이프 읽기를 닫자 ROS CLI 출력에 `BrokenPipeError` 발생. 이는 Contact 센서 결함이나 시뮬레이션 타임아웃이 아니다.
+- 조치: `ros2 interface show ... > /tmp/a14_contacts_interface.txt`로 출력 전체를 먼저 파일에 저장한 후 `grep -q`를 파일 대상으로 실행. **센서/물리 코드는 수정하지 않음.**
+- 기존 실패 Run은 그대로 보존하고 새 SHA 전용 CI 1회를 통해 실제 L2 진행을 확인한다. 이전 A14 2-scene CI는 재실행하지 않는다.
