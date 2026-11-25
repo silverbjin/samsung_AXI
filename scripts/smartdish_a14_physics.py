@@ -176,19 +176,21 @@ def contact_messages_to_events(messages,topics):
                 unreliable+=1
                 continue
             pair=tuple(sorted((c1,c2)))
-            current[pair]=(c1,c2)
+            current[pair]=(c1,c2,hit.get("collision1_id"),hit.get("collision2_id"))
             hit_counts[topic]+=1
-        for pair,(c1,c2) in current.items():
+        for pair,(c1,c2,id1,id2) in current.items():
             events.append({"sim_time_ns":t,"collision1":c1,"collision2":c2,
+                           "collision1_id":id1,"collision2_id":id2,
                            "category":contact_category(c1,c2),"topic":topic,
                            "source":"ROS_BRIDGED_GAZEBO_CONTACT_SENSOR",
                            "timestamp_source":row.get("timestamp_source"),
                            "event":"CONTACT_STARTED" if pair not in active[topic]
                                    else "CONTACT_OBSERVED"})
-        for pair,(c1,c2) in active[topic].items():
+        for pair,(c1,c2,id1,id2) in active[topic].items():
             if pair not in current:
                 # END requires another REAL, valid message on same sensor.
                 events.append({"sim_time_ns":t,"collision1":c1,"collision2":c2,
+                               "collision1_id":id1,"collision2_id":id2,
                                "category":contact_category(c1,c2),"topic":topic,
                                "source":"ROS_BRIDGED_GAZEBO_CONTACT_SENSOR",
                                "timestamp_source":row.get("timestamp_source"),
@@ -204,8 +206,11 @@ def contact_messages_to_events(messages,topics):
     tray_end=[x for x in events if x["event"]=="CONTACT_ENDED" and
               x["category"]=="TRAY_DISH"]
     floor_start=[x for x in started if x["category"]=="FLOOR_DISH"]
+    def dishes(event):
+        return {part for name in (event["collision1"],event["collision2"])
+                for part in str(name).split("::") if part.startswith("dish_")}
     if any(e["sim_time_ns"]<=f["sim_time_ns"] and
-           ("dish_" in e["collision1"] or "dish_" in e["collision2"])
+           (dishes(e)&dishes(f))
            for e in tray_end for f in floor_start):
         support_loss="OBSERVED_TRAY_END_THEN_FLOOR_CONTACT"
     return {"status":status,"topic_callbacks":counts,"topic_contact_counts":hit_counts,

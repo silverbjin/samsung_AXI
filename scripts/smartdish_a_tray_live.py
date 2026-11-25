@@ -365,7 +365,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             collisions=[]
             for item in msg.contacts:
                 collisions.append({"collision1":str(item.collision1.name),
-                                   "collision2":str(item.collision2.name)})
+                                   "collision2":str(item.collision2.name),
+                                   "collision1_id":int(item.collision1.id),
+                                   "collision2_id":int(item.collision2.id)})
             state["a14_contacts"].append({
                 "topic":topic,"sim_time_ns":stamp if stamp>0 else state["sim_ns"],
                 "timestamp_source":("ROS_CONTACT_HEADER_STAMP" if stamp>0

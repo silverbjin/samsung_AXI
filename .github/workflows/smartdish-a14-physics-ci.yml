@@ -45,7 +45,7 @@ jobs:
           set -Eeuo pipefail
           apt-get update -qq
           apt-get install -y --no-install-recommends git python3-yaml python3-pil \
-            ros-jazzy-ros-gz libgz-sim8-plugins ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
             ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs
       - name: Verify Contacts interface and installed Gazebo Contact System
         shell: bash
@@ -67,16 +67,12 @@ jobs:
           assert hasattr(m,"header") and hasattr(m,"contacts")
           # Debian/Ubuntu Gazebo distributions may use versioned .so.8
           # rather than an unversioned *.so symlink; enumerate both.
-          paths=[p for p in Path("/usr/lib").rglob("*") if
-                 "contact" in p.name.lower() and "system" in p.name.lower()
-                 and (".so" in p.name)]
-          # Exact plugin package installed in this CI job; no loose
-          # assumptions from "gz sim --version" or topic advertisements.
-          import subprocess
-          listing=subprocess.check_output(
-              ["dpkg","-L","libgz-sim8-plugins"],text=True)
-          print("A14_GAZEBO_PLUGIN_PACKAGE_PATHS="+
-                str([x for x in listing.splitlines() if "contact" in x.lower()][:20]))
+          # Jazzy uses Gazebo *vendor* packages under /opt/ros/jazzy/opt.
+          # Not the OSRF APT-only libgz-sim8-plugins package.
+          roots=[Path("/opt/ros/jazzy/opt/gz_sim_vendor/lib"),
+                 Path("/usr/lib")]
+          paths=[p for root in roots if root.exists()
+                 for p in root.rglob("*contact*system*.so*") if p.is_file()]
           print("A14_CONTACT_PLUGIN_PATHS="+str([str(p) for p in paths[:10]]))
           assert paths,"A14_CONTACT_SYSTEM_PLUGIN_UNAVAILABLE"
           print("A14_L1_ROS_GZ_CONTACT_INTERFACE_PASS")
@@ -102,7 +98,7 @@ jobs:
           set -Eeuo pipefail
           apt-get update -qq
           apt-get install -y --no-install-recommends git python3-yaml python3-pil \
-            ros-jazzy-ros-gz libgz-sim8-plugins ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
             ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs \
             xvfb xauth mesa-utils libgl1-mesa-dri
       - name: Observe REAL Contact + Pose TF + RGB + derived velocity
