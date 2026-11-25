@@ -266,7 +266,9 @@ def velocity_from(prev,cur,dt):
     v={k:(b[k]-a[k])/dt for k in ("x","y","z")}
     qa=norm_q([prev["quaternion"][k] for k in ("x","y","z","w")])
     qb=norm_q([cur["quaternion"][k] for k in ("x","y","z","w")])
-    dq=norm_q(q_mul(q_conjugate(qa),qb))
+    # Spatial angular delta expressed in the TRAY frame, matching
+    # the relative translation frame. inv(qa)*qb would be dish-local.
+    dq=norm_q(q_mul(qb,q_conjugate(qa)))
     if dq[3]<0:dq=tuple(-x for x in dq)
     axis=math.sqrt(sum(x*x for x in dq[:3]))
     angle=2*math.atan2(axis,abs(dq[3]))
@@ -366,10 +368,21 @@ def build_v2(directory,config,state,contact_topics,source_sha):
         dq=norm_q(q_mul(q_conjugate(qfirst),qlast))
         tilt_change=2*math.acos(min(1.,abs(dq[3])))
         dz=a["z"]-b["z"]
+        def tilt(q):
+            z_axis=rotate(q,(0.0,0.0,1.0))
+            return math.acos(max(-1.0,min(1.0,z_axis[2])))
+        initial_tilt=tilt(qfirst)
+        final_tilt=tilt(qlast)
+        max_tilt=max(tilt(norm_q([rec["relative"]["quaternion"][k]
+                                  for k in ("x","y","z","w")])) for rec in samples)
         egress=(abs(b["x"])>float(config["platform"]["width_m"])/2 or
                 abs(b["y"])>float(config["platform"]["depth_m"])/2)
         metrics[n]={"samples":len(samples),"max_sample_gap_ns":maxgap,
                     "relative_drop_m":dz,"relative_rotation_rad":tilt_change,
+                    "initial_tilt_rad":initial_tilt,
+                    "final_tilt_rad":final_tilt,
+                    "tilt_change_rad":final_tilt-initial_tilt,
+                    "max_tilt_rad":max_tilt,
                     "relative_tray_egress":egress,
                     "cumulative_relative_distance_m":total,"net_relative_displacement_m":net,
                     "net_relative_planar_m":planar,

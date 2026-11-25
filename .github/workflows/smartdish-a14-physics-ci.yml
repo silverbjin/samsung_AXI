@@ -78,7 +78,7 @@ jobs:
           print("A14_L1_ROS_GZ_CONTACT_INTERFACE_PASS")
           PY
   a14-l2:
-    name: A14 L2 REAL static tray ST-02 and UN-01
+    name: A14 L2 REAL contact evidence and incomplete-channel GT HOLD
     needs: a14-l1
     runs-on: ubuntu-24.04
     timeout-minutes: 36
@@ -128,12 +128,38 @@ jobs:
               summary=json.loads(x.read_text())
               assert summary["source_sha"]==os.environ["GITHUB_SHA"]
               assert summary["verdict"]=="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS"
-              report=verify_trial(x.parent/"trial_0001",os.environ["GITHUB_SHA"])
+              trial=x.parent/"trial_0001"
+              qa=json.loads((trial/"a14_gt_candidate.json").read_text())
+              report=verify_trial(trial,os.environ["GITHUB_SHA"])
               assert report["scene_id"]==scene
-              print("A14_L2_CONTACT_STATE="+scene+" "+report["contact_status"])
-              print("A14_L2_CANDIDATE="+scene+" "+report["gt_candidate"])
-              assert report["quality_verdict"]=="PASS",report
-          print("A14_L2_REAL_STATIC_GRAVITY_ST_UN_PASS")
+              core=("A14_SOURCE_SHA_PASS","A14_TRAY_RELATIVE_POSE_PASS",
+                    "A14_VELOCITY_PROVENANCE_PASS","A14_TIME_ALIGNMENT_PASS",
+                    "A14_PHYSICS_TRACE_INTEGRITY_PASS",
+                    "A14_GT_CANDIDATE_REVIEW_REQUIRED")
+              assert all(report["checks"][c] for c in core),report
+              events=[json.loads(y) for y in (trial/"contact_events.jsonl").read_text().splitlines()]
+              category="TRAY_DISH" if scene=="ST-02" else "FLOOR_DISH"
+              observed=[e for e in events if e["category"]==category and
+                        e["event"] in ("CONTACT_STARTED","CONTACT_OBSERVED")]
+              assert observed, ("A14_REAL_CONTACT_COLLISION_NOT_OBSERVED",scene,
+                                qa["contact_status"],len(events))
+              assert all(e["sim_time_ns"]>0 and e["source"]==
+                         "ROS_BRIDGED_GAZEBO_CONTACT_SENSOR" for e in observed)
+              assert all("collision1_id" in e and "collision2_id" in e for e in observed)
+              assert qa["contact_raw_callback_total"]>len(events)
+              assert qa["contact_redundant_suppressed"]>0
+              assert "A14_CONTACT_BUFFER_OVERFLOW" not in qa["invalid_reasons"]
+              assert report["contact_status"]=="CONTACT_DATA_INCOMPLETE"
+              assert report["quality_verdict"]=="HOLD"
+              assert report["gt_candidate"]=="UNKNOWN"
+              assert qa["human_approved"] is False
+              assert qa["ground_truth"]=="NOT_OPERATOR_APPROVED"
+              print("A14_L2_REAL_CONTACT_CAPTURE_PASS="+scene+" events="+
+                    str(len(observed))+" raw_callbacks="+
+                    str(qa["contact_raw_callback_total"]))
+              print("A14_L2_GT_REVIEW_HOLD_UNOBSERVED_SENSOR="+scene+" "+
+                    str(qa["contact_sensor_unobserved_topics"]))
+          print("A14_L2_REAL_PHYSICS_EVIDENCE_PASS_GT_CANDIDATES_HOLD")
           PY
       - uses: actions/upload-artifact@v4
         if: always()

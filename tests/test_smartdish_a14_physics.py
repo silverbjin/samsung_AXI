@@ -102,6 +102,23 @@ def test_velocity_provenance_units_and_nonmonotonic_guard():
     with pytest.raises(ValueError,match="A14_TIME_NONMONOTONIC"):
         velocity_from(a,b,0)
 
+def test_spatial_angular_velocity_is_in_tray_not_dish_body_frame():
+    # Old dish yaw 90deg; new rotation is 90deg about WORLD/TRAY +X.
+    # inv(old)*new would incorrectly report dish-local +/-Y angular rate.
+    import math
+    q_old=(0.,0.,2**-.5,2**-.5)
+    q_delta=(2**-.5,0.,0.,2**-.5)
+    q_new=q_mul(q_delta,q_old)
+    a={"translation_m":{"x":0,"y":0,"z":0},
+       "quaternion":dict(zip(("x","y","z","w"),q_old))}
+    b={"translation_m":{"x":0,"y":0,"z":0},
+       "quaternion":dict(zip(("x","y","z","w"),q_new))}
+    v=velocity_from(a,b,1.0)
+    assert v["frame_id"]=="tray_platform/body"
+    assert v["angular_rad_s"]["x"]==pytest.approx(math.pi/2,abs=1e-6)
+    assert abs(v["angular_rad_s"]["y"])<1e-6
+
+
 def fixtures(tmp_path,observation="HELD_OBSERVED",drop=False,empty=False,
              poses_gap_ns=200_000_000):
     sdf,cfg,info=scene(tmp_path)
@@ -139,6 +156,9 @@ def test_real_schema_with_synthetic_stable_fixture_is_review_only(tmp_path):
     assert qa["threshold_is_product_policy"] is False
     assert qa["contact_status"]=="CONTACT_OBSERVED"
     assert qa["per_dish"]["dish_01"]["max_sample_gap_ns"]==200_000_000
+    assert qa["per_dish"]["dish_01"]["initial_tilt_rad"]==pytest.approx(0)
+    assert qa["per_dish"]["dish_01"]["max_tilt_rad"]==pytest.approx(0)
+    assert qa["per_dish"]["dish_01"]["tilt_change_rad"]==pytest.approx(0)
     rows=[json.loads(x) for x in
           (tmp_path/"physics_observations_v2.jsonl").read_text().splitlines()]
     assert rows[0]["velocity"]["provenance"]=="UNAVAILABLE_FIRST_SAMPLE"

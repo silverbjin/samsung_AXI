@@ -26,3 +26,18 @@
 ## 향후 후속 오류 원장
 
 서버 종료 SIGSEGV(-11)가 실제 관측 후 cleanup에만 나온다면 최초 계측 장애와 구별합니다. 센서 수집 중 충돌하거나 Pose/clock 역행이면 즉시 HOLD. 새로운 충돌·누락은 source_sha, 처음 실패한 시간, 원본 파일 SHA와 함께 별도 DBG 보고서로 남겨야 합니다.
+
+## 2026-11-25 추가: Cloud 데이터 취득 계약과 GT 인수를 엄격히 분리
+
+실제 Contact System과 bridge 경로는 Gazebo/ROS 토픽을 교차검증한 결과 정상 복구됐습니다. 하지만 Contact Sensor는 콜리전 이벤트가 없는 채널에서 메시지가 없을 수 있습니다.
+
+| 독립 판정 | ST-02 | UN-01 | 근거 |
+|---|---|---|---|
+| 실제 RGB·Pose·시간·상대좌표·유도속도 | PASS | PASS | Gazebo L2 원본 및 SHA |
+| Contact 원본 및 충돌 ID | TRAY_DISH 검수 | FLOOR_DISH 검수 | contact_events.jsonl 실제 수신 필요 |
+| 미관측 Contact Sensor | tray_test_floor | tray_platform | callback 0건 = **부재/미접촉 미확정** |
+| Contact 전체 품질 | DATA_INCOMPLETE | DATA_INCOMPLETE | per-topic callback 상태 |
+| GT 후보 | UNKNOWN | UNKNOWN | 사람 승인 없음 |
+| B 데이터셋 승인 | HOLD | HOLD | approval_ledger A가 생성 금지 |
+
+CI에서 데이터 **취득 성공과 명시적 HOLD 처리**를 검증했다는 사실을 `P0 GT 승인 성공`으로 표시하지 마십시오. 다음 단계는 미관측 센서의 정상 동작을 독립적으로 증명할 수 있는 전용 교정/heartbeat 실험을 설계하는 것입니다. 그 이전에는 B-Q03/04 및 P1 확대를 시작하지 않습니다.
