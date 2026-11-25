@@ -141,6 +141,38 @@ def static_tray_pose(sdf):
        cr*cp*sy-sr*sp*cy,cr*cp*cy+sr*sp*sy)
     return {"x":x,"y":y,"z":z,"qx":q[0],"qy":q[1],"qz":q[2],"qw":q[3]}
 
+def retain_contact_sample(state,row,interval_ns=50_000_000,limit=20_000):
+    """Preserve all real collision-pair changes; coalesce unchanged heartbeats.
+
+    This is NOT a synthetic message source. Original callback totals remain
+    recorded, and any capacity overflow still invalidates the candidate.
+    """
+    topic=row["topic"]
+    tally=state.setdefault("a14_contact_raw_callback_counts",{})
+    tally[topic]=tally.get(topic,0)+1
+    state["a14_contact_raw_callback_total"]=(
+        state.get("a14_contact_raw_callback_total",0)+1)
+    t=int(row["sim_time_ns"])
+    fingerprint=(row.get("timestamp_source"),
+                 tuple(sorted((str(c.get("collision1","")),
+                               str(c.get("collision2","")),
+                               c.get("collision1_id"),c.get("collision2_id"))
+                              for c in row.get("contacts",[]))))
+    last=state.setdefault("_a14_contact_last_kept",{}).get(topic)
+    keep=(last is None or fingerprint!=last[0] or
+          t<last[1] or t-last[1]>=interval_ns)
+    if not keep:
+        state["a14_contact_redundant_suppressed"]=(
+            state.get("a14_contact_redundant_suppressed",0)+1)
+        return False
+    if len(state.setdefault("a14_contacts",[]))>=limit:
+        state["a14_contact_overflow"]=True
+        return False
+    state["a14_contacts"].append(row)
+    state["_a14_contact_last_kept"][topic]=(fingerprint,t)
+    return True
+
+
 def contact_category(a,b):
     a=str(a);b=str(b)
     dish1="dish_" in a;dish2="dish_" in b
@@ -346,6 +378,10 @@ def build_v2(directory,config,state,contact_topics,source_sha):
                     "final_center_below_tray":b["z"]<0.0,
                     "source":"TIME_STAMPED_REAL_POSE_BRIDGED_FROM_GAZEBO"}
     status=contact_messages_to_events(state.get("a14_contacts",[]),contact_topics)
+    status["raw_callback_counts"]=state.get("a14_contact_raw_callback_counts",{})
+    status["raw_callback_total"]=state.get("a14_contact_raw_callback_total",0)
+    status["redundant_suppressed"]=state.get("a14_contact_redundant_suppressed",0)
+    status["sampling_policy"]="ALL_PAIR_CHANGES_PLUS_REAL_50MS_HEARTBEATS"
     contact_path.write_text("".join(json.dumps(row,sort_keys=True)+"\n" for row in
                                     status["events"]))
     # Contact events may be empty: an explicit sensor-status record still exists.
@@ -417,6 +453,10 @@ def build_v2(directory,config,state,contact_topics,source_sha):
         "frame_contract":"world -> tray_platform/body -> dish_XX",
         "tray_pose_mode":"STATIC_TRAY","velocity_provenance":"DERIVED",
         "contact_status":status["status"],"contact_callback_counts":status["topic_callbacks"],
+        "contact_raw_callback_counts":status["raw_callback_counts"],
+        "contact_raw_callback_total":status["raw_callback_total"],
+        "contact_redundant_suppressed":status["redundant_suppressed"],
+        "contact_sampling_policy":status["sampling_policy"],
         "contact_event_count":len(status["events"]),
         "contact_end_support_loss":status["support_loss"],
         "contact_sensor_unobserved_topics":status["topic_unobserved"],

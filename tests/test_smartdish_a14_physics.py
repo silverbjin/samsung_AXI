@@ -12,6 +12,7 @@ from smartdish_tray_world import write_trial
 from smartdish_a14_physics import (
     configure_sdf,static_tray_pose,norm_q,q_mul,transform_relative,
     velocity_from,contact_category,contact_messages_to_events,build_v2,
+    retain_contact_sample,
 )
 
 def scene(tmp_path,scene="ST-01"):
@@ -188,3 +189,34 @@ def test_only_optin_run_keeps_a13_trusted_pipeline():
     assert "A13_CAPTURE_AFTER_MATERIAL_FALL_REJECTED" in live
     assert 'ground_truth":"NOT_OPERATOR_APPROVED"' in live
     assert 'approval_ledger.jsonl' not in live
+
+
+def test_high_rate_contact_stream_preserves_real_edges_and_reduces_redundancy():
+    state={"a14_contacts":[],"a14_contact_overflow":False}
+    topic="/smartdish/tray/contact/dish_01"
+    pair={"collision1":"dish_01::body::collision",
+          "collision2":"tray_platform::body::collision",
+          "collision1_id":11,"collision2_id":22}
+    for i in range(25_000):
+        state_contacts=([pair] if 2_000<=i<18_000 else [])
+        retain_contact_sample(state,{
+            "topic":topic,"sim_time_ns":i*500_000+1,
+            "timestamp_source":"ROS_CONTACT_HEADER_STAMP",
+            "contacts":state_contacts},interval_ns=50_000_000)
+    assert state["a14_contact_raw_callback_total"]==25_000
+    assert state["a14_contact_redundant_suppressed"]>20_000
+    assert len(state["a14_contacts"])<1_000
+    assert not state["a14_contact_overflow"]
+    events=contact_messages_to_events(state["a14_contacts"],[topic])["events"]
+    assert [e["event"] for e in events].count("CONTACT_STARTED")==1
+    assert [e["event"] for e in events].count("CONTACT_ENDED")==1
+    starts=[e for e in events if e["event"]=="CONTACT_STARTED"]
+    assert starts[0]["collision1_id"]==11
+    assert starts[0]["collision2_id"]==22
+    # It must still FAIL on an artificially tiny evidence buffer.
+    tiny={"a14_contacts":[],"a14_contact_overflow":False}
+    retain_contact_sample(tiny,{"topic":topic,"sim_time_ns":1,"contacts":[]},
+                          interval_ns=0,limit=1)
+    retain_contact_sample(tiny,{"topic":topic,"sim_time_ns":2,"contacts":[]},
+                          interval_ns=0,limit=1)
+    assert tiny["a14_contact_overflow"] is True

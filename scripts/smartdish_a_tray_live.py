@@ -356,10 +356,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                 state["pose_times"][name]=now
 
     def a14_contact_cb(topic):
+        from smartdish_a14_physics import retain_contact_sample
         def cb(msg):
-            if len(state["a14_contacts"])>=20000:
-                state["a14_contact_overflow"]=True
-                return
             stamp=(int(msg.header.stamp.sec)*1_000_000_000+
                    int(msg.header.stamp.nanosec))
             collisions=[]
@@ -368,7 +366,10 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                                    "collision2":str(item.collision2.name),
                                    "collision1_id":int(item.collision1.id),
                                    "collision2_id":int(item.collision2.id)})
-            state["a14_contacts"].append({
+            # A REAL contact update can arrive hundreds of times/sec/sensor.
+            # Preserve ALL pair transitions and cap redundant state samples
+            # at one per 50ms per topic; keep RAW callback counts separately.
+            retain_contact_sample(state,{
                 "topic":topic,"sim_time_ns":stamp if stamp>0 else state["sim_ns"],
                 "timestamp_source":("ROS_CONTACT_HEADER_STAMP" if stamp>0
                                     else "ROS_CALLBACK_CLOCK_APPROX_NOT_GT"),
