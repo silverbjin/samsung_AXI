@@ -62,3 +62,11 @@ B의 provenance는 `capture_config`의 `source_archive_sha256`, `source_image_sh
 ## B-15 자동 진단 아카이브 인계
 
 B 원샷 실행 성공·실패 시 `ai/data/private/b_a13_diagnostics/*_diagnostics.tar.gz`와 `.sha256`를 생성합니다. 아카이브는 원본 전체 TAR를 내포하지 않으며 검증 로그, B 검토 HTML, PNG 4장, SVG 12개, 물리 JSONL, `diagnostic_status.json`을 포함할 수 있습니다. 내부 `SHA256SUMS` 및 TAR 외부 SHA를 검사한 후 **비공개 전달**하십시오. 이는 디버깅·리뷰용이지 사람 승인 학습 데이터셋 또는 C readiness PASS가 아닙니다.
+
+
+## B-12R/B-14R 수신 및 C 분할 차단 경계
+
+- B15 Owner 진단 TAR는 54개 정규 파일, 내부 SHA 53/53, 종료코드 0, PNG 4 + SVG 12. 원본 A13 TAR 88개 전체가 아님.
+- `ai/scripts/receive_b15_diagnostics.py`로 비공개 폴더에 SHA 검증 후 복원, `B12_REVIEW_DECISIONS_TEMPLATE.csv`는 승인 칸 공란입니다. [운영자 가이드](../guides/SMARTDISH_B12R_REVIEW_OPERATOR_WORKBOOK_KO.md).
+- A13 기존 네 scene의 seed 변화는 좌표 ±1mm이므로 독립 배치로 세지 않음. B13은 지정 A13 SHA에서 동일 `source_scene_id`가 다른 `stack_id`로 분리되거나 승인 라벨 충돌하면 C split 전 Fail-Closed 합니다. 추후 A 신규 `physical_layout_id` 계약 필요. [A 요청](../plans/SMARTDISH_B14_REAL_LAYOUT_EXPANSION_REQUEST_KO.md).
+- 현 상태: B-15 Owner PASS / B-12R 후보 4 PASS / 운영자 승인 0 / C 데이터셋 split BLOCKED / 모델 학습 NOT_RUN. S2 Robot CI 실패는 별도 E 소유로 인계.

@@ -77,3 +77,11 @@ Ubuntu/WSL2 수집기 `collect_tableware.py`는 동일 manifest에 대한 동시
 - TAR 전체 89개 구성원 중 SHA256SUMS 88개; 선택적 probe stdout `.log` 8개는 올바르게 비어 있고 `e3b0c442...b855` 해시로 봉인됐습니다. B 인수기에서는 정확한 패턴에 한하여 비어 있는 로그를 허용하며 필수 PNG·물리·메타데이터는 빈 파일 거부를 유지합니다.
 - 사람 승인 전 원본 `REVIEW_REQUIRED`를 그대로 유지하며 승인된 학습 이미지 0, C readiness BLOCKED 상태입니다.
 - [직접 인수 원장](../../docs/reports/acceptance/SMARTDISH_B_REAL_DATA_ACCEPTANCE_KO.md), [DBG-04](../../docs/reports/issues/SMARTDISH_B10_DBG_04_REAL_ARCHIVE_EMPTY_DIAGNOSTIC_LOGS_KO.md).
+
+
+## B12R/B14R Owner 후속 (2026-11-25)
+
+- 사용자 진단 TAR SHA `912bfbc759e3fde3f48e70316638bc86dd30c52461ecd19410281bd7edf1f515` 검증, B15 내부 SHA **53/53 PASS**, 종료코드 0. 이는 원본 A TAR 88개 전체가 포함된 묶음이 아닌 진단 부분집합입니다.
+- B12R 안전 복원기: 진단 SHA/내부 해시, 원본 PNG 4·물리 SHA·RGB/크기, 리뷰 HTML이 참조하는 SVG 12개 확인. 승인 공란 템플릿만 작성, 운영자 승인 0, 모델 학습 0.
+- B14R: 현재 A13 `placements(scene_id,seed)`는 4개 고정 레이아웃에서 seed가 x/y를 ±0.001m 흔들 뿐입니다. 같은 `source_scene_id`가 다중 legacy stack_id로 분리되면 B13 split을 `B14_A13_SEED_JITTER_SPLIT_LEAKAGE`로 차단, 같은 템플릿 라벨 충돌도 차단합니다. 이는 A13 지정 SHA에 한정하며 기존 다른 소스 계약은 유지합니다.
+- 실제 클래스별 독립 템플릿 최대 2/2, C 학습 여전히 HOLD. [Owner 인수](../../docs/reports/acceptance/SMARTDISH_B15_OWNER_DIAGNOSTIC_ACCEPTANCE_20261125_KO.md), [운영자 워크북](../../docs/guides/SMARTDISH_B12R_REVIEW_OPERATOR_WORKBOOK_KO.md).

@@ -65,3 +65,11 @@
 - B-G09~B-G12: 승인 0건, 독립 그룹 부족으로 HOLD
 - B-15 자동 진단 패키징: 로컬 실제 A TAR 스모크 **PASS**. 최종 동일 SHA GitHub CI 및 새 WSL2 실행은 별도 확인
 - [개발 보고서](../tasks/SMARTDISH_B15_ONE_SHOT_DIAGNOSTIC_ARCHIVE_EDU_KO.md)
+
+
+## B-15 Owner 첨부 아카이브 최종 확인 및 B-12R 인계
+
+- 사용자 WSL2 아카이브 SHA `912bfbc759e3fde3f48e70316638bc86dd30c52461ecd19410281bd7edf1f515`, 내부 SHA 53/53, 진단 `RUN_SUCCESS/exit_code=0`, 코드 `eae0e855...`, 원본 A13 SHA 참조와 물리 PNG 4/trace/SVG 12를 직접 확인: **B-15 OWNER PASS**.
+- B12R은 B15 부분집합을 재검하므로 실제 A13 88/88을 다시 수행했다고 표현하지 않음. 승인 원장 0, 사람 결정 대기, C 학습 NOT_RUN.
+- B14R 클래스별 독립 배치 후보 2/2이므로 split BLOCKED, seed-only 재실행은 그룹 수 증가로 허용하지 않음. [Owner 보고](SMARTDISH_B15_OWNER_DIAGNOSTIC_ACCEPTANCE_20261125_KO.md).
+- 기존 Robot Run #45555957977의 S2-MAP-02 `SERVICE_FAILED_RELOAD_CONFIGURE`는 **전체 Robot CI FAILURE**, B CI 성공과 별개로 기록. [외부 실패 보고](../issues/SMARTDISH_B_CI_S2_MAP_RELOAD_EXTERNAL_HOLD_20261125_KO.md).

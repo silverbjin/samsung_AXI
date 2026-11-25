@@ -95,7 +95,11 @@ def stage_approved(raw:Path,review:Path,release:Path, *, b_ref: str|None=None):
         quality['pilot_status']='B_APPROVED_PILOT_DATA_READY'
         report=validate(rows,release,allow_fixtures=False)
         quality['evidence_hash_verified']=report['evidence_hash_verified']
+        from audit_a13_independent_groups import approved_row_template_guard
         try:
+            template_block=approved_row_template_guard(rows)
+            if template_block:
+                raise ValueError(template_block)
             split=make_splits(rows)
         except ValueError as exc:
             quality['verdict']='B_DATASET_SPLIT_BLOCKED'
