@@ -207,6 +207,24 @@ def build_v2(directory,config,state,contact_topics,source_sha):
     root=Path(directory)
     original=root/"physics_observations.jsonl"
     lines=[json.loads(x) for x in original.read_text().splitlines()]
+    # Do not alter/rebuild the authenticated A11 camera. Copy SDF pose
+    # configuration and hash as metadata; dynamic camera TF is NOT measured.
+    world_sdf=root/"scenario.sdf"
+    sensor=ET.parse(world_sdf).getroot().find(
+        ".//model[@name='smartdish_tray_observer']//sensor[@type='camera']")
+    if sensor is None:
+        raise ValueError("A14_CAMERA_SDF_METADATA_MISSING")
+    camera_meta={
+        "schema":2,"source":"EXISTING_A11_GAZEBO_SDF_SENSOR_CONFIGURATION",
+        "world_sdf_sha256":digest(world_sdf),
+        "camera_frame_id":sensor.findtext("gz_frame_id"),
+        "camera_topic":sensor.findtext("topic"),
+        "camera_pose_configuration":sensor.findtext("pose"),
+        "static_sensor_sdf_pose_present":bool(sensor.findtext("pose")),
+        "dynamic_camera_tf_status":"NOT_MEASURED_STATIC_CONFIG_ONLY",
+        "source_git_sha":source_sha,
+    }
+    write_json(root/"camera_pose_metadata.json",camera_meta)
     # Append-only A14 header-stamped source; legacy A13 clock-callback trace
     # is preserved separately and NEVER relabeled exact sensor-time evidence.
     raw=state.get("a14_poses",[])
@@ -269,7 +287,16 @@ def build_v2(directory,config,state,contact_topics,source_sha):
             invalid_reasons.append("A14_T0_POSE_NOT_ALIGNED_"+n)
         if last["sim_time_ns"]<end_ns-MAX_POSE_GAP_NS:
             invalid_reasons.append("A14_TRACE_TRUNCATED_"+n)
+        qfirst=norm_q([first["relative"]["quaternion"][k] for k in ("x","y","z","w")])
+        qlast=norm_q([last["relative"]["quaternion"][k] for k in ("x","y","z","w")])
+        dq=norm_q(q_mul(q_conjugate(qfirst),qlast))
+        tilt_change=2*math.acos(min(1.,abs(dq[3])))
+        dz=a["z"]-b["z"]
+        egress=(abs(b["x"])>float(config["platform"]["width_m"])/2 or
+                abs(b["y"])>float(config["platform"]["depth_m"])/2)
         metrics[n]={"samples":len(samples),"max_sample_gap_ns":maxgap,
+                    "relative_drop_m":dz,"relative_rotation_rad":tilt_change,
+                    "relative_tray_egress":egress,
                     "cumulative_relative_distance_m":total,"net_relative_displacement_m":net,
                     "net_relative_planar_m":planar,
                     "first_sim_time_ns":first["sim_time_ns"],
@@ -292,6 +319,8 @@ def build_v2(directory,config,state,contact_topics,source_sha):
         invalid_reasons.append("A14_POSE_SOURCE_NOT_EXACT")
     if status["status"] in ("CONTACT_SENSOR_UNAVAILABLE","CONTACT_DATA_INCOMPLETE"):
         invalid_reasons.append("A14_CONTACT_NOT_VERIFIED")
+    if state.get("a14_contact_overflow"):
+        invalid_reasons.append("A14_CONTACT_BUFFER_OVERFLOW")
     observation=state.get("a14_observation","INDETERMINATE")
     if observation not in ("HELD_OBSERVED","FALL_OBSERVED","INDETERMINATE"):
         observation="INDETERMINATE"
@@ -304,10 +333,17 @@ def build_v2(directory,config,state,contact_topics,source_sha):
     if invalid_reasons or len(metrics)!=len(expected):
         suggested="UNKNOWN"
     else:
-        suggested=("UNSTABLE" if observation=="FALL_OBSERVED" else
-                   "STABLE" if observation=="HELD_OBSERVED" else "UNKNOWN")
+        falling=any(d["relative_drop_m"]>.12 or d["final_center_below_tray"]
+                    for d in metrics.values())
+        held=all(abs(d["relative_drop_m"])<.08 and not d["relative_tray_egress"]
+                 for d in metrics.values())
+        # Independent trace features must agree with legacy observed motion:
+        # A13's label and the scenario hint alone cannot vote for A14 GT.
+        suggested=("UNSTABLE" if falling and observation=="FALL_OBSERVED" else
+                   "STABLE" if held and observation=="HELD_OBSERVED" else "UNKNOWN")
     # Sensor metric gate is independent from suggestion/label; UNKNOWN is normal.
     qa={"schema":2,"source_sha":source_sha,"original_a13_physics_sha256":digest(original),
+        "camera_pose_metadata_sha256":digest(root/"camera_pose_metadata.json"),
         "scene_id":config["scene_id"],"stack_id":config["stack_id"],
         "trial_id":config["trial_id"],"seed":config["seed"],"physics_profile":PROFILE,
         "observation":observation,"rule_candidate":suggested,

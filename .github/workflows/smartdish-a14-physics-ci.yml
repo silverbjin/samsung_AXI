@@ -65,9 +65,13 @@ jobs:
           from pathlib import Path
           m=Contacts()
           assert hasattr(m,"header") and hasattr(m,"contacts")
-          plugins=list(Path("/usr").rglob("*contact-system*.so"))
-          assert plugins,"A14_CONTACT_SYSTEM_PLUGIN_UNAVAILABLE"
-          print("A14_CONTACT_PLUGIN_PATHS="+str([str(p) for p in plugins[:4]]))
+          # Debian/Ubuntu Gazebo distributions may use versioned .so.8
+          # rather than an unversioned *.so symlink; enumerate both.
+          paths=[p for p in Path("/usr/lib").rglob("*") if
+                 "contact" in p.name.lower() and "system" in p.name.lower()
+                 and (".so" in p.name)]
+          print("A14_CONTACT_PLUGIN_PATHS="+str([str(p) for p in paths[:10]]))
+          assert paths,"A14_CONTACT_SYSTEM_PLUGIN_UNAVAILABLE"
           print("A14_L1_ROS_GZ_CONTACT_INTERFACE_PASS")
           PY
   a14-l2:

@@ -129,6 +129,12 @@ def test_real_schema_with_synthetic_stable_fixture_is_review_only(tmp_path):
     assert rows[0]["velocity"]["provenance"]=="UNAVAILABLE_FIRST_SAMPLE"
     assert rows[2]["velocity"]["provenance"]=="DERIVED_POSE_FINITE_DIFFERENCE"
     assert rows[0]["tray_frame_id"]=="tray_platform/body"
+    camera=json.loads((tmp_path/"camera_pose_metadata.json").read_text())
+    assert camera["world_sdf_sha256"]==hashlib.sha256((tmp_path/"scenario.sdf").read_bytes()).hexdigest()
+    assert camera["static_sensor_sdf_pose_present"] is True
+    assert camera["dynamic_camera_tf_status"]=="NOT_MEASURED_STATIC_CONFIG_ONLY"
+    assert qa["camera_pose_metadata_sha256"]==hashlib.sha256(
+        (tmp_path/"camera_pose_metadata.json").read_bytes()).hexdigest()
     assert (tmp_path/"tray_pose_timeline.jsonl").is_file()
     assert (tmp_path/"contact_sensor_status.json").is_file()
     assert not (tmp_path/"approval_ledger.jsonl").exists()
