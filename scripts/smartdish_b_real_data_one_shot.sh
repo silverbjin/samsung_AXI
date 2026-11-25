@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
-# SmartDish B A-13: offline read-only import + candidate review only.
-# The actual A-13 archive is never pulled from GitHub or re-generated.
+# B-10/B-11 offline review. Every invocation publishes a PRIVATE diagnostic
+# archive, including failures; it is NOT an approved training dataset.
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
+umask 077
+DIAG_ROOT="$ROOT/ai/data/private/b_a13_diagnostics"
+mkdir -p "$DIAG_ROOT"
+DIAG_STAGE="$(mktemp -d "$DIAG_ROOT/.b_a13_attempt_XXXXXXXX")"
+DIAG_OUTPUT="$DIAG_ROOT/smartdish_b_a13_$(date -u +%Y%m%dT%H%M%SZ)_$$_diagnostics.tar.gz"
+DIAG_LOG="$DIAG_STAGE/execution.log"
+
+run_review() {
+  set -Eeuo pipefail
 EXPECTED_ARCHIVE_SHA="bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e"
 ARCHIVE=""; SHA=""; WORKDIR=""; MODE=review
 usage() {
@@ -79,6 +88,7 @@ else
   echo "B_A13_ARCHIVE_AUTO_DISCOVERED path=$ARCHIVE"
 fi
 
+printf "%s" "$ARCHIVE" > "$DIAG_STAGE/source_archive.txt"
 ACTUAL_ARCHIVE_SHA="$(hash_archive "$ARCHIVE")" || {
   echo B_A13_ARCHIVE_READ_FAILED >&2; exit 3;
 }
@@ -100,11 +110,63 @@ if [[ "$WORKDIR" == "$ROOT/"* && "$WORKDIR" != "$ROOT/ai/data/private/"* ]]; the
   echo B_WORKDIR_MUST_BE_IN_PRIVATE_DATA_AREA >&2; exit 2;
 fi
 # No ROS/Gazebo execution; source archive is read-only.
+printf "%s" "$WORKDIR" > "$DIAG_STAGE/workdir.txt"
 mkdir -p "$WORKDIR"
 python3 "$ROOT/ai/scripts/import_a13_evidence.py" \
   --archive "$ARCHIVE" --output "$WORKDIR/raw"
 python3 "$ROOT/ai/scripts/extract_a13_candidates.py" \
   --raw "$WORKDIR/raw" --out "$WORKDIR/review" \
   --archive-sha256 "$ACTUAL_ARCHIVE_SHA"
-printf 'SMARTDISH_B_LABEL_REVIEW_PACKAGE_READY %s\n' "$WORKDIR/review/review.html"
+[[ -s "$WORKDIR/review/review.html" && -s "$WORKDIR/review/candidate_manifest.csv" ]] || {
+  echo B_REVIEW_PACKAGE_INCOMPLETE >&2; exit 4;
+}
 printf 'B_LABEL_APPROVAL_PENDING approved=0\n'
+
+}
+# Stream stdout and stderr separately to their original destinations while
+# collecting each to disk. Wait for both tee processes before final archiving
+# so GitHub/local diagnostics cannot contain truncated logs.
+mkfifo "$DIAG_STAGE/.stdout.fifo" "$DIAG_STAGE/.stderr.fifo"
+tee "$DIAG_STAGE/stdout.log" < "$DIAG_STAGE/.stdout.fifo" &
+OUT_TEE_PID=$!
+tee "$DIAG_STAGE/stderr.log" < "$DIAG_STAGE/.stderr.fifo" >&2 &
+ERR_TEE_PID=$!
+set +e
+( set -Eeuo pipefail; run_review "$@" ) > "$DIAG_STAGE/.stdout.fifo" 2> "$DIAG_STAGE/.stderr.fifo"
+RUN_RC=$?
+wait "$OUT_TEE_PID"
+OUT_TEE_RC=$?
+wait "$ERR_TEE_PID"
+ERR_TEE_RC=$?
+set -e
+rm -f -- "$DIAG_STAGE/.stdout.fifo" "$DIAG_STAGE/.stderr.fifo"
+{
+  printf '%s\n' '===== STDOUT ====='
+  cat "$DIAG_STAGE/stdout.log"
+  printf '%s\n' '===== STDERR ====='
+  cat "$DIAG_STAGE/stderr.log"
+} > "$DIAG_LOG"
+if (( OUT_TEE_RC != 0 || ERR_TEE_RC != 0 )); then
+  printf 'B_DIAGNOSTIC_LOG_STREAM_FAILURE stdout=%s stderr=%s\n' "$OUT_TEE_RC" "$ERR_TEE_RC" >&2
+  (( RUN_RC != 0 )) || RUN_RC=4
+fi
+GIT_HEAD="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'UNAVAILABLE')"
+set +e
+python3 "$ROOT/ai/scripts/package_a13_diagnostics.py" \
+  --log "$DIAG_LOG" --workdir-file "$DIAG_STAGE/workdir.txt" \
+  --archive-file "$DIAG_STAGE/source_archive.txt" \
+  --output "$DIAG_OUTPUT" --exit-code "$RUN_RC" --git-sha "$GIT_HEAD"
+PACK_RC=$?
+set -e
+if (( PACK_RC == 0 )); then
+  rm -rf -- "$DIAG_STAGE"
+else
+  printf 'B_DIAGNOSTIC_RAW_LOG_PRESERVED path=%s\n' "$DIAG_LOG" >&2
+fi
+if (( RUN_RC != 0 )); then
+  exit "$RUN_RC"
+fi
+if (( PACK_RC != 0 )); then
+  exit "$PACK_RC"
+fi
+exit 0

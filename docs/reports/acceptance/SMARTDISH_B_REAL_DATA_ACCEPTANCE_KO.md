@@ -53,3 +53,15 @@
 이전 B 문서의 `A13_ARCHIVE_BYTES_NOT_AVAILABLE` 상태는 **본 대화에서 원본 TAR가 업로드되기 전의 기록**입니다. A의 4/4 WSL2 인수와 이번 B 오프라인 직접 인수는 서로 다른 수행 결과입니다.
 
 상세: [DBG-04](../issues/SMARTDISH_B10_DBG_04_REAL_ARCHIVE_EMPTY_DIAGNOSTIC_LOGS_KO.md), [주니어 워크북](../../guides/SMARTDISH_B_A13_EVIDENCE_WORKBOOK_KO.md).
+
+
+## B-15 — 사용자 WSL2 실행 로그 인수 및 진단 자동 보관
+
+사용자 WSL2 로그(2026-11-25)에 따르면 B 원샷은 기존 A 원본 자동 검색, archive SHA 비교, 내부 SHA **88/88**, trial 4개 PNG/물리 JSONL/시간 정렬 및 `review.html` 생성까지 **PASS**했습니다. 출력의 `B_LABEL_APPROVAL_PENDING approved=0`은 정상 계약이며 C 학습 가능을 뜻하지 않습니다. `review.html`만 첨부됐으므로 상대경로 이미지·SVG의 실제 GUI 렌더링은 HTML 단독으로는 QA하지 않았습니다.
+
+후속 코드에는 **성공/실패 모두** private 진단 TAR·외부 SHA sidecar 자동 생성 기능을 추가했습니다. 인수와 검토 자료는 `ai/data/private/b_a13_diagnostics/`에만 보관하고, A 원본 전체 TAR·승인 ledger·학습 manifest를 자동 출고하지 않습니다. 새 코드에서 발생한 사용자 WSL2 진단 TAR는 아직 별도 인수 상태입니다.
+
+- B-G01~B-G08: 사용자 WSL2 실행 로그 **PASS** (실제 파일 재해시·물리 그래프은 이전 ChatGPT Linux 직접 검증으로도 확인)
+- B-G09~B-G12: 승인 0건, 독립 그룹 부족으로 HOLD
+- B-15 자동 진단 패키징: 로컬 실제 A TAR 스모크 **PASS**. 최종 동일 SHA GitHub CI 및 새 WSL2 실행은 별도 확인
+- [개발 보고서](../tasks/SMARTDISH_B15_ONE_SHOT_DIAGNOSTIC_ARCHIVE_EDU_KO.md)

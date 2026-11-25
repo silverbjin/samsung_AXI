@@ -83,3 +83,28 @@ python3 ai/scripts/register_a13_approved.py \
 6. `CONTRACT_READY_HUMAN_REVIEW_REQUIRED`가 모델 학습 승인과 다른 이유는 무엇인가요?
 
 **강사용 검수:** GitHub CI/계약 fixture는 실물 TAR과 사람 승인 없이도 PASS 가능합니다. 학생이 이 경계를 말로 구분할 수 있어야 합니다.
+
+
+## B-15 추가 실습 — 오류가 나도 진단 압축파일을 남기는 이유
+
+이제 `smartdish_b_real_data_one_shot.sh`는 **성공과 실패 모두** `ai/data/private/b_a13_diagnostics/` 아래에 SHA256으로 봉인된 `*_diagnostics.tar.gz`와 `.sha256` 파일을 만듭니다. `review.html`의 상대경로 PNG/그래프도 아카이브 속에서 같은 구조를 유지하므로 단일 HTML만 전달할 때의 이미지 누락을 방지합니다. 사람 승인 원장과 A 원본 전체 TAR는 포함하지 않습니다.
+
+```bash
+cd ~/samsung_AXI_B_REAL
+git fetch origin feat/smartdish-b-real-dataset
+git merge --ff-only origin/feat/smartdish-b-real-dataset
+bash scripts/smartdish_b_real_data_one_shot.sh \
+  --sha "$(git rev-parse HEAD)" --mode review
+
+LATEST_DIAG="$(find ai/data/private/b_a13_diagnostics -maxdepth 1 -type f -name '*_diagnostics.tar.gz' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+[[ -n "$LATEST_DIAG" && -f "$LATEST_DIAG" ]] || { echo B_DIAGNOSTIC_NOT_FOUND; exit 2; }
+(cd "$(dirname "$LATEST_DIAG")" && sha256sum -c "$(basename "$LATEST_DIAG").sha256")
+tar -xOzf "$LATEST_DIAG" diagnostic_status.json
+```
+
+**해설:** `RUN_SUCCESS`는 원본 데이터 검증·후보 추출 **실행 성공**을 뜻하며 `APPROVED`가 아닙니다. `RUN_FAILED`라도 압축된 `execution.log`에 최초 오류가 남습니다. `SHA256SUMS`는 아카이브 내부 결과 파일 무결성을, 옆의 `.sha256`은 외부 TAR.GZ 전달 무결성을 검사합니다. 양쪽 모두 라벨의 의미적 정확성을 증명하지 않습니다.
+
+**자료 전송:** 원본 A13을 다시 Gazebo로 만들지 말고, 해당 진단 TAR.GZ와 `.sha256`을 이 대화에 첨부하십시오. 공개 GitHub에 푸시하지 마십시오. 학습 등록 전 네 후보 이미지·그래프를 사람 눈으로 검수해야 합니다.
+
+- [B-15 교육 보고서](../../docs/reports/tasks/SMARTDISH_B15_ONE_SHOT_DIAGNOSTIC_ARCHIVE_EDU_KO.md)
+- [B-15 stderr/진단 디버깅](../../docs/reports/issues/SMARTDISH_B15_DBG_01_STREAM_AND_PRIVATE_DIR_CONTRACT_KO.md)

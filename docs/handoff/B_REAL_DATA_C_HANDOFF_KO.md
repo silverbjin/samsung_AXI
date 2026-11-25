@@ -57,3 +57,8 @@ B의 provenance는 `capture_config`의 `source_archive_sha256`, `source_image_sh
 - 그룹 수: 추천 라벨별 2개씩으로 기존 분할 규정 클래스별 >=3에 부족. 승인 후에도 최초 파일럿만으로 C readiness PASS는 불가.
 - 현재 C 핸드오프 완료 여부: `B_EVIDENCE_IMPORT_PASS` **PASS**, `B_LABEL_APPROVAL_PENDING` **HOLD**, `B_DATASET_SPLIT_BLOCKED` **HOLD**. C 모델 학습 NOT_RUN.
 - 상세 [실제 TAR 디버깅](../reports/issues/SMARTDISH_B10_DBG_04_REAL_ARCHIVE_EMPTY_DIAGNOSTIC_LOGS_KO.md) 및 [최신 인수 원장](../reports/acceptance/SMARTDISH_B_REAL_DATA_ACCEPTANCE_KO.md).
+
+
+## B-15 자동 진단 아카이브 인계
+
+B 원샷 실행 성공·실패 시 `ai/data/private/b_a13_diagnostics/*_diagnostics.tar.gz`와 `.sha256`를 생성합니다. 아카이브는 원본 전체 TAR를 내포하지 않으며 검증 로그, B 검토 HTML, PNG 4장, SVG 12개, 물리 JSONL, `diagnostic_status.json`을 포함할 수 있습니다. 내부 `SHA256SUMS` 및 TAR 외부 SHA를 검사한 후 **비공개 전달**하십시오. 이는 디버깅·리뷰용이지 사람 승인 학습 데이터셋 또는 C readiness PASS가 아닙니다.

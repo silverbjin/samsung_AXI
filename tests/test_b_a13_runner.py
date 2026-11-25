@@ -45,7 +45,7 @@ def test_b10_runner_fail_fast_explicit_missing(tmp_path, path, marker):
     assert res.returncode == 3
     assert marker in res.stderr
     assert 'SMARTDISH_B_A13_ARCHIVE_SHA_PASS' not in res.stdout
-    assert not (root / 'ai/data/private').exists()
+    assert not list((root / 'ai/data/private').glob('b_a13_review_*'))  # diagnostics-only permitted
 
 
 def test_b10_runner_wrong_archive_hash_rejected_before_workspace(tmp_path):
@@ -56,7 +56,7 @@ def test_b10_runner_wrong_archive_hash_rejected_before_workspace(tmp_path):
     assert res.returncode == 2
     assert 'B10_ARCHIVE_SHA_MISMATCH' in res.stderr
     assert 'B_EVIDENCE_IMPORT_BLOCKED' in res.stderr
-    assert not (root / 'ai/data/private').exists()
+    assert not list((root / 'ai/data/private').glob('b_a13_review_*'))  # diagnostics-only permitted
 
 
 def test_b10_runner_auto_discovery_missing_is_not_import_pass(tmp_path):
@@ -80,4 +80,4 @@ def test_b10_runner_auto_discovery_wrong_sha_distinct_from_missing(tmp_path):
     assert res.returncode == 2
     assert 'B10_ARCHIVE_SHA_MISMATCH' in res.stderr
     assert 'B_A13_ORIGINAL_ARCHIVE_NOT_FOUND' not in res.stderr
-    assert not (root / 'ai/data/private').exists()
+    assert not list((root / 'ai/data/private').glob('b_a13_review_*'))  # diagnostics-only permitted
