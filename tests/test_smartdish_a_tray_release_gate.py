@@ -57,6 +57,7 @@ def fake_archive(path: Path,sha: str,rate=5.0,mode="smoke"):
                                        ("UN-01","FALL_OBSERVED")],1):
         trial_rows.append({"scene_id":scene,"source_sha":sha,
                            "gui_active_during_physics":True,
+                           "sensor_physics_verdict":"PASS","gui_verdict":"PASS",
                            "motion":{"observation":motion},
                            "capture_stamp_ns":600000000,
                            "image_stamp_samples":[600000000,800000000,1000000000],

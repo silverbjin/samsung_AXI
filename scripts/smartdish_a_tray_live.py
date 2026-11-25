@@ -615,12 +615,18 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                         "dishes":snapshot,"scenario_sha256":config["world_sha256"]},
                        indent=2,sort_keys=True)+"\n")
         print("SMARTDISH_A_TRAY_RGB_CAPTURE_PASS trial="+directory.name,flush=True)
+        # Only the GUI inherits XWayland/XCB changes; user-selected D3D12
+        # and NVIDIA adapter remain untouched. ROS/GZ sensor server stays
+        # on its original environment/partition.
+        from smartdish_a_tray_gui_preflight import gui_profile_env
+        gui_env=gui_profile_env(
+            env,os.environ.get("SMARTDISH_A_TRAY_GUI_PROFILE","native")) if gui else None
         phase="gui_client_start"
         if gui:
             handle=(directory_log/(directory.name+"_gui.log")).open("w")
             handles.append(handle)
             gui_process=subprocess.Popen(
-                ["gz","sim","-g","-v2"],env=env,stdout=handle,
+                ["gz","sim","-g","-v2"],env=gui_env,stdout=handle,
                 stderr=subprocess.STDOUT,start_new_session=True)
             procs.append(gui_process)
             # A real GUI client must be alive when physical observation starts.
@@ -637,8 +643,16 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         observation_start_ns=state["sim_ns"]
         gz_call(env,WORLD,"pause: false")
         deadline=time.monotonic()+190
+        gui_failure_reason=None
+        gui_failure_sim_ns=None
         while state["sim_ns"]-observation_start_ns<10_000_000_000:
             spin(.15)
+            if gui and gui_failure_reason is None and gui_process.poll() is not None:
+                # Preserve true camera/physics data even if the GUI dies.
+                # Do not promote the combined GUI qualification to PASS.
+                gui_failure_reason="A13_GAZEBO_GUI_EARLY_EXIT_RC="+str(gui_process.returncode)
+                gui_failure_sim_ns=state["sim_ns"]
+                print("A13_GUI_FAILURE_SENSOR_CONTINUES="+gui_failure_reason,flush=True)
             if time.monotonic()>deadline:
                 raise RuntimeError("A13_TEN_SIM_SECONDS_OBSERVATION_TIMEOUT")
         gz_call(env,WORLD,"pause: true")
@@ -646,13 +660,16 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             spin(.1)
         observation_end_ns=state["sim_ns"]
         if gui:
-            if gui_process.poll() is not None:
-                raise RuntimeError("A13_GAZEBO_GUI_EARLY_EXIT_RC="+
-                                   str(gui_process.returncode))
+            if gui_process.poll() is not None and gui_failure_reason is None:
+                gui_failure_reason="A13_GAZEBO_GUI_EARLY_EXIT_RC="+str(gui_process.returncode)
+                gui_failure_sim_ns=state["sim_ns"]
             if not state["frame_stamps"] or state["frame_stamps"][-1]<=stamp:
                 raise RuntimeError("A13_GUI_ACTIVE_BUT_NO_LIVE_RGB_FRAMES")
-            print("SMARTDISH_A_TRAY_GUI_LIVE_RGB_PASS last_stamp_ns="+
-                  str(state["frame_stamps"][-1]),flush=True)
+            if gui_failure_reason is None:
+                print("SMARTDISH_A_TRAY_GUI_LIVE_RGB_PASS last_stamp_ns="+
+                      str(state["frame_stamps"][-1]),flush=True)
+            else:
+                print("SMARTDISH_A_TRAY_SENSOR_CONTINUED_AFTER_GUI_EXIT",flush=True)
         final={n:dict(state["poses"][n]) for n in dish_names if n in state["poses"]}
         motion=classify_motion(snapshot,final,dish_names,TRAY_TOP)
         rows=[x for x in state["traces"] if x["entity"] in dish_names]
@@ -688,7 +705,14 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             "trial_wall_elapsed_seconds":round(time.monotonic()-trial_wall_start,3),
             "post_spawn_gz_probe":image_probe_report(
                 Path(state["post_spawn_gz_path"]),gz_post_proc.poll()),
-            "motion":motion,"gui_active_during_physics":gui,
+            "motion":motion,
+            "sensor_physics_verdict":"PASS",
+            "gui_verdict":("NOT_REQUESTED" if not gui else
+                           "FAIL" if gui_failure_reason else "PASS"),
+            "gui_failure_reason":gui_failure_reason,
+            "gui_exit_sim_ns":gui_failure_sim_ns,
+            "gui_profile":os.environ.get("SMARTDISH_A_TRAY_GUI_PROFILE","native") if gui else None,
+            "gui_active_during_physics":bool(gui and gui_failure_reason is None),
             "pre_observation_spawn_sim_ns":stage_start_ns,
             "actual_runtime_world_sha256":spawn_manifest["sensor_preflight_sha256"],
             "dynamic_spawn_sha256":{x["name"]:x["sha256"] for x in
@@ -699,6 +723,10 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             **timing}
         (directory/"trial_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
         verify_trial(directory)
+        if gui_failure_reason is not None:
+            # SENSOR_PHYSICS PASS is independently preserved in the real
+            # trial_summary, but the GUI-required overall gate remains FAIL.
+            raise RuntimeError(gui_failure_reason)
         return summary
     except BaseException as exc:
         try:
@@ -808,8 +836,18 @@ def run(args):
         summary["verdict"]="FAIL"
         summary["first_error"]=str(exc)
         import traceback
+        partial_dir=dest/("trial_%04d"%i)
+        partial_path=partial_dir/"trial_summary.json"
+        partial=(json.loads(partial_path.read_text())
+                 if partial_path.exists() else None)
+        summary["partial_trial_sensor_physics_verdict"]=(
+            partial.get("sensor_physics_verdict") if partial else "NOT_VERIFIED")
+        summary["partial_trial_gui_verdict"]=(
+            partial.get("gui_verdict") if partial else "NOT_VERIFIED")
         (dest/"failure_context.json").write_text(json.dumps({
             "schema":1,"verdict":"FAIL","source_sha":local,
+            "sensor_physics_verdict":summary["partial_trial_sensor_physics_verdict"],
+            "gui_verdict":summary["partial_trial_gui_verdict"],
             "first_error":str(exc),"traceback":traceback.format_exc(),
             "mode":args.mode,"gui":args.gui,
             "completed_trial_count":len(summary["trials"])},

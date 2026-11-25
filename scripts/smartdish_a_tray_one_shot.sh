@@ -52,8 +52,21 @@ if [[ "$TASK" == qualify ]]; then
   [[ "$MODE" == --gui ]] || { echo A13_WSLG_QUALIFY_REQUIRES_GUI; exit 2; }
   GATE="$ROOT/generated/smartdish_tray/qualification_$SHA-$$.json"
   mkdir -p "$(dirname "$GATE")"
+  export SMARTDISH_A_TRAY_GUI_PROFILE="${SMARTDISH_A_TRAY_GUI_PROFILE:-xcb}"
+  echo "SMARTDISH_A_TRAY_GUI_PROFILE=$SMARTDISH_A_TRAY_GUI_PROFILE"
   python3 -u scripts/smartdish_a_tray_release_gate.py preflight \
     --sha "$SHA" --root "$ROOT" --manifest "$GATE"
+  # Real isolated Gazebo GUI+Qt preflight BEFORE expensive dish/physics.
+  # On error a dedicated evidence tar is written; no smoke or batch runs.
+  GUI_PREFLIGHT_LOG="$(mktemp "$HOME/smartdish_a_gui_preflight.XXXXXXXX.log")"
+  python3 -u scripts/smartdish_a_tray_gui_preflight.py \
+    --sha "$SHA" --root "$ROOT" --profile "$SMARTDISH_A_TRAY_GUI_PROFILE" \
+    2>&1 | tee "$GUI_PREFLIGHT_LOG"
+  GUI_REPORT="$(sed -n 's/^SMARTDISH_A_TRAY_GUI_PREFLIGHT_RESULT=//p' "$GUI_PREFLIGHT_LOG" | tail -1)"
+  [[ -n "$GUI_REPORT" && -s "$GUI_REPORT" ]] ||
+    { echo A13_GUI_CONTEXT_PREFLIGHT_REPORT_MISSING; exit 2; }
+  python3 -u scripts/smartdish_a_tray_release_gate.py gui \
+    --sha "$SHA" --manifest "$GATE" --gui-report "$GUI_REPORT"
   SMOKE_LOG="$(mktemp "$HOME/smartdish_a_tray_smoke.XXXXXXXX.log")"
   python3 -u scripts/smartdish_a_tray_live.py smoke --expected-sha "$SHA" "$MODE" \
     2>&1 | tee "$SMOKE_LOG"
