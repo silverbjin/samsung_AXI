@@ -792,6 +792,37 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                               "candidate":a14_report["rule_candidate"],
                               "invalid_reasons":a14_report["invalid_reasons"]},
                              sort_keys=True),flush=True)
+            if a14_report["contact_status"] in (
+                    "CONTACT_SENSOR_UNAVAILABLE","CONTACT_DATA_INCOMPLETE"):
+                # Provenance-only: Gazebo topic advert and ROS publishers do
+                # not imply a real Contacts callback. Preserve both graphs
+                # and the owned bridge logs for first-failure diagnostics.
+                contact_diag={"schema":1,"source_sha":source_sha,
+                              "scene_id":scenario,"status":a14_report["contact_status"],
+                              "topics":{},"procs":[]}
+                for pidx,proc in enumerate(procs[:3]):
+                    contact_diag["procs"].append({"index":pidx,"pid":proc.pid,
+                                                  "returncode":proc.poll()})
+                def call_probe(cmd):
+                    try:
+                        cp=subprocess.run(cmd,env=env,capture_output=True,text=True,
+                                          errors="replace",timeout=8,
+                                          stdin=subprocess.DEVNULL)
+                        return {"rc":cp.returncode,"stdout":cp.stdout[-8192:],
+                                "stderr":cp.stderr[-2048:]}
+                    except BaseException as exc:
+                        return {"error":repr(exc)}
+                contact_diag["gz_topic_list"]=call_probe(["gz","topic","-l"])
+                contact_diag["ros_topic_list"]=call_probe(["ros2","topic","list","-t"])
+                for topic in a14_cfg["topics"]:
+                    contact_diag["topics"][topic]={
+                        "gazebo":call_probe(["gz","topic","-i","-t",topic]),
+                        "ros":call_probe(["ros2","topic","info","-v",topic]),
+                        "callback_count":a14_report["contact_callback_counts"].get(topic,0)}
+                (directory/"a14_contact_boundary.json").write_text(
+                    json.dumps(contact_diag,indent=2,sort_keys=True)+"\n")
+                print("A14_CONTACT_BOUNDARY_DIAGNOSTICS="+
+                      json.dumps(contact_diag,sort_keys=True),flush=True)
         if gui_failure_reason is not None:
             # SENSOR_PHYSICS PASS is independently preserved in the real
             # trial_summary, but the GUI-required overall gate remains FAIL.

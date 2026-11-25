@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          trap 'echo A14_L2_FIRST_FAILURE; find generated/smartdish_tray -type f \( -name "failure_diagnostics.json" -o -name "a14_gt_candidate.json" -o -name "contact_sensor_status.json" \) -print -exec cat {} \; 2>/dev/null || true' ERR
+          trap 'echo A14_L2_FIRST_FAILURE; find generated/smartdish_tray -type f \( -name "a14_contact_boundary.json" -o -name "contact_sensor_status.json" \) -print -exec head -c 10000 {} \; 2>/dev/null || true; find generated/smartdish_tray -path "*/logs/*" -type f -name "*bridge.log" -print -exec tail -n 100 {} \; 2>/dev/null || true; find generated/smartdish_tray -path "*/logs/*" -type f -name "*gazebo.log" -print -exec tail -n 80 {} \; 2>/dev/null || true' ERR
           set +u
           source /opt/ros/jazzy/setup.bash
           set -u
@@ -146,6 +146,7 @@ jobs:
             generated/smartdish_tray/run_*/failure_context.json
             generated/smartdish_tray/run_*/trial_*/a14_gt_candidate.json
             generated/smartdish_tray/run_*/trial_*/contact_sensor_status.json
+            generated/smartdish_tray/run_*/trial_*/a14_contact_boundary.json
             generated/smartdish_tray/run_*/trial_*/contact_events.jsonl
             generated/smartdish_tray/run_*/trial_*/physics_observations_v2.jsonl
             generated/smartdish_tray/run_*/trial_*/tray_pose_timeline.jsonl
