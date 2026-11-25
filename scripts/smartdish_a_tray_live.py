@@ -57,6 +57,48 @@ def image_probe_report(path, returncode):
 
 
 
+
+def bounded_trace(events, entry, limit=128):
+    """Keep first startup events and recent events with bounded memory."""
+    events.append(entry)
+    if len(events)>limit:
+        del events[16:len(events)-112]
+
+
+def diagnostic_boundary_probes(env, timeout_seconds=4):
+    """Read-only graph/renderer probes after failure, never a PASS condition."""
+    commands={
+        "gazebo_image_topic_info":["gz","topic","-i","-t",TOPIC],
+        "ros_image_topic_info":["ros2","topic","info","-v",TOPIC],
+        "ros_topic_list":["ros2","topic","list","-t"],
+    }
+    if env.get("DISPLAY") and shutil.which("glxinfo"):
+        commands["renderer_glxinfo"]=["glxinfo","-B"]
+    rows={}
+    for name,cmd in commands.items():
+        begin=time.monotonic()
+        try:
+            result=subprocess.run(cmd,env=env,capture_output=True,text=True,
+                                  errors="replace",timeout=timeout_seconds,
+                                  stdin=subprocess.DEVNULL)
+            rows[name]={"command":cmd,"returncode":result.returncode,
+                        "elapsed_wall_seconds":round(time.monotonic()-begin,3),
+                        "stdout":result.stdout[-8192:],
+                        "stderr":result.stderr[-2048:],"timed_out":False}
+        except subprocess.TimeoutExpired as err:
+            rows[name]={"command":cmd,"returncode":None,
+                        "elapsed_wall_seconds":round(time.monotonic()-begin,3),
+                        "stdout":str(err.stdout or b"")[-2048:],
+                        "stderr":str(err.stderr or b"")[-2048:],"timed_out":True}
+        except Exception as err:
+            rows[name]={"command":cmd,"returncode":None,
+                        "elapsed_wall_seconds":round(time.monotonic()-begin,3),
+                        "error":repr(err),"timed_out":False}
+    return {"schema":1,"probe_type":"read_only_failure_boundary",
+            "topic_advertisement_does_not_prove_image_receipt":True,
+            "probes":rows}
+
+
 def failure_snapshot(phase, error, state, env, processes, node, probe_path,
                      source_sha, scenario, seed, elapsed_wall_seconds):
     """Diagnostic only. Never treat advertised topics or sample bytes as PASS."""
@@ -104,6 +146,12 @@ def failure_snapshot(phase, error, state, env, processes, node, probe_path,
              "LIBGL_ALWAYS_SOFTWARE", "GALLIUM_DRIVER",
              "MESA_D3D12_DEFAULT_ADAPTER_NAME", "GZ_SIM_RENDER_ENGINE")},
         "sim_ns": state.get("sim_ns"),
+        "ros_clock_callbacks_total": state.get("clock_callbacks_total"),
+        "ros_clock_advances_total": state.get("clock_advances_total"),
+        "ros_clock_nonadvancing_total": state.get("clock_nonadvancing_total"),
+        "ros_clock_last_progress_monotonic_ns": state.get("clock_last_progress_monotonic_ns"),
+        "ros_clock_trace": list(state.get("clock_events", [])),
+        "ros_image_callback_trace": list(state.get("image_events", [])),
         "ros_image_callbacks_total": state.get("image_callbacks_total"),
         "ros_image_zero_stamp": state.get("image_zero_stamp"),
         "ros_image_repeat_stamp": state.get("image_repeated_stamp"),
@@ -194,7 +242,10 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
            "poses":{},"traces":[],"pose_times":{},
            "image_callbacks_total":0,"image_zero_stamp":0,
            "image_repeated_stamp":0,"image_first_seen_wall":None,
-           "image_last_stamp_ns":None}
+           "image_last_stamp_ns":None,
+           "clock_callbacks_total":0,"clock_advances_total":0,
+           "clock_nonadvancing_total":0,"clock_last_progress_monotonic_ns":None,
+           "image_events":[],"clock_events":[]}
     gui_process=None
     probe_data_path=None
     failure=None
@@ -205,6 +256,14 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         state["image_callbacks_total"]+=1
         stamp=int(msg.header.stamp.sec)*1_000_000_000+int(msg.header.stamp.nanosec)
         state["image_last_stamp_ns"]=stamp
+        bounded_trace(state["image_events"],{
+            "wall_monotonic_ns":time.monotonic_ns(),
+            "sim_ns_at_callback":state["sim_ns"],
+            "stamp_ns":stamp,"payload_bytes":len(msg.data),
+            "width":int(msg.width),"height":int(msg.height),
+            "encoding":str(msg.encoding),"frame_id":str(msg.header.frame_id),
+            "phase":phase,
+        })
         if state["image_first_seen_wall"] is None:
             state["image_first_seen_wall"]=time.monotonic()
         if stamp<=0:
@@ -222,8 +281,19 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
 
     def clock_cb(msg):
         now=int(msg.clock.sec)*1_000_000_000+int(msg.clock.nanosec)
-        if now>state["sim_ns"]:
+        previous=state["sim_ns"]
+        state["clock_callbacks_total"]+=1
+        if now>previous:
             state["sim_ns"]=now
+            state["clock_advances_total"]+=1
+            state["clock_last_progress_monotonic_ns"]=time.monotonic_ns()
+            samples=state["clock_events"]
+            if not samples or now-samples[-1]["sim_ns"]>=100_000_000:
+                bounded_trace(samples,{"sim_ns":now,
+                                      "wall_monotonic_ns":time.monotonic_ns(),
+                                      "phase":phase})
+        else:
+            state["clock_nonadvancing_total"]+=1
 
     def poses_cb(msg):
         now=state["sim_ns"]
@@ -565,6 +635,14 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             diag_path=directory/"failure_diagnostics.json"
             diag_path.write_text(json.dumps(diagnostic,indent=2,sort_keys=True)+"\n")
             print("A13_FAILURE_DIAGNOSTICS_PATH="+str(diag_path),flush=True)
+            try:
+                probes=diagnostic_boundary_probes(env)
+                (directory/"transport_boundary_probes.json").write_text(
+                    json.dumps(probes,indent=2,sort_keys=True)+"\n")
+                print("A13_TRANSPORT_BOUNDARY_PROBES_SAVED",flush=True)
+            except Exception as probe_error:
+                print("A13_TRANSPORT_BOUNDARY_PROBES_FAILED="+repr(probe_error),
+                      flush=True)
         except Exception as diagnostic_error:
             print("A13_FAILURE_DIAGNOSTICS_WRITE_FAILED="+repr(diagnostic_error),
                   flush=True)
@@ -636,6 +714,13 @@ def run(args):
     except BaseException as exc:
         summary["verdict"]="FAIL"
         summary["first_error"]=str(exc)
+        import traceback
+        (dest/"failure_context.json").write_text(json.dumps({
+            "schema":1,"verdict":"FAIL","source_sha":local,
+            "first_error":str(exc),"traceback":traceback.format_exc(),
+            "mode":args.mode,"gui":args.gui,
+            "completed_trial_count":len(summary["trials"])},
+            ensure_ascii=False,indent=2,sort_keys=True)+"\n")
         print("SMARTDISH_A_TRAY_FIRST_FAILURE="+str(exc),flush=True)
         raise
     finally:
