@@ -29,6 +29,32 @@ from smartdish_tray_evidence import (
 )
 
 
+# A13 DBG-16: warm up an EMPTY tray in 100ms sim chunks, not 5ms
+# synchronous Gazebo service RPCs. After dish spawn the existing short
+# 5ms stepping and pre-fall capture cutoff remain unchanged.
+EMPTY_TRAY_WARMUP_STEP_COUNT=100
+
+
+def warmup_transport_metrics(state, start_wall, start_sim_ns, gz_probe_path, gz_rc):
+    """Evidence only; actual two distinct ROS image stamps remain mandatory."""
+    wall=max(0.0,time.monotonic()-start_wall)
+    sim=max(0,state["sim_ns"]-start_sim_ns)
+    return {
+        "schema":1,"phase":"empty_tray_sensor_warmup",
+        "step_count_per_request":EMPTY_TRAY_WARMUP_STEP_COUNT,
+        "wall_elapsed_seconds":round(wall,3),
+        "sim_advanced_ns":sim,
+        "wall_seconds_per_sim_second":round(wall/(sim/1e9),3) if sim else None,
+        "ros_image_callbacks_total":state["image_callbacks_total"],
+        "ros_image_valid_stamps":list(state["frame_stamps"]),
+        "ros_image_zero_stamps":state["image_zero_stamp"],
+        "ros_image_repeated_stamps":state["image_repeated_stamp"],
+        "ros_clock_advanced_total":state["clock_advances_total"],
+        "gz_image_probe":image_probe_report(gz_probe_path,gz_rc),
+        "requires_two_real_positive_increasing_ros_stamps":True,
+    }
+
+
 def pre_event_ready(frame, clock_ns, pose_names, required_names):
     """Pure guard: real positive Image stamp, all named dishes and ROS clock."""
     if frame is None or not set(required_names)<=set(pose_names):
@@ -348,7 +374,12 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         rclpy.init(args=None,domain_id=int(env["ROS_DOMAIN_ID"]))
         initialized=True
         node=rclpy.create_node("smartdish_tray_capture_"+str(os.getpid())+"_"+str(index))
-        node.create_subscription(Image,TOPIC,image_cb,qos_profile_sensor_data)
+        # Observed WSLg bridge publishes RELIABLE (DBG-16 original evidence).
+        # Request RELIABLE delivery of 640x480 RGB, rather than silently
+        # dropping fragmented frames with BEST_EFFORT sensor_data QoS.
+        # No synthetic/replayed frames; only new ROS callbacks count.
+        image_qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE)
+        node.create_subscription(Image,TOPIC,image_cb,image_qos)
         for name in dish_names:
             node.create_subscription(TFMessage,"/smartdish/tray/pose/"+name,
                                      poses_cb,qos_profile_sensor_data)
@@ -392,23 +423,31 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         # Stage 1: PRE-WARM the actual camera and ROS bridge with NO
         # dynamic dishes. Missed first 5Hz frames cannot bias dataset X.
         phase="sensor_warmup"
-        warmup_deadline=time.monotonic()+75.0
-        for _ in range(450):
+        warmup_start_wall=time.monotonic()
+        warmup_start_sim_ns=state["sim_ns"]
+        warmup_deadline=warmup_start_wall+75.0
+        for _ in range(100):
             if len(state["frame_stamps"])>=2:
                 break
             if time.monotonic()>warmup_deadline:
                 break
-            gz_call(env,WORLD,"pause: true multi_step: 5")
-            for _ in range(3):
-                spin(.08)
+            gz_call(env,WORLD,
+                    "pause: true multi_step: "+str(EMPTY_TRAY_WARMUP_STEP_COUNT))
+            # Drain the reliable image transport after stepping; clock and
+            # camera callbacks can arrive on different executor cycles.
+            for _ in range(6):
+                spin(.12)
                 if len(state["frame_stamps"])>=2:
                     break
+        warmup_metrics=warmup_transport_metrics(
+            state,warmup_start_wall,warmup_start_sim_ns,probe_data_path,probe.poll())
+        (directory/"warmup_transport_metrics.json").write_text(
+            json.dumps(warmup_metrics,indent=2,sort_keys=True)+"\n")
+        print("A13_SENSOR_WARMUP_TRANSPORT_METRICS="+
+              json.dumps(warmup_metrics,sort_keys=True),flush=True)
         if len(state["frame_stamps"])<2:
-            print("A13_SENSOR_WARMUP_DIAGNOSTICS="+json.dumps({
-                "sim_ns":state["sim_ns"],
-                "ros_callbacks":state["image_callbacks_total"],
-                "gz_probe":image_probe_report(probe_data_path,probe.poll())},
-                sort_keys=True),flush=True)
+            # Fail closed: neither GZ sample count nor a single ROS image
+            # substitutes for two NEW, positive, increasing ROS stamps.
             raise RuntimeError("A13_REAL_CAMERA_BRIDGE_WARMUP_NO_TWO_IMAGES")
         print("SMARTDISH_A_TRAY_SENSOR_WARMUP_PASS image_stamps="+
               str(state["frame_stamps"][-2:]),flush=True)
