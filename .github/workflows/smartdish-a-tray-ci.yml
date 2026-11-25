@@ -11,6 +11,8 @@ on:
       - 'tests/test_smartdish_a_tray_runner.py'
       - 'tests/test_smartdish_a_tray_batch_diagnostics.py'
       - 'tests/test_smartdish_a_tray_boundary_probes.py'
+      - 'tests/test_smartdish_a_tray_release_gate.py'
+      - 'scripts/smartdish_a_tray_release_gate.py'
       - '.github/workflows/smartdish-a-tray-ci.yml'
   workflow_dispatch:
 permissions:
@@ -32,10 +34,10 @@ jobs:
       - name: Parse new sources, test no simulated PASS
         run: |
           set -Eeuo pipefail
-          python3 -m py_compile scripts/smartdish_tray_camera.py scripts/smartdish_tray_world.py scripts/smartdish_tray_evidence.py scripts/smartdish_a_tray_live.py
+          python3 -m py_compile scripts/smartdish_tray_camera.py scripts/smartdish_tray_world.py scripts/smartdish_tray_evidence.py scripts/smartdish_a_tray_live.py scripts/smartdish_a_tray_release_gate.py
           bash -n scripts/smartdish_a_tray_bootstrap.sh
           bash -n scripts/smartdish_a_tray_one_shot.sh
-          python3 -m pytest -q tests/test_smartdish_tray_camera.py tests/test_smartdish_tray_world.py tests/test_smartdish_tray_evidence.py tests/test_smartdish_a_tray_runner.py tests/test_smartdish_a_tray_batch_diagnostics.py tests/test_smartdish_a_tray_boundary_probes.py
+          python3 -m pytest -q tests/test_smartdish_tray_camera.py tests/test_smartdish_tray_world.py tests/test_smartdish_tray_evidence.py tests/test_smartdish_a_tray_runner.py tests/test_smartdish_a_tray_batch_diagnostics.py tests/test_smartdish_a_tray_boundary_probes.py tests/test_smartdish_a_tray_release_gate.py
           echo SMARTDISH_A_TRAY_L0_PASS
   tray-l1:
     name: A11-13 L1 / ROS Jazzy image/TF bridge + A package build NO GOAL
@@ -285,11 +287,15 @@ jobs:
               assert t["image_stamp_samples"][-1]>t["capture_stamp_ns"]
               assert t["pose_sample_count"]>=4
               assert json.loads((directory/"capture_metadata.json").read_text())["ground_truth"]=="NOT_OBSERVED"
+              post=t.get("post_spawn_gz_probe",{})
+              assert post.get("observed_gz_image_blocks",0)>=1, (
+                  "A13_POST_SPAWN_GZ_IMAGE_MONITOR_NO_SAMPLES",t["scene_id"],post)
               cleanup=json.loads((directory/"process_cleanup.json").read_text())
               assert cleanup["all_owned_processes_stopped"] is True
               assert not (directory/"failure_diagnostics.json").exists()
               print("SMARTDISH_A_TRAY_L2_GUI_BATCH_TRIAL_PASS="+t["scene_id"])
           print("SMARTDISH_A_TRAY_L2_GUI_BATCH_FOUR_OF_FOUR_PASS")
+          print("SMARTDISH_A_TRAY_CLOUD_GATE_READY_FOR_WSLG_QUALIFICATION")
           PY
       - uses: actions/upload-artifact@v4
         if: always()
@@ -305,6 +311,7 @@ jobs:
             generated/smartdish_tray/run_*/trial_*/trial_summary.json
             generated/smartdish_tray/run_*/trial_*/failure_diagnostics.json
             generated/smartdish_tray/run_*/trial_*/process_cleanup.json
+            generated/smartdish_tray/run_*/logs/*post_spawn_gz_probe*
             generated/smartdish_tray/run_*/logs/*.log
           if-no-files-found: ignore
           retention-days: 14

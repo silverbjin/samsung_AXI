@@ -7,7 +7,7 @@ if [[ $# -gt 0 ]]; then
   case "$1" in
     --gui|--headless) MODE="$1"; shift ;;
     --help|-h)
-      echo 'Usage: SMARTDISH_A_TRAY_SOURCE_SHA=<40hex> bash scripts/smartdish_a_tray_bootstrap.sh [--gui|--headless] [demo|single|batch]'
+      echo 'Usage: SMARTDISH_A_TRAY_SOURCE_SHA=<40hex> bash scripts/smartdish_a_tray_bootstrap.sh [--gui|--headless] [demo|single|batch|smoke|qualify]'
       echo 'Default GUI + batch(4 scenarios); isolated ~/samsung_AXI_A_TRAY directory.'
       exit 0 ;;
   esac
@@ -15,7 +15,7 @@ fi
 if [[ $# -gt 0 ]]; then SCENE_MODE="$1"; shift; fi
 [[ $# -eq 0 ]] || { echo A_TRAY_INVALID_ARGS; exit 2; }
 case "$MODE:$SCENE_MODE" in
-  --gui:demo|--gui:single|--gui:batch|--headless:demo|--headless:single|--headless:batch) ;;
+  --gui:demo|--gui:single|--gui:batch|--gui:smoke|--gui:qualify|--headless:demo|--headless:single|--headless:batch|--headless:smoke) ;;
   *) echo A_TRAY_INVALID_MODE; exit 2 ;;
 esac
 block() { echo "SMARTDISH_A_TRAY_BOOTSTRAP_BLOCKED: $*" >&2; exit 2; }

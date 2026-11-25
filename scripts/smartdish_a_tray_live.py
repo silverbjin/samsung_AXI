@@ -428,6 +428,19 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             gz_spawn_dynamic(env,WORLD,item)
         print("SMARTDISH_A_TRAY_DYNAMIC_SPAWN_REQUESTS_OK count="+
               str(len(dish_names)),flush=True)
+        # Bounded fresh GZ probe AFTER EntityFactory, distinct from warmup.
+        # This disambiguates render stalls from bridge/DDS delivery stalls.
+        gz_post_log=(directory_log/(directory.name+"_post_spawn_gz_probe.log")).open("w")
+        handles.append(gz_post_log)
+        gz_post_path=directory_log/(directory.name+"_post_spawn_gz_probe_data.txt")
+        gz_post_stream=gz_post_path.open("wb")
+        handles.append(gz_post_stream)
+        gz_post_proc=subprocess.Popen(
+            ["gz","topic","-e","-n","2","-t",TOPIC],env=env,
+            stdin=subprocess.DEVNULL,stdout=gz_post_stream,
+            stderr=gz_post_log,start_new_session=True)
+        procs.append(gz_post_proc)
+        state["post_spawn_gz_path"]=str(gz_post_path)
 
         def camera_ready():
             return pre_event_ready(state["frame"],state["sim_ns"],
@@ -475,12 +488,22 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
                 ros_first_positive_stamp=state["frame_stamps"][0]
                     if state["frame_stamps"] else None,
                 ros_last_image_stamp=state["image_last_stamp_ns"],
+                post_spawn_gz_probe=image_probe_report(
+                    Path(state["post_spawn_gz_path"]),gz_post_proc.poll()),
+                post_spawn_clock_advanced_ns=state["sim_ns"]-stage_start_ns,
+                post_spawn_ros_callback_count=sum(
+                    x["phase"]=="post_spawn_camera_pose"
+                    for x in state["image_events"]),
                 poses=sorted(state["poses"]),
                 expected_dishes=dish_names)
             print("A13_CAMERA_FIRST_FRAME_DIAGNOSTICS="+
                   json.dumps(diagnostics,sort_keys=True),flush=True)
             if state["frame"] is None:
+                post_gz_frames=diagnostics["post_spawn_gz_probe"]["observed_gz_image_blocks"]
+                boundary=("A13_POST_SPAWN_GZ_IMAGE_NOT_OBSERVED"
+                          if post_gz_frames<1 else "A13_POST_SPAWN_GZ_TO_ROS_NOT_OBSERVED")
                 raise RuntimeError("A13_PRE_EVENT_GAZEBO_CAMERA_NO_IMAGE"
+                                   " boundary="+boundary+
                                    " evidence="+json.dumps(diagnostics,sort_keys=True))
             raise RuntimeError("A13_PRE_EVENT_IMAGE_POSE_CLOCK_NOT_SYNCHRONIZED"
                                " evidence="+json.dumps(diagnostics,sort_keys=True))
@@ -522,6 +545,14 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             raise RuntimeError("A13_IMAGE_POSE_STAMP_MISMATCH")
         print("SMARTDISH_A_TRAY_CAMERA_LIVE_PASS trial="+directory.name+
               " stamp_ns="+str(stamp),flush=True)
+        print("A13_POST_SPAWN_RGB_POSE_CLOCK_PASS="+json.dumps({
+            "scene_id":scenario,"spawn_sim_ns":stage_start_ns,
+            "capture_stamp_ns":stamp,"pose_stamp_ns":pose_at_capture_ns,
+            "clock_sim_ns":state["sim_ns"],
+            "post_spawn_ros_image_stamps":list(state["frame_stamps"]),
+            "post_spawn_gz_probe":image_probe_report(
+                Path(state["post_spawn_gz_path"]),gz_post_proc.poll())
+        },sort_keys=True),flush=True)
 
         # Reuse B's *existing* capture / raw PNG converter, not a fake image.
         sys.path.insert(0,str(root/"ai/scripts"))
@@ -615,6 +646,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             "image_sha256":digest(dst)[0],
             "physics_sha256":sha,"physics_size_bytes":sz,
             "pose_sample_count":len(rows),"image_received_count":len(state["frame_stamps"]),
+            "trial_wall_elapsed_seconds":round(time.monotonic()-trial_wall_start,3),
+            "post_spawn_gz_probe":image_probe_report(
+                Path(state["post_spawn_gz_path"]),gz_post_proc.poll()),
             "motion":motion,"gui_active_during_physics":gui,
             "pre_observation_spawn_sim_ns":stage_start_ns,
             "actual_runtime_world_sha256":spawn_manifest["sensor_preflight_sha256"],
@@ -632,6 +666,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             diagnostic=failure_snapshot(
                 phase,exc,state,env,procs,node,probe_data_path,
                 source_sha,scenario,seed,time.monotonic()-trial_wall_start)
+            if state.get("post_spawn_gz_path"):
+                diagnostic["post_spawn_gz_probe"]=image_probe_report(
+                    Path(state["post_spawn_gz_path"]),None)
             diag_path=directory/"failure_diagnostics.json"
             diag_path.write_text(json.dumps(diagnostic,indent=2,sort_keys=True)+"\n")
             print("A13_FAILURE_DIAGNOSTICS_PATH="+str(diag_path),flush=True)
@@ -688,13 +725,21 @@ def run(args):
              "gui":args.gui,"verdict":"NOT_RUN",
              "ground_truth":"B_HUMAN_REVIEW_REQUIRED","trials":[],
              "first_error":None}
+    if os.environ.get("SMARTDISH_A_TRAY_GATE_MANIFEST"):
+        gate=json.loads(Path(os.environ["SMARTDISH_A_TRAY_GATE_MANIFEST"]).read_text())
+        if (gate.get("source_sha")!=local or
+                gate.get("status")!="REAL_WSLG_SMOKE_PASS" or
+                args.mode!="batch"):
+            raise RuntimeError("A13_DEPLOYMENT_GATE_MANIFEST_NOT_APPROVED")
+        (dest/"deployment_gate_manifest.json").write_text(
+            json.dumps(gate,indent=2,sort_keys=True)+"\n")
     (dest/"source_manifest.json").write_text(json.dumps({
         "source_sha":local,"ros_distro":"jazzy","gz_major":"harmonic",
         "world":"smartdish_tray","ros_image_topic":TOPIC,
         "model_label_approval":"B_OPERATOR_ONLY",
         "scenario_ids":list(SCENARIOS)},indent=2)+"\n")
     print("SMARTDISH_A_TRAY_SOURCE_PIN_OK sha="+local,flush=True)
-    scenarios=SCENARIOS if args.mode=="batch" else ("ST-01","UN-01") if args.mode=="demo" else (args.scene,)
+    scenarios=SCENARIOS if args.mode=="batch" else ("ST-02","UN-01") if args.mode=="smoke" else ("ST-01","UN-01") if args.mode=="demo" else (args.scene,)
     try:
         for i,scenario in enumerate(scenarios,1):
             print("SMARTDISH_A_TRAY_START_SCENARIO="+scenario,flush=True)
@@ -702,6 +747,14 @@ def run(args):
                           local,args.gui,i,run_id)
             summary["trials"].append(row)
         result={r["scene_id"]:r["motion"]["observation"] for r in summary["trials"]}
+        if args.mode=="smoke":
+            if [r["scene_id"] for r in summary["trials"]]!=["ST-02","UN-01"]:
+                raise RuntimeError("A13_SMOKE_SCENARIO_ORDER_INVALID")
+            if [r["motion"]["observation"] for r in summary["trials"]]!=[
+                    "HELD_OBSERVED","FALL_OBSERVED"]:
+                raise RuntimeError("A13_SMOKE_PHYSICS_NOT_VERIFIED")
+            summary["verdict"]="ST02_UN01_REAL_CAMERA_SMOKE_PASS"
+            print("SMARTDISH_A_TRAY_ST02_UN01_SMOKE_PASS_NO_L3",flush=True)
         if args.mode in ("batch","demo"):
             if not all(result.get(s)=="HELD_OBSERVED" for s in
                        (("ST-01","ST-02") if args.mode=="batch" else ("ST-01",))):
@@ -709,8 +762,9 @@ def run(args):
             if not all(result.get(s)=="FALL_OBSERVED" for s in
                        (("UN-01","UN-02") if args.mode=="batch" else ("UN-01",))):
                 raise RuntimeError("A13_UNSTABLE_PHYSICS_NOT_VERIFIED")
-        summary["verdict"]="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS"
-        print("SMARTDISH_A_TRAY_PHYSICS_OBSERVATION_PASS",flush=True)
+        if args.mode!="smoke":
+            summary["verdict"]="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS"
+            print("SMARTDISH_A_TRAY_PHYSICS_OBSERVATION_PASS",flush=True)
     except BaseException as exc:
         summary["verdict"]="FAIL"
         summary["first_error"]=str(exc)
@@ -752,7 +806,7 @@ def shlex_quote(x):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("mode",choices=("demo","single","batch"))
+    p.add_argument("mode",choices=("demo","single","batch","smoke"))
     p.add_argument("--scene",choices=SCENARIOS,default="ST-01")
     p.add_argument("--seed",type=int,default=101)
     p.add_argument("--expected-sha",required=True)

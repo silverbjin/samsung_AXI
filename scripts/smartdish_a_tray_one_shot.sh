@@ -8,7 +8,7 @@ if [[ $# -gt 0 ]]; then TASK="$1"; shift; fi
 if [[ $# -gt 0 ]]; then MODE="$1"; shift; fi
 [[ $# -eq 0 ]] || { echo SMARTDISH_A_TRAY_INVALID_ARGS; exit 2; }
 case "$TASK:$MODE" in
- demo:--gui|single:--gui|batch:--gui|demo:--headless|single:--headless|batch:--headless) ;;
+ demo:--gui|single:--gui|batch:--gui|smoke:--gui|qualify:--gui|demo:--headless|single:--headless|batch:--headless|smoke:--headless) ;;
  *) echo SMARTDISH_A_TRAY_INVALID_MODE; exit 2 ;;
 esac
 SHA="$(git -C "$ROOT" rev-parse HEAD)"
@@ -48,4 +48,28 @@ set -u
 echo "SMARTDISH_A_TRAY_SOURCE_SHA=$SHA"
 echo "SMARTDISH_A_TRAY_MODE=$TASK GUI=$MODE"
 echo SMARTDISH_A_TRAY_BUILD_PASS_NO_NAV2_GOAL
-exec python3 -u scripts/smartdish_a_tray_live.py "$TASK" --expected-sha "$SHA" "$MODE"
+if [[ "$TASK" == qualify ]]; then
+  [[ "$MODE" == --gui ]] || { echo A13_WSLG_QUALIFY_REQUIRES_GUI; exit 2; }
+  GATE="$ROOT/generated/smartdish_tray/qualification_$SHA-$$.json"
+  mkdir -p "$(dirname "$GATE")"
+  python3 -u scripts/smartdish_a_tray_release_gate.py preflight \
+    --sha "$SHA" --root "$ROOT" --manifest "$GATE"
+  SMOKE_LOG="$(mktemp "$HOME/smartdish_a_tray_smoke.XXXXXXXX.log")"
+  python3 -u scripts/smartdish_a_tray_live.py smoke --expected-sha "$SHA" "$MODE" \
+    2>&1 | tee "$SMOKE_LOG"
+  SMOKE_TAR="$(sed -n 's/^SMARTDISH_A_TRAY_EVIDENCE_BUNDLE=//p' "$SMOKE_LOG" | tail -1)"
+  [[ -n "$SMOKE_TAR" && -s "$SMOKE_TAR" ]] || { echo A13_WSLG_SMOKE_EVIDENCE_MISSING; exit 2; }
+  python3 -u scripts/smartdish_a_tray_release_gate.py smoke \
+    --sha "$SHA" --manifest "$GATE" --archive "$SMOKE_TAR"
+  export SMARTDISH_A_TRAY_GATE_MANIFEST="$GATE"
+  BATCH_LOG="$(mktemp "$HOME/smartdish_a_tray_batch.XXXXXXXX.log")"
+  python3 -u scripts/smartdish_a_tray_live.py batch --expected-sha "$SHA" "$MODE" \
+    2>&1 | tee "$BATCH_LOG"
+  BATCH_TAR="$(sed -n 's/^SMARTDISH_A_TRAY_EVIDENCE_BUNDLE=//p' "$BATCH_LOG" | tail -1)"
+  [[ -n "$BATCH_TAR" && -s "$BATCH_TAR" ]] || { echo A13_WSLG_BATCH_EVIDENCE_MISSING; exit 2; }
+  python3 -u scripts/smartdish_a_tray_release_gate.py finalize \
+    --sha "$SHA" --manifest "$GATE" --archive "$BATCH_TAR"
+  echo "SMARTDISH_A_TRAY_WSLG_QUALIFICATION_COMPLETE_OWNER_REVIEW_REQUIRED"
+else
+  exec python3 -u scripts/smartdish_a_tray_live.py "$TASK" --expected-sha "$SHA" "$MODE"
+fi
