@@ -1,0 +1,110 @@
+name: SmartDish A14 Contact Positive Control (isolated)
+on:
+  push:
+    branches: [feat/smartdish-a14-physics-evidence]
+    paths:
+      - 'scripts/a14_contact_calibration*'
+      - 'tests/test_a14_contact_calibration.py'
+      - '.github/workflows/smartdish-a14-contact-calibration.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: a14-contact-control-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  l0:
+    name: A14 contact calibration offline contracts (no Gazebo)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test-only dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+      - name: Syntax and negative test fixtures
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/a14_contact_calibration_bootstrap.sh
+          bash -n scripts/a14_contact_calibration_owner.sh
+          python3 -m py_compile scripts/a14_contact_calibration.py
+          python3 -m pytest -q tests/test_a14_contact_calibration.py
+          echo A14_CAL_L0_NEGATIVE_CASES_PASS
+  l2:
+    name: A14 independent real Gazebo tray and floor Contact positive controls
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual ROS Jazzy and Gazebo Harmonic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-yaml \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-rosgraph-msgs ros-jazzy-ros-base
+      - name: Bounded isolated real Contact calibration, no old tray batch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          ros2 interface show ros_gz_interfaces/msg/Contacts | grep -q contacts
+          timeout --signal=INT --kill-after=10s 115s \
+            python3 -u scripts/a14_contact_calibration.py --sha "$GITHUB_SHA" \
+              --max-wall-seconds 95
+          python3 - <<'PY'
+          import glob,hashlib,json,os,tarfile
+          from pathlib import Path
+          roots=glob.glob("generated/smartdish_a14/contact_calibration_*/calibration_result.json")
+          assert len(roots)==1,roots
+          p=Path(roots[0]);d=json.loads(p.read_text())
+          assert d["source_sha"]==os.environ["GITHUB_SHA"]
+          assert d["verdict"]=="POSITIVE_CONTROL_PASS",d
+          assert d["sim_clock_max_ns"]>=1_500_000_000
+          assert d["all_owned_processes_stopped"]
+          assert all(x["positive_collision_observed"] for x in d["sensors"].values())
+          assert all(x["sample_collision_ids"] for x in d["sensors"].values())
+          assert d["production_contact_silence_resolved"] is False
+          assert d["no_contact_inferred_from_silence"] is False
+          assert d["ground_truth"]=="NOT_OPERATOR_APPROVED"
+          assert d["human_approved"] is False
+          assert d["rule_candidate"]=="UNKNOWN"
+          assert not (p.parent/"approval_ledger.jsonl").exists()
+          bundle=p.parent/"a14_contact_calibration_evidence.tar.gz"
+          outer,filename=(p.parent/(bundle.name+".sha256")).read_text().strip().split("  ")
+          assert filename==bundle.name
+          assert hashlib.sha256(bundle.read_bytes()).hexdigest()==outer
+          with tarfile.open(bundle,"r:gz") as f:
+              names=set(f.getnames())
+              for row in f.extractfile("SHA256SUMS").read().decode().splitlines():
+                  sha,name=row.split("  ",1)
+                  assert name in names
+                  assert hashlib.sha256(f.extractfile(name).read()).hexdigest()==sha
+          print("A14_CAL_REAL_GAZEBO_POSITIVE_CONTROL_PASS")
+          print("A14_CAL_PRODUCTION_SILENT_CHANNEL_NOT_PROVEN")
+          print("A14_CAL_GT_UNKNOWN_REVIEW_REQUIRED")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a14-isolated-contact-calibration-${{ github.run_id }}
+          path: |
+            generated/smartdish_a14/contact_calibration_*/calibration_result.json
+            generated/smartdish_a14/contact_calibration_*/contact_events.jsonl
+            generated/smartdish_a14/contact_calibration_*/calibration_world.sdf
+            generated/smartdish_a14/contact_calibration_*/calibration_bridge.yaml
+            generated/smartdish_a14/contact_calibration_*/SHA256SUMS
+            generated/smartdish_a14/contact_calibration_*/a14_contact_calibration_evidence.tar.gz
+            generated/smartdish_a14/contact_calibration_*/a14_contact_calibration_evidence.tar.gz.sha256
+            generated/smartdish_a14/contact_calibration_*/gazebo.log
+            generated/smartdish_a14/contact_calibration_*/bridge.log
+          if-no-files-found: ignore
+          retention-days: 14

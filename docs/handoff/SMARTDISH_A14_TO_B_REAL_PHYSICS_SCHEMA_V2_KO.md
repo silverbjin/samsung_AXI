@@ -52,3 +52,16 @@ B는 원본 TAR SHA 및 내부 SHA256SUMS를 검증한 후 v2 JSONL을 읽고 **
 ## 5. 완료 시 인계 패키지
 
 B QA에 전달할 파일: `scenario.scenario.json`, `geometry_layout.json`, `camera_pose_metadata.json`, `capture_metadata.json`, `tray_pose_timeline.jsonl`, `physics_observations_v2.jsonl`, `contact_events.jsonl`, `contact_sensor_status.json`, `a14_gt_candidate.json`, `SHA256SUMS` 및 해당 원본 RGB/physics. Owner 진단용 `smartdish_a14_diagnostics.tar.gz`의 명시적 allowlist를 확인하고, 사람 라벨 승인 0인 상태를 유지합니다.
+
+## 6. A14-07 독립 Contact 양성 교정 결과의 수용 범위
+
+A14에서 새로 출고하는 `a14_contact_calibration_evidence.tar.gz`는 `calibration_result.json`의 `source_sha`, `world_sha256`, `bridge_sha256`, `sim_clock_max_ns`, `sensors.tray/floor.positive_collision_observed`, `sample_collision_ids` 및 아카이브 무결성을 통해 **센서의 독립적인 양성 충돌 감지 능력**만 확인합니다.
+
+B에서 기존 A14 `contact_sensor_status.json`의 `topic_unobserved` 항목을 자동 삭제하거나 `CONTACT_DATA_INCOMPLETE`를 `NO_CONTACT_OBSERVED`로 교체하는 것은 금지합니다. 별도 교정 월드에서 건강했다고 생산 월드의 정확한 시각에도 건강했다는 뜻이 아닙니다.
+
+- **허용되는 신규 메타데이터:** `independent_positive_calibration_sha256`, `calibration_source_sha`, `calibration_wall/sim_run_id`, `calibrated_sensor_types`, `calibration_scope=POSITIVE_CONTROL_ONLY`.
+- **금지:** `human_approved=true`, `approval_ledger.jsonl` 자동 생성, `label=0/1` 확정, `STATIC_GRAVITY`→`ROBOT_MOTION` 바꿔 표기.
+- **원본 품질 유지:** `rule_candidate=UNKNOWN`, `label_status=REVIEW_REQUIRED`, `ground_truth=NOT_OPERATOR_APPROVED`.
+- **다음 B QA 계약:** 생산 world에서 센서가 실제 관측 기간 중 동작하고 있었음을 독립 증명할 상태/heartbeat 자료가 확보되기 전 B-Q03/04 및 학습 GT HOLD.
+
+교육 보고서: `docs/reports/issues/SMARTDISH_A14_07_SILENT_CONTACT_POSITIVE_CALIBRATION_KO.md`.

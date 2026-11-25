@@ -41,3 +41,23 @@
 | B 데이터셋 승인 | HOLD | HOLD | approval_ledger A가 생성 금지 |
 
 CI에서 데이터 **취득 성공과 명시적 HOLD 처리**를 검증했다는 사실을 `P0 GT 승인 성공`으로 표시하지 마십시오. 다음 단계는 미관측 센서의 정상 동작을 독립적으로 증명할 수 있는 전용 교정/heartbeat 실험을 설계하는 것입니다. 그 이전에는 B-Q03/04 및 P1 확대를 시작하지 않습니다.
+
+
+## A14-07 independent contact calibration (2026-11-26)
+
+**독립 양성 교정**은 제품 물리 GT 검증과 **별개**입니다.
+`scripts/a14_contact_calibration.py`는 ST-02/UN-01을 재실행하지 않고 격리된 작은 월드에서 트레이와 바닥 접촉을 실제 유발합니다.
+
+| 검수 항목 | 독립 교정 PASS 요건 | 검수 후 상태 |
+|---|---|---|
+| `CAL_TRAY_POSITIVE` | 진짜 트레이 타겟–낙하 물체 collision pair, header ns 양수 | 양성 경로 확인 |
+| `CAL_FLOOR_POSITIVE` | 진짜 바닥 타겟–낙하 물체 collision pair, header ns 양수 | 양성 경로 확인 |
+| `CAL_CLOCK` | Gazebo /clock ≥1.5 simulation seconds | 타임베이스 확인 |
+| `CAL_ARCHIVE` | 원본 SDF·bridge YAML·collision event·로그·SHA256SUMS 및 외부 SHA | 재현 증거 확인 |
+| `A14_SOURCE_SHA` | 40자리 HEAD와 결과 SHA 동일 | 출처 검증 |
+| `PRODUCTION_NO_CONTACT` | **별도로** 원본 센서 관측 범위·건강상태 입증 필요 | **UNKNOWN/HOLD 유지** |
+| `HUMAN_GT` | B 사람이 승인해야 함 | `REVIEW_REQUIRED`, 0건 |
+
+**상태 전이 금지:** `POSITIVE_CONTROL_PASS` → `NO_CONTACT_OBSERVED`, `STABLE`, `UNSTABLE`, `human_approved=true`로 자동 전환할 수 없습니다. 생산용 ST-02/UN-01 센서가 해당 시점에 살아 있었다는 것을 별도의 양성 월드로 직접 보증할 수 없기 때문입니다.
+
+새 CI는 `.github/workflows/smartdish-a14-contact-calibration.yml`에만 연결하여 이미 검증된 A14 ST-02/UN-01 L2를 자동 재실행하지 않습니다. 실제 Cloud L2와 Owner GUI 결과는 별도 증거·SHA로 기록합니다.
