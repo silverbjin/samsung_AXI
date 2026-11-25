@@ -148,40 +148,73 @@ def contact_category(a,b):
     return "OTHER"
 
 def contact_messages_to_events(messages,topics):
-    """Per-topic heartbeat proves availability. No callback != no contact."""
+    """Contact status is a sensor-evidence claim, never a guess from silence.
+
+    A real EMPTY message can close a previously observed pair. A silent
+    unobserved topic cannot assert NO_CONTACT or CONTACT_ENDED.
+    """
     counts={t:0 for t in topics}
-    events=[];unreliable=0;last={}
-    for row in messages:
-        topic=row["topic"]
+    hit_counts={t:0 for t in topics}
+    last_t={t:None for t in topics}
+    active={t:{} for t in topics}
+    events=[];unreliable=0
+    for row in sorted(messages,key=lambda z:(z.get("sim_time_ns",0),z.get("topic",""))):
+        topic=row.get("topic")
         if topic not in counts:continue
         counts[topic]+=1
-        sim_ns=row.get("sim_time_ns",0)
-        if not isinstance(sim_ns,int) or sim_ns<=0:
+        t=row.get("sim_time_ns")
+        if (not isinstance(t,int) or t<=0 or
+            row.get("timestamp_source") not in ("ROS_CONTACT_HEADER_STAMP",None) or
+            (last_t[topic] is not None and t<last_t[topic])):
             unreliable+=1
             continue
+        last_t[topic]=t
+        current={}
         for hit in row.get("contacts",[]):
-            a=hit.get("collision1","");b=hit.get("collision2","")
-            if not a or not b:
-                unreliable+=1;continue
-            pair=tuple(sorted((a,b)))
-            if last.get(pair) is None or sim_ns>last[pair]:
-                events.append({"sim_time_ns":sim_ns,"collision1":a,"collision2":b,
-                               "category":contact_category(a,b),"topic":topic,
+            c1=str(hit.get("collision1",""));c2=str(hit.get("collision2",""))
+            if not c1 or not c2:
+                unreliable+=1
+                continue
+            pair=tuple(sorted((c1,c2)))
+            current[pair]=(c1,c2)
+            hit_counts[topic]+=1
+        for pair,(c1,c2) in current.items():
+            events.append({"sim_time_ns":t,"collision1":c1,"collision2":c2,
+                           "category":contact_category(c1,c2),"topic":topic,
+                           "source":"ROS_BRIDGED_GAZEBO_CONTACT_SENSOR",
+                           "timestamp_source":row.get("timestamp_source"),
+                           "event":"CONTACT_STARTED" if pair not in active[topic]
+                                   else "CONTACT_OBSERVED"})
+        for pair,(c1,c2) in active[topic].items():
+            if pair not in current:
+                # END requires another REAL, valid message on same sensor.
+                events.append({"sim_time_ns":t,"collision1":c1,"collision2":c2,
+                               "category":contact_category(c1,c2),"topic":topic,
                                "source":"ROS_BRIDGED_GAZEBO_CONTACT_SENSOR",
                                "timestamp_source":row.get("timestamp_source"),
-                               "event":"CONTACT_OBSERVED"})
-                last[pair]=sim_ns
-    seen=all(v>0 for v in counts.values())
-    status=("CONTACT_SENSOR_UNAVAILABLE" if not seen else
-            "CONTACT_DATA_INCOMPLETE" if unreliable else
-            "CONTACT_OBSERVED" if events else "NO_CONTACT_OBSERVED")
-    return {"status":status,"topic_callbacks":counts,
+                               "event":"CONTACT_ENDED"})
+        active[topic]=current
+    missing=sorted(t for t,v in counts.items() if v==0)
+    started=[e for e in events if e["event"]=="CONTACT_STARTED"]
+    status=("CONTACT_SENSOR_UNAVAILABLE" if sum(counts.values())==0 else
+            "CONTACT_DATA_INCOMPLETE" if missing or unreliable else
+            "CONTACT_OBSERVED" if started else "NO_CONTACT_OBSERVED")
+    # Never manufacture a support-loss event from a missing contact topic.
+    support_loss="UNDETERMINED"
+    tray_end=[x for x in events if x["event"]=="CONTACT_ENDED" and
+              x["category"]=="TRAY_DISH"]
+    floor_start=[x for x in started if x["category"]=="FLOOR_DISH"]
+    if any(e["sim_time_ns"]<=f["sim_time_ns"] and
+           ("dish_" in e["collision1"] or "dish_" in e["collision2"])
+           for e in tray_end for f in floor_start):
+        support_loss="OBSERVED_TRAY_END_THEN_FLOOR_CONTACT"
+    return {"status":status,"topic_callbacks":counts,"topic_contact_counts":hit_counts,
+            "topic_unobserved":missing,
             "unreliable_stamp_or_collision_count":unreliable,"events":events,
-            "heartbeat_coverage":"ALL_SENSOR_TOPICS" if seen else "INCOMPLETE",
-            "contact_end_coverage":"NOT_CONFIRMED_BY_DEBOUNCED_HEARTBEAT",
-            "support_loss":"UNDETERMINED",
-            "no_contact_inference_allowed":bool(seen and not unreliable)}
-
+            "heartbeat_coverage":"ALL_SENSOR_TOPICS" if not missing else "INCOMPLETE",
+            "contact_end_coverage":"ONLY_EXPLICIT_SUBSEQUENT_SENSOR_MESSAGES",
+            "support_loss":support_loss,
+            "no_contact_inference_allowed":bool(not missing and not unreliable)}
 def get_pose(row):
     pose=row["pose"]
     return {k:float(pose[k]) for k in ("x","y","z","qx","qy","qz","qw")}
@@ -283,7 +316,7 @@ def build_v2(directory,config,state,contact_topics,source_sha):
         net=math.sqrt(sum((b[k]-a[k])**2 for k in ("x","y","z")))
         planar=math.hypot(b["x"]-a["x"],b["y"]-a["y"])
         if maxgap>MAX_POSE_GAP_NS:invalid_reasons.append("A14_POSE_GAP_"+n)
-        if first["sim_time_ns"]>cap_ns+MAX_CAPTURE_SKEW_NS:
+        if abs(first["sim_time_ns"]-cap_ns)>MAX_CAPTURE_SKEW_NS:
             invalid_reasons.append("A14_T0_POSE_NOT_ALIGNED_"+n)
         if last["sim_time_ns"]<end_ns-MAX_POSE_GAP_NS:
             invalid_reasons.append("A14_TRACE_TRUNCATED_"+n)
@@ -310,6 +343,23 @@ def build_v2(directory,config,state,contact_topics,source_sha):
     write_json(root/"contact_sensor_status.json",
                {k:v for k,v in status.items() if k!="events"})
     out.sort(key=lambda x:(x["sim_time_ns"],x["entity"]))
+    # Annotate each dish frame with the most recent proven sensor event.
+    # Unknown until the first matching real contact; no future label leakage.
+    by_dish={n:[] for n in expected}
+    for event in status["events"]:
+        for n in expected:
+            if n in event["collision1"] or n in event["collision2"]:
+                by_dish[n].append(event)
+    for record in out:
+        past=[e for e in by_dish[record["entity"]] if
+              e["sim_time_ns"]<=record["sim_time_ns"]]
+        latest=past[-1] if past else None
+        record["contact_status"]=(
+            "CONTACT_OBSERVED" if latest and latest["event"]!="CONTACT_ENDED" else
+            "NO_CONTACT_OBSERVED" if latest and latest["event"]=="CONTACT_ENDED"
+            and status["no_contact_inference_allowed"] else
+            "CONTACT_DATA_INCOMPLETE")
+        record["contact_pair_source"]=(latest["topic"] if latest else None)
     pose_path.write_text("".join(json.dumps(row,sort_keys=True)+"\n" for row in out))
     trays.sort(key=lambda x:x["sim_time_ns"])
     tray_path.write_text("".join(json.dumps(row,sort_keys=True)+"\n" for row in trays))
@@ -359,6 +409,8 @@ def build_v2(directory,config,state,contact_topics,source_sha):
         "tray_pose_mode":"STATIC_TRAY","velocity_provenance":"DERIVED",
         "contact_status":status["status"],"contact_callback_counts":status["topic_callbacks"],
         "contact_event_count":len(status["events"]),
+        "contact_end_support_loss":status["support_loss"],
+        "contact_sensor_unobserved_topics":status["topic_unobserved"],
         "unsupported_dynamic_tray":"ROBOT_MOTION_REQUIRES_MEASURED_T_WORLD_TRAY",
         "measured_pose_source":"ROS_TF_HEADER_STAMP",
         "per_dish":metrics,"invalid_reasons":sorted(set(invalid_reasons)),

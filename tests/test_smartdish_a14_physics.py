@@ -61,7 +61,7 @@ def test_contact_absence_vs_sensor_outage_and_collision_categories():
     topics=["/contact/tray","/contact/dish","/contact/floor"]
     assert contact_messages_to_events([],topics)["status"]=="CONTACT_SENSOR_UNAVAILABLE"
     partial=[{"topic":topics[0],"sim_time_ns":100,"contacts":[]}]
-    assert contact_messages_to_events(partial,topics)["status"]=="CONTACT_SENSOR_UNAVAILABLE"
+    assert contact_messages_to_events(partial,topics)["status"]=="CONTACT_DATA_INCOMPLETE"
     empty=[{"topic":t,"sim_time_ns":100,"contacts":[]} for t in topics]
     assert contact_messages_to_events(empty,topics)["status"]=="NO_CONTACT_OBSERVED"
     hit=[{"topic":t,"sim_time_ns":100,"contacts":[]} for t in topics]
@@ -70,10 +70,16 @@ def test_contact_absence_vs_sensor_outage_and_collision_categories():
     r=contact_messages_to_events(hit,topics)
     assert r["status"]=="CONTACT_OBSERVED"
     assert r["events"][0]["category"]=="TRAY_DISH"
+    assert r["events"][0]["event"]=="CONTACT_STARTED"
     assert contact_category("dish_01::collision","dish_02::collision")=="DISH_DISH"
     assert contact_category("dish_01::collision","tray_test_floor::collision")=="FLOOR_DISH"
     hit[0]["sim_time_ns"]=0
     assert contact_messages_to_events(hit,topics)["status"]=="CONTACT_DATA_INCOMPLETE"
+    # A real explicit empty heartbeat can CLOSE a previously active contact.
+    hit[0]["sim_time_ns"]=100
+    follow={"topic":topics[0],"sim_time_ns":200,"contacts":[]}
+    ends=contact_messages_to_events(hit+[follow],topics)
+    assert "CONTACT_ENDED" in [e["event"] for e in ends["events"]]
 
 def test_velocity_provenance_units_and_nonmonotonic_guard():
     a={"translation_m":{"x":0,"y":0,"z":0},
