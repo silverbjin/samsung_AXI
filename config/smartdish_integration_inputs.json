@@ -3,22 +3,22 @@
   "platform_sha": "b8ef3998973a5e33b67ddd5c5b63c3c89b837840",
   "roles": {
     "A": {
-      "source_sha": null,
+      "source_sha": "16b812801e239b0d281860e10806e322a9f331d1",
       "approval": "HOLD",
       "scoped_ci": "NOT_RUN",
       "ci_run_ids": [],
       "owner_required": true,
       "owner_verdict": "HOLD",
-      "note": "historical A14 R03 data 2/2 PASS; cleanup and GT HOLD; platform adoption candidate pending"
+      "note": "Platform adoption common and actual GUI CI PASS #45734430987/#45734431153; feature approval HOLD, historical Owner cleanup -11 and GT HOLD"
     },
     "B": {
-      "source_sha": null,
+      "source_sha": "e44a3ac5441b65c0d9e4e89bc70d775a95705c4c",
       "approval": "HOLD",
       "scoped_ci": "NOT_RUN",
       "ci_run_ids": [],
       "owner_required": true,
       "owner_verdict": "HOLD",
-      "note": "B QA Q01 PASS Q02-07 HOLD; no training approval"
+      "note": "Platform adoption common/B contract/adoption CI PASS #45734678524/#45734678563/#45734678592; feature approval HOLD, B Q02-07 HOLD"
     },
     "C": {
       "source_sha": null,
