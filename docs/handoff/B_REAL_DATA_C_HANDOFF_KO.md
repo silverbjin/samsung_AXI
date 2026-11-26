@@ -94,3 +94,9 @@ B 원샷 실행 성공·실패 시 `ai/data/private/b_a13_diagnostics/*_diagnost
 - 60 scene은 선택적 파일럿 권고이며 데이터셋 hard pass 규모가 아님; 기본 4 scene의 geometry/env coverage, class pairing 부족은 별도 실측 문제.
 - A가 먼저 개발할 것은 데이터량이 아니라 **A14-P0 tray-relative time-aligned pose + velocity provenance + Gazebo Harmonic contact/support + t0/10s capture metadata + invalid/UNKNOWN boundary**입니다. 이 계약이 GREEN이 된 뒤에만 P1 `physical_layout_id`/`geometry_family_id`/environment slice를 가진 새로운 geometry 장면으로 확대합니다.
 - [A14 인계 요청 명세](../plans/SMARTDISH_A14_PHYSICS_DATA_EVIDENCE_REQUIREMENTS_KO.md) / [Owner 검수 원장](../reports/acceptance/SMARTDISH_B_DATA_QA01_OWNER_20261125_KO.md). A 코드 직접 수정하지 않음, B 후보 승인·C 실학습 금지.
+
+## B-QA03 — A15 파일럿 계약 후속 (2026-11-26)
+
+- B_QA03 실행기 `scripts/smartdish_b_a15_qa_one_shot.sh`와 독립 SHA checkout `scripts/smartdish_b_a15_qa_bootstrap.sh` (CPU-only) 도입, 사용자 A15 Owner 원본 TAR를 읽기 전용으로 지정해야 검수 시작. 미지정 원본/비일치 SHA는 검수 결과를 HOLD로 분리하며 이전 Owner 보고와 fixture는 직접 실물 audit로 승격하지 않음.
+- 사전 원본 보고상 4 loaded scenes/2 family/4 layouts, 공통 world-Y command 500ms, top RGB(t0), 실제 Pose 1ms/ECM/ROS contact 일부. full contact health와 server cleanup FAIL는 보존. 운영자 승인0, GT UNKNOWN, C real train/val/test manifest 금지.
+- QA03 출고: [교육 보고](../reports/tasks/SMARTDISH_B_A15_QA03_PILOT_QUALITY_KO.md), [B-Q 원장](../reports/acceptance/SMARTDISH_B_A15_QA03_ACCEPTANCE_KO.md), [A16 독립 형상 확대 요구](../plans/SMARTDISH_A16_EXPANSION_QA03_REQUIREMENTS_KO.md), [C 인계](SMARTDISH_B_A15_QA03_TO_A_C_KO.md). 기존 A14 스모크 및 AI OFF 코드는 불변.

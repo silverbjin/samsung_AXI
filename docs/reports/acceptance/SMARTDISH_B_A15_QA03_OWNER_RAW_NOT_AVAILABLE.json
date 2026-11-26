@@ -1,0 +1,24 @@
+{
+  "actual_owner_raw_directly_recomputed": false,
+  "approved_count": 0,
+  "expected_owner_sha256": "828c1689031f46f9523cdf836eabac9dbd22f8eff6b37860067d2ee328feee05",
+  "gates": {
+    "B-Q01": "HOLD",
+    "B-Q02": "HOLD",
+    "B-Q03": "HOLD",
+    "B-Q04": "HOLD",
+    "B-Q05": "HOLD",
+    "B-Q06": "HOLD",
+    "B-Q07": "HOLD"
+  },
+  "model_training_executed": false,
+  "product_approval": false,
+  "reason": "B_A15_OWNER_RAW_ARCHIVE_NOT_ATTACHED_OR_NOT_ACCESSIBLE",
+  "reference_not_recomputed": true,
+  "reference_owner_report_only": true,
+  "schema": 1,
+  "scope": "B_QA03_OWNER_RAW_REQUIRED",
+  "source_class": "OWNER_RAW_NOT_AVAILABLE",
+  "train_split_exported": false,
+  "training_eligible": false
+}
