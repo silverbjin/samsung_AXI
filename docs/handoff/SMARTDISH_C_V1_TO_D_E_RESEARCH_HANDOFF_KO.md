@@ -29,3 +29,8 @@
 - [ ] D/E actual AI ON acceptance + AI OFF regression
 
 현재는 **코드·계약 인계 가능**, `C_RESEARCH_PILOT_ACCEPTED`/모델 출고 불가입니다. 실제 private Dataset v1은 GitHub/공개 CI 업로드 금지. B PR #46은 E 통합 소유, 다른 팀 소스 무단 변경 금지.
+
+
+## C 코드 검증 인계 증거
+
+[Draft PR #58](https://github.com/silverbjin/samsung_AXI/pull/58) / 검증 C 코드 SHA `bd0ca4cbb234c753269cf0486827af577fb19a4f`, [C V1 CI #45784500398](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500398) 51 PASS, [기존 C contract CI #45784500415](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500415) SUCCESS. **P0 C private 42/42·P2 학습·P3 Test·P4 모델은 아직 HOLD/NOT_RUN**. D/E는 코드 JSON 계약과 UNKNOWN/직원 확인만 통합검토 가능; E AI ON product acceptance는 별도입니다.

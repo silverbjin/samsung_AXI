@@ -33,3 +33,5 @@
 - 첫 오류: `tests/test_c_stability.py::test_rgb_and_bgr_padded_rows`, `test_bad_image_encoding_and_corrupt_buffer` → `stability_inference_node.py:18`의 `ModuleNotFoundError: No module named 'numpy'`.
 - 근본 원인: 기존 ROS-free 이미지 unpack 회귀를 새 L0 검증에 포함하면서 이전 C CI가 제공하던 `numpy` 설치를 누락했습니다. 코드/데이터 품질이 아니라 테스트 환경 불일치입니다.
 - 최소 조치: 새 경량 CI `python -m pip install pytest pillow numpy`; 실 모델·Gazebo·private 데이터·A/B 작업은 재실행하지 않았습니다. GREEN 원격 확인 후 QA 원장에 별도로 기록합니다.
+
+**원격 GREEN**: [C V1 #45784500398](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500398)에서 **51 passed in 0.18s**; 기존 C CI [#45784500415](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500415) PASS. 코드 SHA `bd0ca4cbb234c753269cf0486827af577fb19a4f`; private 원본/실학습은 NOT_RUN. 즉 원인 해결은 CI 의존성 교정이며 안전/모델 성능 인증이 아닙니다.

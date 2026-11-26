@@ -1,0 +1,48 @@
+# SmartDish C Dataset v1 — P0~P6 독립 인수 원장 (2026-11-26)
+
+## 1. 신뢰 경계 / 식별자
+- 코드 검증 SHA: `bd0ca4cbb234c753269cf0486827af577fb19a4f` (교육 보고만 별도 문서 커밋).
+- 브랜치 `feat/smartdish-c-dataset-v1-pilot`, [Draft PR #58](https://github.com/silverbjin/samsung_AXI/pull/58), base `main@63e147289e307e0b9900ca365e9c4557c5921804`. **미병합**.
+- B delivery `f05e663ac0aaf843c544c905ddcc2a0791f741ac`, Owner execution pin `f9ddc56979626d4a78decb04e7b4ca28c3824b09`.
+- Dataset version `c4c429b33faf22d904db9ddf2b7aa6e27ade12d70c7ecd407dff7c5cb9422606`, release `2e9bddf2359cca7f0ccbd2f4ca2c2dc8a5704cf3b9a712864243167b31abd756`, manifest `616996e1c7cdd69b6d656ae682ea9536839e15f18a90f86a2b339548fe907769`, split `8a530b6a34788300bb507ea10aafd10a7ab5616a0c0ffc0f87b7ccf79d0db6d5`.
+
+## 2. 실물 증거와 적합성
+| Gate | Owner/B 증거 | C 이번 턴 독립 검사 | 판정 |
+|---|---|---|---|
+| Owner evidence outer SHA | `411d092f4ab9e65ad044c9b1ae73b2f84456cef1730fef35dcff04c6b393b949` | 파일 직접 일치 | PASS |
+| Outer `SHA256SUMS` | 15개 | 15/15 재계산 | PASS |
+| Nested diagnostics | 6개 | 6/6 재계산 | PASS |
+| 첨부 release metadata/등록된 파일 | release registry 42 | **제공된 4개** 직접 확인 | PASS (4/42 범위) |
+| Private 이미지/물리/승인 원본 | B Owner 42/42 보고 | **38개 private 파일 직접 재검 불가** | C P0 HOLD |
+| frozen Family split/정확 CSV | 승인18(13S/5U), 제외2 | train 8S3U / val2S1U / test3S1U, CSV SHA 일치 | 메타데이터 PASS |
+| P0 학습 적합성 | B-Q07 C review HOLD | WSL2 42/42 미실행; 독립 human plan approval 없음 | **C_P0_HOLD_PRIVATE_42_RECHECK** |
+
+B가 수행한 WSL2 Owner Release ACCEPTED를 C 실제 private 42/42 완료로 **표기하지 않습니다**.
+
+## 3. 개발·검수 원장
+| 단계 | 상태 | 실제 근거/인수 조건 |
+|---|---|---|
+| P0 코드/첨부 증거 | PASS 제한 | `ai/train/dataset_v1_gate.py`, 15/15+6/6+4/42 |
+| P0 Owner private 42/42 | NOT_RUN/HOLD | immutable WSL2 원샷·출고원본 재해시 필요 |
+| P1 사전 계획 | 초안 잠금 / GO 미발급 | `ai/docs/C_V1_EXPERIMENT_LOCK.json`; pretrained full SHA/rights/C 승인 미확정 |
+| P2 frozen train11/val3 | **TRAINING_NOT_RUN** | C owner P0, human approval+SHA, weights pin이 먼저 |
+| P3 independent Test4 | **TEST_NOT_OPENED** | 단일 checkpoint/threshold 봉인 이후 1회만 |
+| P4 research checkpoint | **NO_CHECKPOINT / NO_MODEL_SHA** | C human research acceptance와 test report 필수 |
+| P5 public C V1 CI | **51 PASS** | [Run #45784500398](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500398) (code SHA bd0ca4...) |
+| P5 existing C contract | PASS | [Run #45784500415](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500415) |
+| P5 B regression contract | PASS | [Run #45784500181](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500181) |
+| P5 WSL2 owner C | **NOT_RUN** | local `scripts/smartdish_c_dataset_v1_owner_once.sh` no auto-training |
+| P6 D/E code handoff | 준비 | 코드/UNKNOWN/직원 승인 계약 전달 가능, E AI ON product HOLD |
+
+GitHub RED [#45784287293](https://github.com/silverbjin/samsung_AXI/actions/runs/45784287293) 49 PASS/2 FAIL (numpy 누락), GREEN [#45784500398](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500398) 51 PASS. 교육용 원인 분석은 `docs/reports/issues/2026-11-26_C_V1_ISSUE_01_TEST_ISOLATION_AND_RELEASE_GUARD_KO.md` 참조.
+
+## 4. 정책·PM 변경 금지
+Data Freeze A15 4+A16 8+A18 8 =20 independent layout/6 family; 승인18/5 family, 제외 L18-06/08, 132 near-pair 논의의 연구용 위험 인정. **A19 자동 착수·추가 물리 생산·재분할·라벨 변경·테스트 튜닝 금지**. Production Contact HOLD(Q03), diversity HOLD(Q05), C review Q07 HOLD. Model scope = 정적 실린더 적재 RGB t0 2.0s, world+Y fixed **command torque** 0.12Nm 0.5s; measured wrench/주행 조건 아님. E AI ON 제품 판단/안전 인증 아님. AI OFF 필수 3구간 보호. 추가 생산은 기능 차단 근거와 PM 승인 Change Request 후에만.
+
+## 5. 다음 Owner 절차
+1. 정확한 Draft PR code SHA를 고정해 사용자 WSL2에서 `scripts/smartdish_c_dataset_v1_owner_once.sh` 1회 실행. READ-ONLY 42/42 검사만 수행, 최소 evidence TAR+sidecar 생성.
+2. **C P0 PASS가 나와도 즉시 train하지 않음**. 사전 plan SHA, pretrained weights 전체 SHA/version/license, CPU/Torch 환경과 C human approval을 별도 봉인.
+3. P2 승인 뒤 frozen 1회/val선택 1개, P3 단일 Test 1회, P4 제한 연구용 승인, P6 D/E 검토. Test에 따른 model reselection 금지.
+4. 12/7 freeze, 12/8 rehearsal, 12/9 presentation은 PM 확인 전 일정 가정.
+
+**최종:** `C_V1_P0_HOLD_PRIVATE_42_RECHECK`, `TRAINING_NOT_RUN`, `E_AI_ON_HOLD`; `AI_OFF_PROTECTED`, `A19_NOT_AUTHORIZED`, `PRODUCTION_CONTACT_HOLD`.
