@@ -1,0 +1,2 @@
+# P2–P3 물리 및 Shortcut
+SDF/실제 t0 상대 pose로 반경/두께/색상/질량/마찰/높이/상단 중심거리/오프셋/명목 지지여유를 기록한다. 보수 bbox overlap은 가시 픽셀/segmentation이 아님. World-Y torque와 signed x offset은 관측 교차이지 인과 증명 아님. 중심 0.05m, offset 0.03m 등 탐색 bin은 제품 기준 아님. 범주별 관측 분포, 순수 cell/in-sample purity 및 family×center×signed-offset 빈 조합을 기록. 고정 환경은 검증 불가. 12개뿐이므로 통계 일반화/분류기 훈련 금지. 물리 변수는 진짜 원인 후보, 배경/색/버전은 nuisance 또는 proxy. 이전 QA04 집계는 8 유지/4 큰 변위, 새 ROI/교차표 실제 결과 NOT_RUN.

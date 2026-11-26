@@ -117,3 +117,6 @@ A16 Owner DATA/GUI 8/8 PASS and user visual review completed, server -11×8 and 
 ### B-QA04 Owner 검수 제품 인수 완료 (2026-11-26)
 
 제출 진단 외부 SHA 6bb16e93a22079c588a63afc9f04e8725154b25313ea133d277d5ba547eea83f 및 내부 3/3 PASS; exit 0, verifier b36694d 기록, 실제 독립 검수 JSON byte-for-byte 일치. B_QA04_OWNER_VERIFIER_ACCEPTED_REVIEW_ONLY. Q01 PASS Q02–07 HOLD, 12 layout/4 family, 승인 0, Contact HOLD 및 cleanup FAIL 유지. [Owner 인수 원장](../../docs/reports/acceptance/SMARTDISH_B_A16_QA04_OWNER_20261126_KO.md). 실제 WSL2 checkout 별도 로그는 진단에 없음; 기존 raw 검수 증거 재사용. 새 학습 승인 또는 제품 병합 아님.
+
+## B-QA05 ROI/Shortcut 독립 검수
+QA04 Owner 인수 결과 보존. 새 검수 제품은 read-only REVIEW_ONLY; 기존 12 layout/4 family/66쌍은 이전 증거. A16 및 QA04 원본 미확보 상태에서 신규 12장면 ROI 분석 NOT_RUN. 사람 승인/권리/split/C 학습 없음, Q01 이전 PASS/Q02~Q07 HOLD. ROI는 보수적 사각 경계, segmentation 아님. post-t0 정보와 물리 inventory는 검수 전용.
