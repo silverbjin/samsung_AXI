@@ -1,0 +1,34 @@
+name: SmartDish E Platform Readiness
+on:
+  push:
+    branches: [integration/smartdish-platform-next]
+    paths:
+      - 'scripts/smartdish_e_platform_gate.py'
+      - 'config/smartdish_integration_inputs.json'
+      - 'tests/test_smartdish_e_platform_gate.py'
+      - '.github/workflows/smartdish-e-platform-readiness.yml'
+  pull_request:
+    branches: [integration/smartdish-platform-next]
+permissions: {contents: read}
+jobs:
+  readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify integration gate with temporary Git fixtures
+        run: python3 -m unittest discover -s tests -p test_smartdish_e_platform_gate.py -v
+      - name: Report current readiness, not product approval
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin refs/heads/platform/smartdish-stable:refs/remotes/origin/platform/smartdish-stable
+          BASE="$(git rev-parse refs/remotes/origin/platform/smartdish-stable)"
+          python3 scripts/smartdish_e_platform_gate.py --baseline "$BASE" --manifest config/smartdish_integration_inputs.json > e-readiness.json
+          cat e-readiness.json
+          # A successful reporting job does not mean ready. Release must invoke --require-ready and verify CI/approval receipts.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e-platform-readiness
+          path: e-readiness.json

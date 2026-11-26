@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "platform_sha": "b8ef3998973a5e33b67ddd5c5b63c3c89b837840",
+  "roles": {
+    "A": {
+      "source_sha": null,
+      "approval": "HOLD",
+      "scoped_ci": "NOT_RUN",
+      "ci_run_ids": [],
+      "owner_required": true,
+      "owner_verdict": "HOLD",
+      "note": "historical A14 R03 data 2/2 PASS; cleanup and GT HOLD; platform adoption candidate pending"
+    },
+    "B": {
+      "source_sha": null,
+      "approval": "HOLD",
+      "scoped_ci": "NOT_RUN",
+      "ci_run_ids": [],
+      "owner_required": true,
+      "owner_verdict": "HOLD",
+      "note": "B QA Q01 PASS Q02-07 HOLD; no training approval"
+    },
+    "C": {
+      "source_sha": null,
+      "approval": "NOT_RUN",
+      "scoped_ci": "NOT_RUN",
+      "ci_run_ids": [],
+      "owner_required": false,
+      "note": "new development from stable, actual data unavailable"
+    },
+    "D": {
+      "source_sha": null,
+      "approval": "NOT_RUN",
+      "scoped_ci": "NOT_RUN",
+      "ci_run_ids": [],
+      "owner_required": true,
+      "owner_verdict": "NOT_RUN",
+      "note": "new development from stable"
+    }
+  },
+  "release": "HOLD_NO_APPROVED_ROLE_FEATURES"
+}
