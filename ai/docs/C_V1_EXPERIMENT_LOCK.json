@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "status": "PREDECLARED_NOT_APPROVED_TO_TRAIN",
+  "data": {
+    "version": "c4c429b33faf22d904db9ddf2b7aa6e27ade12d70c7ecd407dff7c5cb9422606",
+    "release_sha256": "2e9bddf2359cca7f0ccbd2f4ca2c2dc8a5704cf3b9a712864243167b31abd756",
+    "split_sha256": "8a530b6a34788300bb507ea10aafd10a7ab5616a0c0ffc0f87b7ccf79d0db6d5",
+    "train": {"samples": 11, "families": ["F3", "F4"], "stable": 8, "unstable": 3},
+    "validation": {"samples": 3, "families": ["F1"], "stable": 2, "unstable": 1},
+    "test_sealed": {"samples": 4, "families": ["F2", "F5"], "stable": 3, "unstable": 1}
+  },
+  "scope": "FIXED_WORLD_Y_TORQUE_CONDITIONAL_STATIC_CYLINDER_RGB_T0_ONLY",
+  "input": {"color": "RGB", "size": [224, 224], "source_time_seconds": 2.0,
+    "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+    "features_forbidden": ["scene", "layout", "seed", "path", "filename", "post_t0_frames", "pose", "contact", "ground_truth_metadata"]},
+  "architecture": "torchvision.models.resnet18",
+  "pretrained_weights": {
+    "enum": "ResNet18_Weights.IMAGENET1K_V1",
+    "source": "torchvision official ImageNet1K V1",
+    "full_sha256": "REQUIRED_FROM_OWNER_CACHE_BEFORE_P2",
+    "license_and_provenance_review": "REQUIRED_BEFORE_P2",
+    "random_weight_fallback": false
+  },
+  "execution": {"device": "cpu", "seed": 42, "deterministic_algorithms": true,
+    "num_workers": 0, "epochs": 3, "batch_size": 4, "optimizer": "AdamW",
+    "learning_rate": 0.0001, "train_augmentation": "NONE",
+    "validation_augmentation": "NONE", "test_augmentation": "NONE",
+    "stopping": "choose minimum validation cross-entropy checkpoint among epochs 1 to 3",
+    "model_selection": "validation only",
+    "phase": "frozen_head_only",
+    "finetune": "NOT_AUTHORIZED_IN_V1_FIRST_PASS; requires separately locked pre-test rationale",
+    "max_frozen_runs": 1, "max_test_evaluations": 1,
+    "test_reselection_or_tuning": false
+  },
+  "operational_inference": {"labels": {"STABLE": 0, "UNSTABLE": 1},
+    "confidence_min": 0.8, "below_threshold": "UNKNOWN",
+    "missing_model": "UNKNOWN", "missing_or_stale_frame": "UNKNOWN",
+    "staff_approval_required_for_unknown_or_unstable": true},
+  "evaluation": {"once_after_checkpoint_and_threshold_sealed": true,
+    "report": ["raw_confusion_matrix", "TP_TN_FP_FN_UNSTABLE_POSITIVE",
+               "per_class_precision_recall_f1", "macro_f1", "balanced_accuracy",
+               "unknown_coverage", "unstable_predicted_stable_count", "majority_baseline_descriptive_only"],
+    "research_pilot_acceptance": "REQUIRES_C_HUMAN_REVIEW; NO_AUTOMATIC_THRESHOLD_RELAXATION",
+    "generalization_certification": false, "safety_certification": false},
+  "policy": {"data_freeze": "A18_LAST", "A19": "NOT_AUTHORIZED",
+    "production_contact": "HOLD", "AI_OFF": "PROTECTED",
+    "AI_ON": "E_ACCEPTANCE_REQUIRED", "extra_data": "PM_CHANGE_REQUEST_REQUIRED"}
+}
