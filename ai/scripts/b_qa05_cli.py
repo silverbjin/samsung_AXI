@@ -10,15 +10,15 @@ def main(argv=None):
     a=p.parse_args(argv);os.umask(0o077);out=a.out_dir.absolute()
     out.mkdir(parents=True,exist_ok=False,mode=0o700)
     report={"scope":"B_QA05_HOLD","actual_12_scene_roi_review":False,"gates":{f"B-Q0{i}":"HOLD" for i in range(1,8)},"previous_qa04_q01":"PASS","ground_truth":"UNKNOWN_HOLD","approved_count":0,"training_eligible":False,"model_training_executed":False,"production_contact_health":"HOLD","cleanup":"FAIL","product_approval":False}
-    rc=2;head=None
+    rc=2;head=None;receipt={}
     try:
         root=Path(__file__).resolve().parents[2]
         head=subprocess.check_output(["git","-C",str(root),"rev-parse","HEAD"],text=True).strip()
         if not re.fullmatch("[0-9a-f]{40}",a.verifier_sha) or head!=a.verifier_sha:raise ValueError("B_QA05_HEAD_DRIFT")
         if subprocess.check_output(["git","-C",str(root),"status","--porcelain","--untracked-files=no"],text=True).strip():raise ValueError("B_QA05_TRACKED_DIRTY")
-        report=audit({k:getattr(a,k) for k in INPUTS},out);rc=0
+        report=audit({k:getattr(a,k) for k in INPUTS},out,receipt);rc=0
     except Exception as e:report["first_error"]=type(e).__name__+": "+str(e)
-    status={"exit_code":rc,"verifier_sha":a.verifier_sha,"checkout_head":head,"python":platform.python_version(),"pillow":PIL.__version__,"expected_input_sha":{k:v[1] for k,v in INPUTS.items()},"actual_12_scene_roi_review":rc==0,"approved_count":0,"training_executed":False}
+    status={"exit_code":rc,"verifier_sha":a.verifier_sha,"checkout_head":head,"python":platform.python_version(),"pillow":PIL.__version__,"expected_input_sha":{k:v[1] for k,v in INPUTS.items()},"input_receipt":receipt,"actual_12_scene_roi_review":rc==0,"approved_count":0,"training_executed":False}
     for n,x in (("qa05_report.json",report),("diagnostic_status.json",status)):
         (out/n).write_text(json.dumps(x,indent=2,sort_keys=True)+"\n",encoding="utf8")
     files=sorted(x for x in out.iterdir() if x.is_file())

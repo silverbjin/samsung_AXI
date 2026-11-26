@@ -120,3 +120,5 @@ A16 Owner DATA/GUI 8/8 PASS and user visual review completed, server -11×8 and 
 
 ## B-QA05 ROI/Shortcut 독립 검수
 QA04 Owner 인수 결과 보존. 새 검수 제품은 read-only REVIEW_ONLY; 기존 12 layout/4 family/66쌍은 이전 증거. A16 및 QA04 원본 미확보 상태에서 신규 12장면 ROI 분석 NOT_RUN. 사람 승인/권리/split/C 학습 없음, Q01 이전 PASS/Q02~Q07 HOLD. ROI는 보수적 사각 경계, segmentation 아님. post-t0 정보와 물리 inventory는 검수 전용.
+
+A15 실제 4장면 독립 예비 분석: Full aHash ≤4 6/6, Tray 6/6, Dish 2/6; block SSIM Full 0.9393–0.9813, Dish 0.4645–0.7199. 공식 12장면 QA05 결과 아님, ROI 후보 판단/시각 승인 필요. 기존 raw 및 승인 정책 유지.

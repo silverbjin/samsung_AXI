@@ -48,8 +48,71 @@ def test_safe_tar_reused():
     with tarfile.open(fileobj=b,mode="w:gz") as t:
         m=tarfile.TarInfo("../bad");m.size=1;t.addfile(m,io.BytesIO(b"x"))
     with pytest.raises(ValueError):q.a16.read_tar(b.getvalue(),q.sha(b.getvalue()),allowed=set())
+def make_a15_schema_fixture():
+    """Synthetic contract only. Real schemas, fabricated pixels and poses."""
+    from xml.etree import ElementTree as ET
+    d={"scene_id":"L15-01","trial_id":"fixture","source_sha":q.a15.A15_SHA,"seed":0,"environment_profile_id":"A15_STATIC_TRAY_OVERHEAD_V1","human_approved":False,"rule_candidate":"UNKNOWN","platform":{"width_m":.7,"depth_m":.56},"trigger":{"frame":"world","torque_nm":[0,.12,0],"start_ns":q.a15.TRIGGER_NS},"end_ns":q.a15.END_NS}
+    ds=[dict(name="dish_01",radius_m=.11,thickness_m=.035,mass_kg=.22,friction_mu=.65,x=0.,y=0.,z=.5875),dict(name="dish_02",radius_m=.085,thickness_m=.035,mass_kg=.22,friction_mu=.65,x=.01,y=0.,z=.6225)]
+    d["initial_dishes"]=ds
+    canonical=lambda v:q.sha(json.dumps(v,sort_keys=True,separators=(",",":")).encode())
+    fam=canonical({"shape":"cylinder_stack_2","dimensions":[[x["radius_m"],x["thickness_m"]] for x in ds],"mass":.22,"mu":.65})
+    lay=canonical({"family":fam,"centers":[[x[k] for k in ("x","y","z")] for x in ds]})
+    d.update(geometry_family_id=fam,physical_layout_id=lay,stack_id=lay)
+    xml='<sdf><world><model name="tray_platform"><link><visual><geometry><box><size>0.7 0.56 0.04</size></box></geometry></visual></link></model>'
+    for x in ds:
+        xml+=f'<model name="{x["name"]}"><link><visual><geometry><cylinder><radius>{x["radius_m"]}</radius><length>{x["thickness_m"]}</length></cylinder></geometry><material><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>'
+    sdf=(xml+'</world></sdf>').encode();d["world_sha256"]=q.sha(sdf)
+    v={"scene_id":"L15-01","source_sha":q.a15.A15_SHA,"human_approved":False,"ground_truth":"UNKNOWN_HOLD","production_contact_health":"HOLD","cleanup":"FAIL","processes":[{"role":"server","returncode":-11}],"metrics":{x["name"]:{"max_relative_displacement_m":0.} for x in ds}}
+    info={"stamp_ns":q.a15.T0_NS,"width":640,"height":480,"k":[381.,0,320.,0,381.,240.,0,0,1],"d":[0.]*5}
+    buf=io.BytesIO();Image.new("RGB",(640,480),"gray").save(buf,format="PNG");png=buf.getvalue()
+    c={"camera_info":info,"stamp_ns":q.a15.T0_NS,"encoding":"rgb8","image_sha256":q.sha(png)}
+    cam={"x":0.,"y":0.,"z":1.5,"qx":0.,"qy":math.sqrt(.5),"qz":0.,"qw":math.sqrt(.5)}
+    iv={"support":{},"dishes":{}}
+    import itertools
+    for x in ds:
+        rad=math.hypot(x["radius_m"],x["thickness_m"]/2)
+        pts=[q.project(tuple(x[k]+v for k,v in zip(("x","y","z"),delta)),cam,info["k"]) for delta in itertools.product((-rad,rad),repeat=3)]
+        iv["dishes"][x["name"]]={"conservative_projected_bbox_px":q.bounds(pts)}
+    pose="sim_ns\tentity\tx\ty\tz\tqx\tqy\tqz\tqw\n"
+    for stamp in range(q.a15.T0_NS,q.a15.END_NS+1,100_000_000):
+        for n,p in [("camera",cam),("tray_platform",dict(x=0,y=0,z=.55,qx=0,qy=0,qz=0,qw=1))]+[(x["name"],dict(x=x["x"],y=x["y"],z=x["z"],qx=0,qy=0,qz=0,qw=1)) for x in ds]:
+            pose+=str(stamp)+"\t"+n+"\t"+"\t".join(str(p[k]) for k in ("x","y","z","qx","qy","qz","qw"))+"\n"
+    f={"scenario.sdf":sdf,"poses.tsv":pose.encode(),"tray_rgb_t0.png":png}
+    for k,obj in (("a15_design.json",d),("capture.json",c),("initial_validity.json",iv),("verdict.json",v)):
+        f[k]=json.dumps(obj).encode()
+    return f
+def test_positive_adapter_and_workbook(tmp_path):
+    f=make_a15_schema_fixture()
+    with patch.dict(q.a15.EXPECTED_IMAGES,{"L15-01":q.sha(f["tray_rgb_t0.png"])}):
+        item=q.adapt(f,"a15","L15-01","fixture")
+    r=item[0]
+    assert r["visibility"]=="BBOX_ONLY_NOT_SEGMENTATION" and r["contact_health"]=="HOLD" and r["cleanup"]=="FAIL" and r["gt"]=="UNKNOWN_HOLD"
+    assert set(item[1])==set(q.REGIONS) and len(item[3]["dish_01"])==104
+    assert not r["training_eligible"]
+    q.workbook(tmp_path,[item],[])
+    import csv
+    row=next(csv.DictReader((tmp_path/"review_worksheet.csv").open()))
+    assert all(not row[k] for k in ("initial_placement","occlusion","physics_validity","learning_suitability","license_status","gt_decision","reviewer","reason"))
+    assert set(x.name for x in tmp_path.iterdir())=={"review_workbook.html","review_worksheet.csv"}
 def test_missing_image_fails():
-    with pytest.raises(KeyError):q.adapt({},"a15","L15-01","x")
+    f=make_a15_schema_fixture();del f["tray_rgb_t0.png"]
+    with pytest.raises(KeyError,match="tray_rgb_t0.png"):q.adapt(f,"a15","L15-01","fixture")
+@pytest.mark.parametrize("key,value,error",[("human_approved",True,"GT_BOUNDARY"),("production_contact_health","PASS","CONTACT_CLEANUP_BOUNDARY"),("cleanup","PASS","CONTACT_CLEANUP_BOUNDARY")])
+def test_no_gt_contact_or_cleanup_promotion(key,value,error):
+    f=make_a15_schema_fixture();v=json.loads(f["verdict.json"]);v[key]=value;f["verdict.json"]=json.dumps(v).encode()
+    with pytest.raises(ValueError,match=error):q.adapt(f,"a15","L15-01","fixture")
+def test_layout_family_conflict():
+    records=[fixture(0)[0],dict(fixture(1)[0],layout="0")]
+    with pytest.raises(ValueError,match="LAYOUT_FAMILY_CONFLICT"):q.unique_layouts(records)
+def test_link_rejected():
+    b=io.BytesIO()
+    with tarfile.open(fileobj=b,mode="w:gz") as t:
+        m=tarfile.TarInfo("link");m.type=tarfile.SYMTYPE;m.linkname="../outside";t.addfile(m)
+    with pytest.raises(ValueError):q.a16.read_tar(b.getvalue(),q.sha(b.getvalue()),allowed=set())
+def test_actual_sha_receipt_mismatch(tmp_path):
+    p=tmp_path/"x";p.write_bytes(b"data");Path(str(p)+".sha256").write_text("0"*64+"  x\n");r={}
+    with pytest.raises(ValueError):q.get(p,"x","0"*64,r)
+    assert r["actual_sha256"]==q.sha(b"data") and not r["verified"]
 def test_failure_diagnostic_and_no_overwrite(tmp_path):
     pin="a"*40
     args=["--a15",str(tmp_path/"missing"),"--a16",str(tmp_path/"missing"),"--a16-diag",str(tmp_path/"missing"),"--qa04",str(tmp_path/"missing"),"--out-dir",str(tmp_path/"out"),"--verifier-sha",pin]
@@ -57,6 +120,8 @@ def test_failure_diagnostic_and_no_overwrite(tmp_path):
         assert cli.main(args)==2
     out=tmp_path/"out";r=json.loads((out/"qa05_report.json").read_text())
     assert not r["actual_12_scene_roi_review"] and r["approved_count"]==0 and not r["training_eligible"] and r["production_contact_health"]=="HOLD" and r["cleanup"]=="FAIL"
+    status=json.loads((out/"diagnostic_status.json").read_text())
+    assert set(status["input_receipt"])==set(q.INPUTS) and all(not r["verified"] for r in status["input_receipt"].values())
     assert not (out/"approval_ledger.jsonl").exists() and not (out/"train_manifest.csv").exists()
     a=out/"b_qa05_diagnostics.tar.gz";assert hashlib.sha256(a.read_bytes()).hexdigest() in Path(str(a)+".sha256").read_text()
     with tarfile.open(a) as t:assert set(t.getnames())=={"qa05_report.json","diagnostic_status.json","SHA256SUMS"}

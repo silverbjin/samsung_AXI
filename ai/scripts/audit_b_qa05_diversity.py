@@ -17,11 +17,14 @@ def need(ok,msg):
     if not ok: raise ValueError("B_QA05_"+msg)
 def sha(data):return a15.sha(data)
 def j(data):return json.loads(data)
-def get(path,name,pin):
+def get(path,name,pin,receipt=None):
     path=Path(path);side=Path(str(path)+".sha256")
+    if receipt is None:receipt={}
+    receipt.update({"expected_sha256":pin,"actual_sha256":None,"verified":False})
     need(path.is_file() and side.is_file() and not path.is_symlink() and not side.is_symlink(),"INPUT_MISSING_OR_LINK_"+name)
     need(path.stat().st_size<400*1024*1024 and side.stat().st_size<4096,"INPUT_SIZE")
-    b=path.read_bytes();a15.verify_sidecar(b,side.read_bytes(),name,pin);return b
+    b=path.read_bytes();receipt.update({"actual_sha256":sha(b),"bytes":len(b)})
+    a15.verify_sidecar(b,side.read_bytes(),name,pin);receipt["verified"]=True;return b
 def hamming(a,b):
     need(len(a)==len(b)==64 and set(a+b)<={"0","1"},"HASH64_BITS")
     return (int(a,2)^int(b,2)).bit_count()
@@ -133,11 +136,12 @@ def adapt(f,version,scene,pin,prior=None):
     annotated=im.copy();draw=ImageDraw.Draw(annotated);draw.rectangle(traybox,outline="cyan",width=2);draw.rectangle(dishbox,outline="yellow",width=2)
     for n,b in dishboxes.items():draw.rectangle(b,outline="magenta",width=1);draw.text((b[0],b[1]),n,fill="white")
     buf=io.BytesIO();annotated.save(buf,format="PNG")
-    record={"scene_id":scene,"trial_id":d["trial_id"],"layout":layout,"family":family,"stack_id":d["stack_id"],"seed":d["seed"],"version":version,"environment":d["environment_profile_id"],"source_environment":"OWNER_WSL2","inner_sha":pin,"image_sha":c["image_sha256"],"pixel_sha":px,"dish_count":len(ds),"dishes":ds,"relative_t0_xyz_m":rel,"stack_height_nominal_m":sum(x["thickness_m"] for x in ds),"upper_center_distance_m":math.hypot(*p[:2]),"offset_xy_m":offset,"offset_m":off,"nominal_support_margin_m":margins,"torque_world_nm":d["trigger"]["torque_nm"],"colors":colors,"background":bg,"camera_pose":cam,"brightness":statistics.mean(ImageStat.Stat(im.convert("L")).mean),"dish_bbox_area_px2":(dishbox[2]-dishbox[0])*(dishbox[3]-dishbox[1]),"tray_bbox":traybox,"dish_bbox":dishbox,"dish_bboxes":dishboxes,"bbox_overlap":overlaps,"visibility":"BBOX_ONLY_NOT_SEGMENTATION","support":iv["support"],"settle":iv["dishes"],"trigger":d["trigger"],"end_ns":d["end_ns"],"metrics":metrics,"observation":obs,"contact_health":"HOLD","cleanup":"FAIL","gt":"UNKNOWN_HOLD","human_approved":False,"training_eligible":False}
+    record={"scene_id":scene,"trial_id":d["trial_id"],"layout":layout,"family":family,"stack_id":d["stack_id"],"seed":d["seed"],"version":version,"environment":d["environment_profile_id"],"source_environment":"OWNER_WSL2","inner_sha":pin,"image_sha":c["image_sha256"],"pixel_sha":px,"dish_count":len(ds),"dishes":ds,"relative_t0_xyz_m":rel,"stack_height_nominal_m":sum(x["thickness_m"] for x in ds),"upper_center_distance_m":math.hypot(*p[:2]),"center_nominal":d.get("upper_tray_center_group","CENTER" if math.hypot(top["x"],top["y"])<1e-8 else "ECCENTRIC"),"source_sha":expected,"offset_xy_m":offset,"offset_m":off,"nominal_support_margin_m":margins,"torque_world_nm":d["trigger"]["torque_nm"],"colors":colors,"background":bg,"camera_pose":cam,"brightness":statistics.mean(ImageStat.Stat(im.convert("L")).mean),"dish_bbox_area_px2":(dishbox[2]-dishbox[0])*(dishbox[3]-dishbox[1]),"tray_bbox":traybox,"dish_bbox":dishbox,"dish_bboxes":dishboxes,"bbox_overlap":overlaps,"visibility":"BBOX_ONLY_NOT_SEGMENTATION","support":iv["support"],"settle":iv["dishes"],"trigger":d["trigger"],"end_ns":d["end_ns"],"metrics":metrics,"observation":obs,"contact_health":"HOLD","cleanup":"FAIL","gt":"UNKNOWN_HOLD","human_approved":False,"training_eligible":False}
     return record,{n:image_data(v) for n,v in rois.items()},buf.getvalue(),trace
 def unique_layouts(records):
     groups=defaultdict(list)
     for r in records:groups[r["layout"]].append(r)
+    need(all(len({r["family"] for r in group})==1 for group in groups.values()),"LAYOUT_FAMILY_CONFLICT")
     return groups
 def similarity(items):
     rows=[]
@@ -151,6 +155,7 @@ def similarity(items):
 def risks(records):
     fields={
       "center_0.05m":lambda r:"near" if r["upper_center_distance_m"]<=.05 else "offset",
+      "center_nominal":lambda r:r["center_nominal"],
       "dish_count":lambda r:str(r["dish_count"]),"family":lambda r:r["family"],"version":lambda r:r["version"],
       "height_0.1m":lambda r:"low" if r["stack_height_nominal_m"]<=.1 else "high",
       "color_sequence":lambda r:"|".join(r["colors"]),"brightness_16bin":lambda r:str(int(r["brightness"]//16)),
@@ -166,25 +171,33 @@ def risks(records):
         cells=defaultdict(Counter)
         for r in records:cells[fn(r)][r["observation"]]+=1
         pure=sum(max(c.values()) for c in cells.values());total=len(records)
-        category="PHYSICAL_OR_PROXY" if field in ("center_0.05m","dish_count","family","height_0.1m","offset_0.03m","signed_offset_x","support_margin","torque") else "POTENTIAL_NUISANCE_OR_PROXY"
+        category="PHYSICAL_OR_PROXY" if field in ("center_0.05m","center_nominal","dish_count","family","height_0.1m","offset_0.03m","signed_offset_x","support_margin","torque") else "POTENTIAL_NUISANCE_OR_PROXY"
         for k,c in sorted(cells.items()):
             out.append({"variable":field,"category":category,"value":k,"counts":json.dumps(c,sort_keys=True),"n":sum(c.values()),"pure_cell":len(c)==1,"exploratory_in_sample_purity":pure/total,"status":"FIXED_UNTESTABLE" if len(cells)==1 else "DESCRIPTIVE_ONLY"})
     # explicit crossing cells, absent combinations remain zero.
     for fam,center,sign in itertools.product(sorted({r["family"] for r in records}),("near","offset"),("negative","zero","positive")):
         c=Counter(r["observation"] for r in records if r["family"]==fam and fields["center_0.05m"](r)==center and fields["signed_offset_x"](r)==sign)
         out.append({"variable":"family_x_center_x_signed_offset","category":"PHYSICAL_CROSS","value":fam+"|"+center+"|"+sign,"counts":json.dumps(c,sort_keys=True),"n":sum(c.values()),"status":"OBSERVED" if c else "MISSING_COMBINATION"})
+    for fam,center,sign in itertools.product(sorted({r["family"] for r in records}),("CENTER","ECCENTRIC"),("negative","zero","positive")):
+        c=Counter(r["observation"] for r in records if r["family"]==fam and r["center_nominal"]==center and fields["signed_offset_x"](r)==sign)
+        out.append({"variable":"family_x_nominal_center_x_signed_offset","category":"PHYSICAL_CROSS","value":fam+"|"+center+"|"+sign,"counts":json.dumps(c,sort_keys=True),"n":sum(c.values()),"status":"OBSERVED" if c else "MISSING_COMBINATION"})
     return out
 def split_feasibility(records,pairs):
     groups=unique_layouts(records);families=defaultdict(set);obs=defaultdict(set)
     for r in records:families[r["family"]].add(r["layout"]);obs[r["observation"]].add(r["layout"])
     labels=sorted(obs);fs=sorted(families);valid=0;checked=0
+    pixel_families=defaultdict(set)
+    for r in records:pixel_families[r["pixel_sha"]].add(r["family"])
+    conflicting=[v for v in pixel_families.values() if len(v)>1]
     # Hypothetical observations only; count partitions, never export assignments.
     for choices in itertools.product(range(3),repeat=len(fs)):
         if len(set(choices))!=3:continue
         checked+=1
+        assignment=dict(zip(fs,choices))
+        if any(len({assignment[f] for f in group})>1 for group in conflicting):continue
         bins=[set().union(*(families[f] for f,c in zip(fs,choices) if c==i)) for i in range(3)]
         if all(all(b&obs[k] for k in labels) for b in bins):valid+=1
-    return {"scope":"NON_RELEASED_SIMULATION","layout_groups":len(groups),"family_groups":len(families),"observed_layout_counts":{k:len(v) for k,v in obs.items()},"family_partition_candidates":checked,"family_partitions_with_every_observation_in_each_split":valid,"exact_duplicate_review_pairs":sum(p["same_pixel"] for p in pairs),"near_review_pairs":sum(p["dish_ahash"]<=8 or p["tray_ahash"]<=8 for p in pairs),"approved_groups":0,"minimum_approved_groups_per_label":3,"released":False}
+    return {"scope":"NON_RELEASED_SIMULATION","layout_groups":len(groups),"family_groups":len(families),"observed_layout_counts":{k:len(v) for k,v in obs.items()},"family_partition_candidates":checked,"family_partitions_with_every_observation_in_each_split":valid,"exact_duplicate_review_pairs":sum(p["same_pixel"] for p in pairs),"near_review_pairs":sum(p["dish_ahash"]<=8 or p["tray_ahash"]<=8 for p in pairs),"exact_pixel_cross_family_groups":len(conflicting),"conflicting_observation_layouts":sum(len({r["observation"] for r in v})>1 for v in groups.values()),"approved_groups":0,"minimum_approved_groups_per_label":3,"released":False}
 def write_csv(path,rows):
     need(bool(rows),"EMPTY_OUTPUT")
     keys=list(dict.fromkeys(k for r in rows for k in r))
@@ -193,24 +206,31 @@ def write_csv(path,rows):
         for r in rows:w.writerow({k:json.dumps(v,ensure_ascii=False) if isinstance(v,(list,dict,tuple)) else v for k,v in r.items()})
 def trace_svg(trace):
     lines=[]
+    ymax=max(0.01,max(math.dist(p[1:],ps[0][1:]) for ps in trace.values() for p in ps))
     for i,(n,ps) in enumerate(trace.items()):
         p0=ps[0][1:];coords=[(p[0],math.dist(p[1:],p0)) for p in ps]
-        pts=" ".join(f"{35+(t-a15.T0_NS)/(a15.END_NS-a15.T0_NS)*560:.2f},{160-min(v,2)/2*135:.2f}" for t,v in coords)
+        pts=" ".join(f"{35+(t-a15.T0_NS)/(a15.END_NS-a15.T0_NS)*560:.2f},{160-v/ymax*135:.2f}" for t,v in coords)
         color=["#2463a6","#d45335","#19875b"][i%3]
         lines.append(f'<polyline fill="none" stroke="{color}" points="{pts}"/><text x="{40+i*145}" y="18" fill="{color}">{html.escape(n)}</text>')
-    return '<svg viewBox="0 0 640 190" width="640"><path d="M35 25V160H595" fill="none" stroke="gray"/><text x="2" y="30">2m</text><text x="3" y="160">0</text><text x="35" y="180">2s</text><text x="550" y="180">12.3s</text>'+''.join(lines)+'</svg>'
+    return '<svg viewBox="0 0 640 190" width="640"><path d="M35 25V160H595" fill="none" stroke="gray"/><text x="2" y="30">'+f'{ymax:.3g}m'+'</text><text x="3" y="160">0</text><text x="35" y="180">2s</text><text x="550" y="180">12.3s</text>'+''.join(lines)+'</svg>'
 def workbook(out,items,pairs):
     worksheet=[];sections=[]
     for r,_,png,trace in items:
         n=r["scene_id"];related=sorted((p for p in pairs if n in (p["a"],p["b"])),key=lambda p:p["dish_ahash"])[:4]
         worksheet.append({"scene_id":n,"layout":r["layout"],"initial_placement":"","occlusion":"","physics_validity":"","learning_suitability":"","license_status":"","gt_decision":"","reviewer":"","reason":""})
-        safe=html.escape(json.dumps({k:r[k] for k in ("dishes","relative_t0_xyz_m","support","settle","trigger","metrics","bbox_overlap","contact_health","cleanup","observation")},ensure_ascii=False,indent=2))
+        safe=html.escape(json.dumps({k:r[k] for k in ("dishes","relative_t0_xyz_m","support","settle","trigger","end_ns","metrics","bbox_overlap","contact_health","cleanup","observation")},ensure_ascii=False,indent=2))
         sections.append(f'<section><h2>{html.escape(n)}</h2><img alt="t0 ROI overlay" width="640" src="data:image/png;base64,{base64.b64encode(png).decode()}"><p>cyan tray; yellow dish union; magenta conservative boxes; not masks. User A16 visual review is not GT approval.</p>{trace_svg(trace)}<p>100ms display only; full physical metrics reused from accepted evidence.</p><pre>{safe}</pre><p>Similar pairs: {html.escape(json.dumps(related))}</p><p>Human decisions: blank — use accompanying CSV.</p></section>')
     write_csv(out/"review_worksheet.csv",worksheet)
     (out/"review_workbook.html").write_text('<!doctype html><meta charset="utf-8"><title>QA05 private REVIEW_ONLY</title><style>body{font:16px sans-serif;margin:2rem;max-width:900px}section{border-top:1px solid #aaa;padding:1rem}pre{white-space:pre-wrap}img{max-width:100%}</style><h1>QA05 private REVIEW_ONLY</h1>'+''.join(sections),encoding="utf8")
-def audit(paths,out):
+def audit(paths,out,receipt=None):
     # Exact accepted archives; do not rerun expensive full physics audit.
-    blobs={k:get(paths[k],*spec) for k,spec in INPUTS.items()}
+    if receipt is None:receipt={}
+    # Retain the first error but record every independently available input.
+    blobs={};errors=[]
+    for k,spec in INPUTS.items():
+        try:blobs[k]=get(paths[k],*spec,receipt.setdefault(k,{}))
+        except Exception as exc:errors.append(exc)
+    if errors:raise errors[0]
     q=a16.read_tar(blobs["qa04"],QA04_SHA,allowed={"qa_report.json","review_worksheet.csv","diagnostic_status.json"})
     need(sha(q["qa_report.json"])==QA04_REPORT,"QA04_REPORT_SHA");prior=j(q["qa_report.json"]);status=j(q["diagnostic_status.json"])
     need(status["verifier_sha"]==QA04_PIN and status["exit_code"]==0 and prior["actual_owner_raw_directly_recomputed"] and prior["owner_sha256"]==a16.OWNER and prior["a15_owner_sha256"]==a15.OWNER_SHA and prior["diagnostics_sha256"]==a16.DIAG and prior["a15_direct_audit"] and prior["approved_count"]==0,"QA04_LINK")
@@ -218,11 +238,15 @@ def audit(paths,out):
     old=a15.read_tar(blobs["a15"],a15.OWNER_SHA);new=a16.read_tar(blobs["a16"],a16.OWNER,allowed=a16.OUTER)
     diag=a16.read_tar(blobs["a16_diag"],a16.DIAG,allowed=a16.DIAGNOSTICS)
     need(j(new["batch_status.json"])==j(diag["batch_status.json"]),"A16_BATCH_DIAG_LINK")
+    for key,contents in (("a15",old),("a16",new),("a16_diag",diag),("qa04",q)):
+        receipt[key]["manifest_verified"]=len(contents)
+    receipt["qa04"]["report_sha256"]=sha(q["qa_report.json"])
     items=[]
     for version,outer,pins in (("a15",old,a15.INNER_SHA),("a16",new,a16.INNER)):
         for n,pin in pins.items():
             k=n+"/"+version+"_raw.tar.gz";a15.verify_sidecar(outer[k],outer[k+".sha256"],version+"_raw.tar.gz",pin)
             f=a15.read_tar(outer[k],pin,inner=True) if version=="a15" else a16.read_tar(outer[k],pin,allowed=a16.RAW)
+            receipt[version].setdefault("inner_manifest_verified",{})[n]=len(f)
             items.append(adapt(f,version,n,pin,prior_map.get(n)))
     records=[x[0] for x in items];pairs=similarity(items)
     need(len(records)==12 and len(unique_layouts(records))==12 and len({r["family"] for r in records})==4 and len(pairs)==66,"INVENTORY_COUNT")
@@ -243,4 +267,4 @@ def audit(paths,out):
     write_csv(out/"shortcut_risk_matrix.csv",risks(records))
     split=split_feasibility(records,pairs);(out/"group_split_feasibility.json").write_text(json.dumps(split,indent=2))
     workbook(out,items,pairs)
-    return {"scope":"B_QA05_REVIEW_ONLY","actual_12_scene_roi_review":True,"previous_physics_reused":True,"input_sha":{k:v[1] for k,v in INPUTS.items()},"qa04_verifier":QA04_PIN,"scenes":len(records),"layouts":len(unique_layouts(records)),"families":len({r["family"] for r in records}),"observations":dict(Counter(r["observation"] for r in records)),"roi":roi,"split":split,"gates":{f"B-Q0{i}":"PASS" if i==1 else "HOLD" for i in range(1,8)},"ground_truth":"UNKNOWN_HOLD","approved_count":0,"training_eligible":False,"model_training_executed":False,"production_contact_health":"HOLD","cleanup":"FAIL","product_approval":False}
+    return {"scope":"B_QA05_REVIEW_ONLY","actual_12_scene_roi_review":True,"previous_physics_reused":True,"input_receipt":receipt,"input_sha":{k:v[1] for k,v in INPUTS.items()},"qa04_verifier":QA04_PIN,"scenes":len(records),"layouts":len(unique_layouts(records)),"families":len({r["family"] for r in records}),"observations":dict(Counter(r["observation"] for r in records)),"roi":roi,"split":split,"gates":{f"B-Q0{i}":"PASS" if i==1 else "HOLD" for i in range(1,8)},"ground_truth":"UNKNOWN_HOLD","approved_count":0,"training_eligible":False,"model_training_executed":False,"production_contact_health":"HOLD","cleanup":"FAIL","product_approval":False}
