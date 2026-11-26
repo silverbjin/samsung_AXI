@@ -28,7 +28,7 @@ def snapshot(pid,out,env):
             (out/(name+".txt")).write_bytes(data.replace(b"\0",b" ") if name=="cmdline" else data)
         except OSError as exc:(out/(name+".txt")).write_text("UNAVAILABLE "+str(exc))
     dump(out/"renderer_probe.json",{"requested":{k:env.get(k) for k in ENV_KEYS},"glxinfo_same_environment_not_server_context":cmd(["glxinfo","-B"],env),"maps_scope":"LOADED_LIBRARIES_NOT_DIRECT_GL_CONTEXT_PROOF"})
-def probe(root,out,sdf,profile,debug=False):
+def probe(root,out,sdf,profile,debug=False,*,server_env_override=None):
     import rclpy
     from sensor_msgs.msg import Image
     from rclpy.qos import qos_profile_sensor_data
@@ -65,7 +65,10 @@ def probe(root,out,sdf,profile,debug=False):
                         inferior=s;break
                 time.sleep(.1)
             if inferior is None or not owned_inferior(inferior["inferior_pid"],inferior["start_ticks"],server.pid):raise RuntimeError("A17_GDB_INFERIOR_NOT_OWNED")
-        else:server=launch("server",args,env)
+        else:
+            child_env=dict(env)
+            if server_env_override is not None:child_env.update(server_env_override)
+            server=launch("server",args,child_env)
         bridge=launch("bridge",["ros2","run","ros_gz_bridge","parameter_bridge","--ros-args","-p","config_file:="+str(root/"config/smartdish_tray_bridge.yaml")],env)
         rclpy.init(args=None,domain_id=int(env["ROS_DOMAIN_ID"]));initialized=True
         node=rclpy.create_node("a17_cleanup_"+uuid.uuid4().hex[:12])
