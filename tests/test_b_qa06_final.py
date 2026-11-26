@@ -76,3 +76,43 @@ def test_missing_inputs_diagnostics_no_overwrite(tmp_path):
     s=json.loads((out/"diagnostic_status.json").read_text());assert s["dataset_release"]=="HOLD" and s["first_error"] and len(s["input_receipt"])==9
     assert not (out/"dataset_v1").exists() and (out/"b_qa06_diagnostics.tar.gz.sha256").is_file()
     with pytest.raises(FileExistsError):q.main(args)
+
+def test_near_pair_template_blank():
+    rows=q.review_pair_template([{"a":"b","b":"a","tray_ahash":1,"dish_ahash":20},{"a":"a","b":"c","tray_ahash":9,"dish_ahash":9}])
+    assert len(rows)==1 and rows[0]["pair_key"]=="a|b" and all(not rows[0][k] for k in ("decision","reviewer","reason"))
+def test_release_positive_contract_fixture_only(tmp_path):
+    # In-memory mock receipt only; no real candidate/approval/manifest is touched.
+    root=tmp_path/"fixture";root.mkdir();out=tmp_path/"out";out.mkdir()
+    reg=[];approvals=[]
+    for i in range(6):
+        r=sample(i);r.update(image_path=f"image{i}.png",physics_path=f"e{i}.tar.gz",dish_bbox=[100,100,500,400])
+        Image.new("RGB",(640,480),(i*30,20,50)).save(root/r["image_path"])
+        e=("synthetic review evidence "+str(i)).encode();(root/r["physics_path"]).write_bytes(e);r["archive_sha256"]=q.sha(e);r["image_sha256"]=q.sha((root/r["image_path"]).read_bytes())
+        reg.append(r);approvals.append(approval(r,"STABLE" if i%2==0 else "UNSTABLE"))
+    (root/"similarity_matrix.csv").write_text("a,b,same_pixel,same_file,tray_ahash,dish_ahash\n")
+    a=tmp_path/"approval.jsonl";a.write_text("".join(json.dumps(x)+"\n" for x in approvals))
+    Path(str(a)+".sha256").write_text(q.sha(a.read_bytes())+"  "+a.name+"\n")
+    receipt="f"*64;pin="e"*40
+    p=tmp_path/"policy.json";d={"receipt_sha256":receipt,"approval_sha256":q.sha(a.read_bytes()),"scope":q.SCOPE,"offline_pose_ecm_contact_exception":"ACCEPT_RESEARCH_ONLY_WITH_PRODUCTION_CONTACT_HOLD","diversity_risk_acceptance":{"decision":"APPROVE_RESEARCH_ONLY","reviewer":"fixture","reason":"fixture"}}
+    d.update({k:{"decision":"APPROVE","reviewer":"fixture","reason":"fixture only"} for k in ("pm","b","c")})
+    p.write_text(json.dumps(d));Path(str(p)+".sha256").write_text(q.sha(p.read_bytes())+"  "+p.name+"\n")
+    with patch.object(q,"read_receipt",return_value=({"candidate_version":"fixture"},reg)):
+        release=q.release(root,out,receipt,pin,a,p)
+    ds=out/"dataset_v1";assert release["approved_count"]==6 and release["label_map"]=={"STABLE":0,"UNSTABLE":1}
+    import csv
+    rows=list(csv.DictReader((ds/"split_manifest.csv").open()))
+    assert set(rows[0])==set(q.contract.SPLIT_FIELDS)
+    assert {r["split"] for r in rows}==set(q.contract.SPLITS)
+    assert all("STABLE" not in r["image_path"] and "UNSTABLE" not in r["image_path"] for r in rows)
+    for s in q.contract.SPLITS:assert {r["label"] for r in rows if r["split"]==s}==set(q.contract.LABELS)
+    out2=tmp_path/"readiness";out2.mkdir()
+    q.verify_released(ds,q.sha((ds/"dataset_release.json").read_bytes()),pin,out2)
+    assert json.loads((out2/"c_training_readiness.json").read_text())["verdict"]=="C_REVIEW_REQUIRED"
+    assert json.loads((out2/"e_integration_readiness.json").read_text())["verdict"]=="HOLD"
+    (ds/rows[0]["image_path"]).write_bytes(b"tampered")
+    with pytest.raises(ValueError,match="RELEASE_ARTIFACT_DRIFT"):q.verify_released(ds,q.sha((ds/"dataset_release.json").read_bytes()),pin,out2)
+def test_release_requires_approval(tmp_path):
+    out=tmp_path/"out";out.mkdir()
+    with patch.object(q,"read_receipt",return_value=({},[])):
+        with pytest.raises(ValueError,match="HUMAN_APPROVAL_REQUIRED"):q.release(tmp_path,out,"f"*64,"a"*40,None,None)
+    assert not (out/"dataset_v1").exists()

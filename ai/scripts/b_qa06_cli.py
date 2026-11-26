@@ -183,8 +183,21 @@ def readiness(out,state,why,version=None):
     put(out/"c_training_readiness.json",{"dataset_state":state,"dataset_version":version,"verdict":"C_REVIEW_REQUIRED" if state=="DATASET_V1_RELEASED" else "NO_GO","pipeline_qualification":"CONTRACT_READY_C_REVIEW_REQUIRED" if state=="DATASET_V1_RELEASED" else "HOLD","research_pilot":"CONDITIONAL_REVIEW_REQUIRED","generalization_validation":"NOT_ESTABLISHED","safety_certification":"OUT_OF_SCOPE","scope":SCOPE,"training_executed":False,"input":"RGB(t0) only; no metadata or post-t0","blockers":why})
     put(out/"e_integration_readiness.json",{"verdict":"HOLD","ai_off":"PRESERVE_EXISTING","ai_on":"NO_MODEL_ACCEPTANCE_OR_E_RUNTIME_EVIDENCE","mock_fallback":"INDEPENDENT_WORK_ALLOWED","training_executed":False,"blockers":why+["C model/evaluation and E integration acceptance required"]})
     put(out/"remaining_blockers.json",{"blockers":why,"A19":"NOT_AUTHORIZED","change_request":"NONE_UNTIL_SPECIFIC_BLOCKING_EVIDENCE_AND_PM_APPROVAL"})
+def review_pair_template(pairs):
+    return [{"pair_key":"|".join(sorted((p["a"],p["b"]))),"scene_a":p["a"],"scene_b":p["b"],"tray_ahash":p["tray_ahash"],"dish_ahash":p["dish_ahash"],"decision":"","reviewer":"","reason":""} for p in pairs if int(p["tray_ahash"])<=8 or int(p["dish_ahash"])<=8]
+def cumulative_trace_svg(trace):
+    # 100 ms display-only sum is a lower bound of the exact 1 ms measured path.
+    series={}
+    for n,ps in trace.items():
+        total=0.;acc=[]
+        for i,p in enumerate(ps):
+            if i:total+=math.dist(p[1:],ps[i-1][1:])
+            acc.append([p[0],total,0.,0.])
+        series[n]=acc
+    return q.trace_svg(series)
 def render_review(out,items,pairs,reg):
     rows=review_rows(reg);q.write_csv(out/"review_worksheet.csv",rows)
+    q.write_csv(out/"near_pair_review_template.csv",review_pair_template(pairs))
     (out/"human_approval_template.jsonl").write_text("".join(json.dumps(r,sort_keys=True)+"\n" for r in rows))
     sections=[]
     for r,_,overlay,trace,png in items:
@@ -194,7 +207,7 @@ def render_review(out,items,pairs,reg):
         for d in r["dishes"]:
             p=r["relative_t0_xyz_m"][d["name"]];topview.append(f'<circle cx="{160+p[0]*400}" cy="{115-p[1]*400}" r="{d["radius_m"]*400}" fill="#acc6dc" fill-opacity=".55" stroke="#385b80"/>')
         diagram='<svg viewBox="0 0 320 230" width="320"><rect x="20" y="3" width="280" height="224" fill="#eee" stroke="#555"/>'+''.join(topview)+'</svg>'
-        sections.append(f'<section><h2>{html.escape(n)}</h2><p>Original RGB (t0); overlay is conservative bounding box, not a mask.</p><img width="640" src="data:image/png;base64,{base64.b64encode(png).decode()}"><img width="640" src="data:image/png;base64,{base64.b64encode(overlay).decode()}"><h3>Initial tray-relative geometry (schematic)</h3>{diagram}<h3>Displacement from t0 (100 ms display)</h3>{q.trace_svg(trace)}<pre>{html.escape(json.dumps(info,indent=2))}</pre><p>Nearest review candidates: {html.escape(json.dumps(related))}</p><p>Complete the separate human approval JSONL/CSV. No decisions prefilled.</p></section>')
+        sections.append(f'<section><h2>{html.escape(n)}</h2><p>Original RGB (t0); overlay is conservative bounding box, not a mask.</p><img width="640" src="data:image/png;base64,{base64.b64encode(png).decode()}"><img width="640" src="data:image/png;base64,{base64.b64encode(overlay).decode()}"><h3>Initial tray-relative geometry (schematic)</h3>{diagram}<h3>Displacement from t0 (100 ms display)</h3>{q.trace_svg(trace)}<h3>Cumulative path (100 ms display lower bound; exact 1 ms totals below)</h3>{cumulative_trace_svg(trace)}<pre>{html.escape(json.dumps(info,indent=2))}</pre><p>Nearest review candidates: {html.escape(json.dumps(related))}</p><p>Complete the separate human approval JSONL/CSV. No decisions prefilled.</p></section>')
     (out/"review_workbook.html").write_text('<!doctype html><meta charset="utf-8"><title>QA06 private frozen candidates</title><style>body{font:16px sans-serif;max-width:950px;margin:2rem auto}section{border-top:1px solid #888;padding:1rem}img{max-width:100%}pre{white-space:pre-wrap}</style><h1>QA06 REVIEW_ONLY — 20 frozen candidates</h1>'+''.join(sections))
 def audit(paths,out,source,registry_path,receipt):
     inputs=read_inputs(paths,receipt);items,inners,pairs=load_candidates(inputs,receipt,registry_path);rs=[x[0] for x in items]
@@ -211,10 +224,22 @@ def audit(paths,out,source,registry_path,receipt):
     risk=q.risks(rs);q.write_csv(out/"shortcut_risk_matrix.csv",risk)
     prior_families={r["family"] for r in rs if r["version"]!="a18"}
     cells={(r["family"],r["center_nominal"],"positive" if r["offset_xy_m"][0]>1e-6 else "negative" if r["offset_xy_m"][0]<-1e-6 else "zero") for r in rs if r["family"] in prior_families}
-    split=q.split_feasibility(rs,pairs);put(out/"group_split_feasibility.json",split)
+    split=q.split_feasibility(rs,pairs)
+    # Separately show the hypothetical two broad observation types, not labels.
+    fm=defaultdict(set)
+    for r in rs:fm[r["family"]].add(r["observation"])
+    families=sorted(fm)
+    split["hypothetical_partitions_with_maintained_and_large_each_split"]=sum(all({"POSITION_MAINTAINED","LARGE_DISPLACEMENT"}<=set().union(*(fm[f] for f,c in zip(families,choice) if c==i)) for i in range(3)) for choice in itertools.product(range(3),repeat=len(families)))
+    split["hypothetical_binary_observations_not_labels"]=True
+    put(out/"group_split_feasibility.json",split)
     render_review(out,items,pairs,reg)
+    offset_cross=defaultdict(Counter)
+    for r in rs:
+        x=r["offset_xy_m"][0];key=("SMALL" if r["offset_m"]<=.03 else "LARGE")+"_"+("POS" if x>1e-6 else "NEG" if x<-1e-6 else "ZERO")
+        offset_cross[key][r["observation"]]+=1
+    put(out/"offset_cross_observations.json",{"scope":"DESCRIPTIVE_NOT_GT","threshold_m":.03,"counts":{k:dict(v) for k,v in offset_cross.items()}})
     why=["human GT/rights/occlusion pending","PM/B/C offline evidence policy and near-pair review pending","approved family-independent split absent"]
-    report={"state":"B_QA06_CANDIDATE_FROZEN_REVIEW_READY","scope":SCOPE,"actual_candidates":20,"families":6,"observations":dict(Counter(r["observation"] for r in rs)),"historical_family_cells":len(cells),"roi":roi,"split":split,"preprocess":dict(Counter(r["preprocess_224"] for r in reg)),"manifest_counts":receipt,"old_physics_reused":12,"new_pose_contact_recomputed":8,"approved_count":0,"dataset_release":"HOLD","training_executed":False,"cleanup":dict(Counter(r["cleanup"] for r in rs)),"contact_health":"HOLD","A19":"NOT_AUTHORIZED","gpu_profile":"A18 Owner accepted scope; no new GPU instrumentation"}
+    report={"state":"B_QA06_CANDIDATE_FROZEN_REVIEW_READY","scope":SCOPE,"actual_candidates":20,"families":6,"observations":dict(Counter(r["observation"] for r in rs)),"historical_family_cells":len(cells),"offset_cross_observations":{k:dict(v) for k,v in offset_cross.items()},"roi":roi,"split":split,"preprocess":dict(Counter(r["preprocess_224"] for r in reg)),"manifest_counts":receipt,"old_physics_reused":12,"new_pose_contact_recomputed":8,"approved_count":0,"dataset_release":"HOLD","training_executed":False,"cleanup":dict(Counter(r["cleanup"] for r in rs)),"contact_health":"HOLD","A19":"NOT_AUTHORIZED","gpu_profile":"A18 Owner accepted scope; no new GPU instrumentation"}
     put(out/"qa06_report.json",report);put(out/"gate_status.json",gates());readiness(out,"CANDIDATE_FROZEN",why)
     files={str(p.relative_to(out)):sha(p.read_bytes()) for p in sorted(out.rglob("*")) if p.is_file()}
     seal={"schema":1,"source_sha":source,"scope":SCOPE,"candidate_version":canonical(reg),"inputs":{k:v[1] for k,v in PINS.items()},"files":files,"state":report["state"]}
@@ -277,8 +302,11 @@ def release(root,out,receipt_sha,source,approval,policy):
     need(approval is not None and policy is not None,"HUMAN_APPROVAL_REQUIRED")
     ab=side_verified(approval);pb=side_verified(policy);rows=[j(x) for x in ab.splitlines() if x.strip()];pol=j(pb)
     need(pol["receipt_sha256"]==receipt_sha and pol["approval_sha256"]==sha(ab) and pol["scope"]==SCOPE and pol["offline_pose_ecm_contact_exception"]=="ACCEPT_RESEARCH_ONLY_WITH_PRODUCTION_CONTACT_HOLD","POLICY_SCOPE_APPROVAL")
-    need(all(isinstance(pol.get(k),dict) and pol[k].get("decision")=="APPROVE" and str(pol[k].get("reviewer","")).strip() and str(pol[k].get("reason","")).strip() for k in ("pm","b","c")),"PM_B_C_REVIEW_REQUIRED")
-    valid,excluded=validate_approvals(rows,reg);pairs=csvrows((root/"similarity_matrix.csv").read_bytes());assignment=family_split(valid,pairs,pol.get("near_pair_decisions",{}))
+    need(all(isinstance(pol.get(k),dict) and pol[k].get("decision")=="APPROVE" and all(isinstance(pol[k].get(f),str) and pol[k][f].strip() for f in ("reviewer","reason")) for k in ("pm","b","c")),"PM_B_C_REVIEW_REQUIRED")
+    need(isinstance(pol.get("diversity_risk_acceptance"),dict) and pol["diversity_risk_acceptance"].get("decision")=="APPROVE_RESEARCH_ONLY" and all(isinstance(pol["diversity_risk_acceptance"].get(f),str) and pol["diversity_risk_acceptance"][f].strip() for f in ("reviewer","reason")),"DIVERSITY_RISK_REVIEW_REQUIRED")
+    valid,excluded=validate_approvals(rows,reg)
+    put(out/"review_import_status.json",{"state":"REVIEW_COMPLETED","approval_sha256":sha(ab),"reviewed":len(rows),"approved_candidates":len(valid),"excluded":len(excluded),"dataset_release":"HOLD"})
+    pairs=csvrows((root/"similarity_matrix.csv").read_bytes());assignment=family_split(valid,pairs,pol.get("near_pair_decisions",{}))
     stage=Path(tempfile.mkdtemp(prefix=".release-",dir=out))
     try:
         (stage/"images").mkdir();(stage/"evidence").mkdir();manifest=[];split=[]
@@ -304,7 +332,12 @@ def release(root,out,receipt_sha,source,approval,policy):
     except Exception:
         shutil.rmtree(stage,ignore_errors=True);raise
     readiness(out,"DATASET_V1_RELEASED",["C must independently verify dataset and approve training plan; E actual model not accepted"],version)
-    put(out/"gate_status.json",{"offline_dataset":"RELEASED_RESEARCH_ONLY","production_contact":"HOLD","E":"HOLD","scope":SCOPE})
+    gate=gates()
+    for key in ("B-Q02","B-Q04","B-Q06"):gate[key].update(current="PASS",reason="Explicit operator decisions, rights and independent family split validated for released subset")
+    gate["B-Q03"].update(current="HOLD",reason="Production Contact HOLD; explicit PM/B/C research-only offline exception, no safety waiver",offline_research="ACCEPTED_BY_POLICY")
+    gate["B-Q05"].update(current="HOLD",reason="Diversity not certified; explicit research-only risk acceptance and near-pair review",offline_research="ACCEPTED_BY_POLICY")
+    gate["B-Q07"].update(current="HOLD",reason="B released conditional dataset; C independent training approval remains required",offline_dataset="RELEASED_RESEARCH_ONLY")
+    put(out/"gate_status.json",gate)
     return release_info
 def verify_released(root,expected,source,out):
     r=j(side_verified(root/"dataset_release.json",expected));need(r["source_sha"]==source and r["state"]=="DATASET_V1_RELEASED" and r["label_map"]==contract.LABEL_MAP,"RELEASE_VERSION")
@@ -339,16 +372,29 @@ def main(argv=None):
             result=audit(paths,out,head,Path(__file__).with_name("qa06_a18_registry.json"),receipt)
         elif a.stage=="review":
             seal,reg=read_receipt(a.audit_dir,a.receipt_sha,head)
-            for n in ("review_workbook.html","review_worksheet.csv","human_approval_template.jsonl"):shutil.copyfile(a.audit_dir/n,out/n)
-            result={"state":"REVIEW_ONLY","candidate_version":seal["candidate_version"]};readiness(out,"CANDIDATE_FROZEN",["human approval pending"])
+            for n in ("review_workbook.html","review_worksheet.csv","human_approval_template.jsonl","near_pair_review_template.csv"):shutil.copyfile(a.audit_dir/n,out/n)
+            result={"state":"REVIEW_ONLY","candidate_version":seal["candidate_version"]}
+            if a.approval is not None:
+                ab=side_verified(a.approval);valid,excluded=validate_approvals([j(x) for x in ab.splitlines() if x.strip()],reg)
+                result.update(state="REVIEW_COMPLETED",reviewed=20,approved_candidates=len(valid),excluded=len(excluded),approval_sha256=sha(ab),dataset_release="HOLD")
+                put(out/"review_import_status.json",result)
+            readiness(out,"REVIEW_COMPLETED" if a.approval is not None else "CANDIDATE_FROZEN",["dataset release and policy approval pending"])
         elif a.stage=="release":
             result=release(a.audit_dir,out,a.receipt_sha,head,a.approval,a.policy);status["dataset_release"]="RELEASED"
         else:
-            need(re.fullmatch("[0-9a-f]{64}",a.dataset_release_sha or "") is not None,"TRUSTED_RELEASE_SHA_REQUIRED")
-            result=verify_released(a.dataset_dir,a.dataset_release_sha,head,out);status["dataset_release"]="RELEASED"
+            if a.dataset_dir is None:
+                seal,reg=read_receipt(a.audit_dir,a.receipt_sha,head)
+                result={"state":"CANDIDATE_FROZEN","candidate_version":seal["candidate_version"],"dataset_release":"HOLD"}
+                readiness(out,"CANDIDATE_FROZEN",["human/policy/split approvals pending"])
+                put(out/"gate_status.json",gates())
+            else:
+                need(re.fullmatch("[0-9a-f]{64}",a.dataset_release_sha or "") is not None,"TRUSTED_RELEASE_SHA_REQUIRED")
+                result=verify_released(a.dataset_dir,a.dataset_release_sha,head,out);status["dataset_release"]="RELEASED"
         status["exit_code"]=0;status["result_state"]=result["state"];print(result["state"])
     except Exception as e:
         status["first_error"]=type(e).__name__+": "+str(e);status["result_state"]="B_QA06_HOLD"
+        if a.stage=="release" and (out/"review_import_status.json").is_file() and any(x in str(e) for x in ("MIN_CLASS_LAYOUTS","NO_INDEPENDENT_FAMILY_SPLIT","EXACT_DUPLICATE","PREPROCESS_PIXEL_DUPLICATE")):
+            status["result_state"]="B_QA06_FINAL_NO_GO"
         readiness(out,"HOLD",[status["first_error"]])
         if not (out/"gate_status.json").exists():put(out/"gate_status.json",{"previous_Q01":"PASS","current":"HOLD","reason":status["first_error"]})
         print("B_QA06_HOLD",status["first_error"])
