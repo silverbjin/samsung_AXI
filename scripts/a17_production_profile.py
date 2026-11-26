@@ -42,7 +42,7 @@ def _trusted_library(name,expected):
         require(stat.S_ISREG(st.st_mode) and st.st_uid==0 and not st.st_mode&0o022,"A17_08_LIBRARY_UNTRUSTED")
         require(len(hdr)==20 and hdr[:6]==b"\x7fELF\x02\x01" and struct.unpack_from("<H",hdr,18)[0]==62,"A17_08_LIBRARY_ELF_X86_64_REQUIRED")
         f.seek(0);digest=hashlib.file_digest(f,"sha256").hexdigest()
-    require(digest==expected,"A17_08_LIBRARY_SHA_DRIFT:"+name)
+    require(digest==expected,"A17_08_LIBRARY_SHA_DRIFT:"+name+":actual="+digest+":expected="+expected)
     return {"path":name,"realpath":str(resolved),"sha256":digest,"size_bytes":st.st_size}
 
 def _native_environment(env):
@@ -69,17 +69,18 @@ def prepare(source,profile,source_class):
     gz=_run(["gz","sim","--versions"],env)
     require(gz=="8.15.0","A17_08_HARMONIC_VERSION_DRIFT")
     packages={name:_run(["dpkg-query","-W","-f=${Version}",name],env) for name in MESA_PACKAGES}
-    require(all(v==MESA_VERSION for v in packages.values()),"A17_08_MESA_VERSION_DRIFT")
+    require(all(v==MESA_VERSION for v in packages.values()),"A17_08_MESA_VERSION_DRIFT:"+str(packages))
     libs={name:_trusted_library(name,h) for name,h in LIBRARIES.items()}
     glx=_run(["glxinfo","-B"],env)
     renderer=_renderer(glx)
-    record={"schema":1,"profile":profile,"scope":"A_GAZEBO_SERVER_ONLY","owner_minimal_evidence_sha256":OWNER_ACCEPTANCE_SHA,"owner_acceptance_record":OWNER_ACCEPTANCE_RECORD,"kernel":kernel,"gz_sim":gz,"ros_distro":"jazzy","mesa_packages":packages,"libraries":libs,"glx_renderer":renderer,"glx_scope":"SAME_ENV_GLX_NOT_SERVER_CONTEXT_PROOF","requested_server_env":{k:env.get(k) for k in ENV_KEYS},"runtime_observation":None,"production_cleanup":"NOT_RUN","historical_cleanup":"FAIL","vendor_fix_proven":False}
+    record={"schema":1,"profile":profile,"scope":"A_GAZEBO_SERVER_ONLY","owner_minimal_evidence_sha256":OWNER_ACCEPTANCE_SHA,"owner_acceptance_record":OWNER_ACCEPTANCE_RECORD,"kernel":kernel,"gz_sim":gz,"ros_distro":"jazzy","mesa_packages":packages,"libraries":libs,"glx_renderer":renderer,"glx_scope":"SAME_ENV_GLX_NOT_SERVER_CONTEXT_PROOF","requested_server_env":{k:env.get(k) for k in ENV_KEYS},"runtime_observation":None,"runtime_observation_pre_shutdown":None,"production_cleanup":"NOT_RUN","historical_cleanup":"FAIL","vendor_fix_proven":False}
     env["LD_PRELOAD"]=CORE
     record["requested_server_env"]["LD_PRELOAD"]=CORE
     return env,record
 
-def observe(proc,record):
+def observe(proc,record,phase="runtime_observation"):
     """Read only our live Popen child; retain selected env fields, not arbitrary secrets."""
+    require(phase in ("runtime_observation","runtime_observation_pre_shutdown"),"A17_08_OBSERVATION_PHASE")
     require(record is not None and proc.poll() is None,"A17_08_SERVER_NOT_ALIVE")
     pid=proc.pid;p=Path("/proc",str(pid))
     require(os.getpgid(pid)==pid and pid!=os.getpgrp(),"A17_08_SERVER_GROUP_NOT_OWNED")
@@ -88,7 +89,7 @@ def observe(proc,record):
         key,sep,val=item.partition(b"=")
         if sep and key.decode(errors="replace") in ENV_KEYS:env[key.decode()]=val.decode(errors="replace")
     expected=record["requested_server_env"]
-    require(all(env.get(k)==v for k,v in expected.items() if v is not None) and env.get("LD_PRELOAD")==CORE and not env.get("LD_AUDIT"),"A17_08_ACTUAL_SERVER_ENV_DRIFT")
+    require(all(env.get(k)==v for k,v in expected.items()) and env.get("LD_PRELOAD")==CORE and not env.get("LD_AUDIT"),"A17_08_ACTUAL_SERVER_ENV_DRIFT")
     lines=(p/"maps").read_text().splitlines();mapped=[]
     for line in lines:
         parts=line.split(maxsplit=5)
@@ -96,8 +97,8 @@ def observe(proc,record):
     for name,x in record["libraries"].items():
         require(any(m["path"] in (name,x["realpath"]) and "x" in m["permissions"] for m in mapped),"A17_08_SERVER_LIBRARY_NOT_MAPPED:"+name)
     require(proc.poll() is None,"A17_08_SERVER_EXITED_DURING_OBSERVATION")
-    record["runtime_observation"]={"pid":pid,"selected_env":env,"mapped_libraries":mapped,"scope":"ACTUAL_SERVER_PROCESS_MAPS_NOT_DIRECT_GL_CONTEXT"}
-    return record["runtime_observation"]
+    record[phase]={"pid":pid,"selected_env":env,"mapped_libraries":mapped,"scope":"ACTUAL_SERVER_PROCESS_MAPS_NOT_DIRECT_GL_CONTEXT"}
+    return record[phase]
 
 def cleanup_result(record,rows,data,all_owned_stopped):
     """Preserve data/GUI outcomes; production cleanup is a separate stricter gate."""
@@ -105,7 +106,7 @@ def cleanup_result(record,rows,data,all_owned_stopped):
     server=[x for x in rows if x.get("role")=="server"]
     required_roles={"server","native_contact","rgb_bridge","contact_bridge"}
     non_gui=[x for x in rows if x.get("role")!="gui"]
-    ok=(data=="PASS" and record.get("runtime_observation") is not None and all_owned_stopped
+    ok=(data=="PASS" and record.get("runtime_observation") is not None and record.get("runtime_observation_pre_shutdown") is not None and all_owned_stopped
         and len(server)==1 and set(x.get("role") for x in non_gui)==required_roles
         and len(non_gui)==len(required_roles)
         and all(x.get("returncode")==0 and x.get("stopped") is True and x.get("process_group_remaining") is False for x in non_gui)

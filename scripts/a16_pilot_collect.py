@@ -146,6 +146,7 @@ def run(a):
         report["registration"]=registration(out/"entity_registry.tsv",ecm,meta,report["trigger"])
         report["contact_diagnostic"]=transport_diagnostic(ecm,state["raw"],load_native(out/"native_contacts.tsv"),meta["contact_topics"],t0,END_NS)
         report["data_verdict"]="PASS"
+        if profile_record is not None:observe_server_profile(server,profile_record,"runtime_observation_pre_shutdown")
         print("A16_REAL_CAPTURE_PASS_GT_HOLD="+a.scene,flush=True)
     except Exception as exc:
         report["first_error"]=type(exc).__name__+": "+str(exc)

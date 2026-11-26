@@ -1,0 +1,39 @@
+name: SmartDish A17-08 Production Profile
+on:
+  push:
+    branches: [feat/smartdish-a17-production-adoption]
+    paths: ['scripts/a17_production_profile.py','scripts/a16_pilot_collect.py','tests/test_a17_production_profile.py','tests/fixtures/a17_production_scope.py','.github/workflows/smartdish-a17-production.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  scoped:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Syntax and scoped regression
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/a17_production_profile.py scripts/a16_pilot_collect.py tests/fixtures/a17_production_scope.py
+          python3 -m unittest discover -s tests -p 'test_a17*.py' -v
+          python3 -m unittest discover -s tests -p test_a16_pilot.py -v
+          python3 -m unittest discover -s tests -p test_a15_pilot.py -v
+          python3 -m unittest discover -s tests/platform -v
+          bash tests/platform/test_pin_checkout.sh
+          python3 scripts/smartdish_platform/baseline.py --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+      - name: Real five-process loader environment and teardown fixture
+        run: |
+          set -Eeuo pipefail
+          python3 tests/fixtures/a17_production_scope.py "$PWD/a17_production_fixture"
+          git rev-parse HEAD > a17_production_fixture/SOURCE_SHA
+          (cd a17_production_fixture && sha256sum results.json SOURCE_SHA > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a17-production-scope-fixture
+          path: |
+            a17_production_fixture/results.json
+            a17_production_fixture/SOURCE_SHA
+            a17_production_fixture/SHA256SUMS
+          if-no-files-found: ignore
