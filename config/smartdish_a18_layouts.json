@@ -1,0 +1,184 @@
+{
+  "schema": 3,
+  "version": "SMARTDISH_A18_V1",
+  "scope": "FIXED_WORLD_Y_TORQUE_CONDITIONAL",
+  "qa05_evidence_sha256": "240bfe72317303566a43b0a3e97bd4c042d95ce75e36ce87e0d940808e391371",
+  "families": {
+    "F1": {
+      "dims": [
+        [
+          0.11,
+          0.035
+        ],
+        [
+          0.085,
+          0.035
+        ]
+      ],
+      "id": "f3b3a79ad46a99190150dd26bb78cb0733d0becbdaadeaf92ec5221b9790b534"
+    },
+    "F2": {
+      "dims": [
+        [
+          0.13,
+          0.035
+        ],
+        [
+          0.09,
+          0.035
+        ]
+      ],
+      "id": "e9f8614e5c7b6f0e78e344cde1bef143009d24bcef3cf5719fef46e0ed634fbb"
+    },
+    "F3": {
+      "dims": [
+        [
+          0.115,
+          0.045
+        ],
+        [
+          0.082,
+          0.05
+        ]
+      ],
+      "id": "e5f9a95b28a79052d3c9b8ee5f3a04a836e45e0152e6f869efea8f8cfaa06ca3"
+    },
+    "F4": {
+      "dims": [
+        [
+          0.14,
+          0.025
+        ],
+        [
+          0.105,
+          0.025
+        ],
+        [
+          0.075,
+          0.035
+        ]
+      ],
+      "id": "944071c7694f5360d7a77c37a8ab79682f35f81587c67928baa56c7c71f5c7c9"
+    },
+    "F5": {
+      "dims": [
+        [
+          0.125,
+          0.025
+        ],
+        [
+          0.085,
+          0.06
+        ]
+      ],
+      "id": "c30ee33eb93de5d3e639055fecb71b7716f9e81aa99ef6c03c70586592bfe3a8"
+    },
+    "F6": {
+      "dims": [
+        [
+          0.155,
+          0.025
+        ],
+        [
+          0.12,
+          0.02
+        ],
+        [
+          0.09,
+          0.025
+        ],
+        [
+          0.06,
+          0.04
+        ]
+      ],
+      "id": "abed84979eafbb7b004a0af892e4ccfd7b39469cb4909d015880cc77f88f3726"
+    }
+  },
+  "layouts": [
+    {
+      "scene_id": "L18-01",
+      "family": "F3",
+      "x": [
+        0.097,
+        0
+      ],
+      "phase": 1,
+      "comparison": "L16-02"
+    },
+    {
+      "scene_id": "L18-02",
+      "family": "F4",
+      "x": [
+        -0.087,
+        -0.087,
+        0
+      ],
+      "phase": 1,
+      "comparison": "L16-06"
+    },
+    {
+      "scene_id": "L18-03",
+      "family": "F1",
+      "x": [
+        0.092,
+        0
+      ],
+      "phase": 1,
+      "comparison": "L15-02"
+    },
+    {
+      "scene_id": "L18-04",
+      "family": "F2",
+      "x": [
+        0.05,
+        -0.062
+      ],
+      "phase": 1,
+      "comparison": "L15-04"
+    },
+    {
+      "scene_id": "L18-05",
+      "family": "F3",
+      "x": [
+        0,
+        0
+      ],
+      "phase": 2,
+      "comparison": "L16-01"
+    },
+    {
+      "scene_id": "L18-06",
+      "family": "F4",
+      "x": [
+        -0.015,
+        -0.015,
+        -0.102
+      ],
+      "phase": 2,
+      "comparison": "L16-08"
+    },
+    {
+      "scene_id": "L18-07",
+      "family": "F5",
+      "x": [
+        -0.039,
+        0
+      ],
+      "phase": 2,
+      "comparison": null
+    },
+    {
+      "scene_id": "L18-08",
+      "family": "F6",
+      "x": [
+        0.08,
+        0.08,
+        0.08,
+        0
+      ],
+      "phase": 2,
+      "comparison": null
+    }
+  ]
+}
