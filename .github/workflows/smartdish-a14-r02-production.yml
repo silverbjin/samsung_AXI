@@ -1,0 +1,96 @@
+name: SmartDish A14 R02-3 Production Capture Integration
+on:
+  push:
+    branches: [feat/smartdish-a14-physics-evidence]
+    paths:
+      - 'scripts/a14_r02_production_*'
+      - 'tests/test_a14_r02_production.py'
+      - '.github/workflows/smartdish-a14-r02-production.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: a14-r02-production-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml python3-pil
+          python3 -m py_compile scripts/a14_r02_production_collect.py scripts/a14_r02_production_verify.py
+          python3 -m pytest -q tests/test_a14_r02_production.py
+  l2:
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual ROS Jazzy and Harmonic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git cmake g++ make python3-yaml python3-pil \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs \
+            ros-jazzy-rosgraph-msgs ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor \
+            xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Build version-fixed R02-2 observer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          cmake -S scripts/a14_physics_freshness -B /tmp/a14_r02_build
+          cmake --build /tmp/a14_r02_build -j2
+      - name: New contract only — both silent-channel production cases
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          for scene in ST-02 UN-01; do
+            xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=20s 600s \
+              python3 -u scripts/a14_r02_production_collect.py --sha "$GITHUB_SHA" \
+                --plugin /tmp/a14_r02_build/liba14_physics_freshness.so --scene "$scene"
+          done
+          python3 - <<'PY'
+          import os,sys,hashlib,tarfile,json
+          from pathlib import Path
+          sys.path.insert(0,'scripts')
+          from a14_r02_production_verify import verify
+          trials=list(Path('generated/smartdish_tray').glob('run_*/trial_0001'))
+          assert len(trials)==2
+          seen=set()
+          for p in trials:
+              r=verify(p,os.environ['GITHUB_SHA']);seen.add(r['scene_id'])
+              root=p.parent
+              archive=root/'smartdish_a_tray_evidence.tar.gz'
+              with tarfile.open(archive,'r:gz') as t:
+                  for line in t.extractfile('SHA256SUMS').read().decode().splitlines():
+                      digest,name=line.split('  ',1)
+                      assert hashlib.sha256(t.extractfile(name).read()).hexdigest()==digest
+              (root/(archive.name+'.sha256')).write_text(hashlib.sha256(archive.read_bytes()).hexdigest()+'  '+archive.name+'\n')
+              print('R02_3_REAL_PRODUCTION_EVIDENCE_PASS_GT_HOLD='+r['scene_id'])
+          assert seen=={'ST-02','UN-01'}
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a14-r02-3-production-${{ github.run_id }}
+          path: generated/smartdish_tray/run_*/
+          if-no-files-found: ignore
+          retention-days: 14
