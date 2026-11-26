@@ -1,0 +1,79 @@
+name: SmartDish A17 Cleanup Diagnostics
+on:
+  push:
+    branches: [feat/smartdish-a17-cleanup-root-cause]
+    paths: ['scripts/a17_*','tests/test_a17_cleanup.py','.github/workflows/smartdish-a17-cleanup.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/a17_*.py
+          bash -n scripts/a17_cleanup_bootstrap.sh
+          python3 -m unittest discover -s tests -p test_a17_cleanup.py -v
+          python3 -m unittest discover -s tests/platform -v
+          bash tests/platform/test_pin_checkout.sh
+          python3 scripts/smartdish_platform/baseline.py --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+  l2:
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Install scoped Gazebo and debugger
+        shell: bash
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git gdb ruby python3-yaml python3-pil \
+            ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Real debugger crash and normal exit fixtures (not Gazebo evidence)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$PWD/a17_fixture/crash" "$PWD/a17_fixture/normal"
+          printf '%s\n' 'import os, signal; os.kill(os.getpid(), signal.SIGSEGV)' > "$PWD/a17_fixture/crash_fixture.py"
+          A17_GDB_OUT="$PWD/a17_fixture/crash" timeout 40s gdb -q -nx --batch -x scripts/a17_gdb_capture.py --args /usr/bin/python3 "$PWD/a17_fixture/crash_fixture.py" > "$PWD/a17_fixture/crash/gdb.log" 2>&1
+          A17_GDB_OUT="$PWD/a17_fixture/normal" timeout 40s gdb -q -nx --batch -x scripts/a17_gdb_capture.py --args /bin/true > "$PWD/a17_fixture/normal/gdb.log" 2>&1
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('a17_fixture/crash/gdb_status.json').read_text())
+          b=json.loads(Path('a17_fixture/normal/gdb_status.json').read_text())
+          assert a['inferior_exit_signal']==11 and a['stack_captured'] and not a['debugger_error'],a
+          assert b['inferior_exit_code']==0 and not b['debugger_error'],b
+          assert '#0' in Path('a17_fixture/crash/crash_stack.txt').read_text()
+          print('A17_GDB_REAL_CRASH_FIXTURE_PASS_NOT_GAZEBO')
+          PY
+      - name: Actual camera-only software direct and GDB control
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD"
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24' python3 -u scripts/a17_cleanup_probe.py --sha "$GITHUB_SHA" --out "$PWD/generated_a17" --ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a17-cleanup-${{ github.run_id }}
+          path: |
+            a17_fixture/
+            generated_a17/a17_cleanup_evidence.tar.gz*
+            generated_a17/a17_report.json
+          if-no-files-found: ignore

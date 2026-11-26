@@ -1,0 +1,50 @@
+name: SmartDish A17 GPU Retention Candidate
+on:
+  push:
+    branches: [feat/smartdish-a17-cleanup-root-cause]
+    paths: ['scripts/a17_gpu_retention*','scripts/a17_cleanup_probe.py','tests/test_a17_gpu_retention.py','tests/fixtures/a17_retention/**','.github/workflows/smartdish-a17-retention.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/a17_*.py
+          bash -n scripts/a17_gpu_retention_bootstrap.sh
+          python3 -m unittest discover -s tests -p 'test_a17*.py' -v
+          python3 -m unittest discover -s tests/platform -v
+          bash tests/platform/test_pin_checkout.sh
+          python3 scripts/smartdish_platform/baseline.py --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+      - name: Real Linux TSD lifetime analogue (not D3D12 or Gazebo)
+        run: |
+          set -Eeuo pipefail
+          mkdir -p a17_retention_fixture
+          gcc -Wall -Wextra -Werror -shared -fPIC tests/fixtures/a17_retention/tsd.c -pthread -o a17_retention_fixture/libtsd.so
+          gcc -Wall -Wextra -Werror tests/fixtures/a17_retention/main.c -pthread -ldl -o a17_retention_fixture/worker
+          python3 - <<'PY'
+          import os,resource,subprocess,json,hashlib
+          from pathlib import Path
+          resource.setrlimit(resource.RLIMIT_CORE,(0,0))
+          d=Path('a17_retention_fixture').resolve()
+          env=dict(os.environ);env.pop('LD_PRELOAD',None);env.pop('LD_AUDIT',None)
+          results={}
+          for name,e in [('unretained',env),('retained',dict(env,LD_PRELOAD=str(d/'libtsd.so')))]:
+              r=subprocess.run([str(d/'worker'),str(d/'libtsd.so')],env=e,capture_output=True,text=True,timeout=10)
+              results[name]={'rc':r.returncode,'stdout':r.stdout,'stderr':r.stderr}
+          (d/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+          print(json.dumps(results))
+          assert results['unretained']['rc']==-11 and 'DLCLOSE_RETURNED' in results['unretained']['stdout']
+          assert results['retained']['rc']==0 and 'TSD_DESTRUCTOR_RAN' in results['retained']['stdout'] and 'JOINED' in results['retained']['stdout']
+          print('A17_RETENTION_LINUX_ANALOGUE_PASS_NOT_WSL')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a17-retention-fixture
+          path: a17_retention_fixture/results.json
+          if-no-files-found: ignore
