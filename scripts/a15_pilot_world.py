@@ -42,6 +42,10 @@ def generate(scene,out,pose_plugin,health_plugin):
     # Reuse exact A14 contact SDF/bridge generator; its STATIC_GRAVITY metadata
     # is auxiliary legacy output, NOT the A15 profile. Keep A15 metadata separate.
     cfg=configure_sdf(path,dict(meta))
+    # Remove auxiliary legacy metadata generated in this new trial only; the
+    # A15 design is the sole profile/identity authority.
+    path.with_suffix(".scenario.json").unlink()
+    (out/"geometry_layout.json").unlink()
     tree=ET.parse(path);world=tree.getroot().find("world")
     p=ET.SubElement(world,"plugin",filename=str(Path(pose_plugin).resolve()),name="smartdish::A15Pilot")
     for k,v in dict(output=str((out/"poses.tsv").resolve()),trigger_output=str((out/"trigger.tsv").resolve()),trigger_ns=TRIGGER_NS,duration_ns=DURATION_NS,torque_nm=TORQUE_NM).items():ET.SubElement(p,k).text=str(v)
