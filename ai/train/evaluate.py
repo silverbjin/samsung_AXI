@@ -37,6 +37,13 @@ def classification_metrics(truth: list[str], pred: list[str]) -> dict:
 
 
 def evaluate(args):
+    test_seal = None
+    if not args.demo_fixtures:
+        from ai.train.pilot_eval_gate import authorize_test_once
+        test_seal = authorize_test_once(
+            args.checkpoint, args.split_manifest,
+            getattr(args, "experiment_lock", Path("ai/docs/C_V1_EXPERIMENT_LOCK.json")),
+            getattr(args, "test_approval", None), getattr(args, "test_lock", None))
     from PIL import Image
     rows = read_verified_split(args.split_manifest, args.root, demo_fixtures=args.demo_fixtures)
     checkpoint_sha = hashlib.sha256(args.checkpoint.read_bytes()).hexdigest()
@@ -60,7 +67,12 @@ def evaluate(args):
               "test_confidences": scores, "test_predictions": pred,
               "data_scope": "MOCK_ONLY" if args.demo_fixtures else "PHYSICS_OBSERVED",
               "evaluation_scope": "MOCK_ONLY_SANITY_CHECK" if args.demo_fixtures else "INDEPENDENT_B_TEST",
-              "performance_claim_allowed": not args.demo_fixtures}
+              "performance_claim_allowed": False,  # research N=4 is no generalization claim
+              "test_seal": test_seal}
+    if test_seal is not None:
+        from ai.train.pilot_eval_gate import pilot_metrics
+        report["pilot_risk_metrics"] = pilot_metrics(truth, pred, scores,
+                                                      threshold=test_seal["threshold"])
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(("C_MOCK_ONLY_TEST_EVALUATED " if args.demo_fixtures else "C_INDEPENDENT_TEST_EVALUATED ")
@@ -76,6 +88,10 @@ def main():
     p.add_argument("--report", type=Path, required=True)
     p.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
     p.add_argument("--demo-fixtures", action="store_true", help="Opt-in MOCK_ONLY diagnostic metrics, not model performance")
+    p.add_argument("--test-approval", type=Path, help="private one-time C P3 human approval")
+    p.add_argument("--test-lock", type=Path, help="private O_EXCL one-time Test opening ledger")
+    p.add_argument("--experiment-lock", type=Path,
+                   default=Path("ai/docs/C_V1_EXPERIMENT_LOCK.json"))
     evaluate(p.parse_args())
 
 
