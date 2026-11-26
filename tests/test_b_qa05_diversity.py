@@ -126,3 +126,36 @@ def test_failure_diagnostic_and_no_overwrite(tmp_path):
     a=out/"b_qa05_diagnostics.tar.gz";assert hashlib.sha256(a.read_bytes()).hexdigest() in Path(str(a)+".sha256").read_text()
     with tarfile.open(a) as t:assert set(t.getnames())=={"qa05_report.json","diagnostic_status.json","SHA256SUMS"}
     with pytest.raises(FileExistsError):cli.main(args)
+
+def test_seed_jitter_profile_rejected():
+    f=make_a15_schema_fixture();d=json.loads(f["a15_design.json"]);d["seed"]=1;f["a15_design.json"]=json.dumps(d).encode()
+    with pytest.raises(ValueError,match="UNQUALIFIED_SEED"):q.adapt(f,"a15","L15-01","fixture")
+def test_same_physical_signature_not_new_layout():
+    records=[dict(fixture(0)[0],physical_signature="same"),dict(fixture(1)[0],physical_signature="same")]
+    with pytest.raises(ValueError,match="SAME_PHYSICS_DISTINCT_LAYOUT_REVIEW"):q.unique_layouts(records)
+def test_complete_12_scene_synthetic_outputs(tmp_path):
+    """Exercise all output writers; no Owner data, no real acceptance."""
+    import copy,csv
+    f=make_a15_schema_fixture()
+    with patch.dict(q.a15.EXPECTED_IMAGES,{"L15-01":q.sha(f["tray_rgb_t0.png"])}):
+        item=q.adapt(f,"a15","L15-01","fixture")
+    items=[]
+    for i in range(12):
+        r=copy.deepcopy(item[0]);im=Image.new("RGB",(8,8),(i,i,i))
+        r.update(scene_id=f"FIXTURE-{i:02d}",layout=f"layout-{i}",stack_id=f"layout-{i}",physical_signature=f"physical-{i}",family=f"family-{i%4}",pixel_sha=q.pixels(im),image_sha=f"file-{i}",observation="POSITION_MAINTAINED" if i%2 else "LARGE_DISPLACEMENT")
+        items.append((r,{k:q.image_data(im) for k in q.REGIONS},item[2],item[3],item[4]))
+    result=q.finalize(items,{"near_duplicate_review_candidates":[]},{},tmp_path)
+    assert result["scenes"]==12 and result["roi"]["pair_count"]==66
+    assert not result["roi"]["qa04_full_ahash_matches"] and len(result["roi"]["qa04_full_ahash_mismatches"])==66
+    assert not result["product_approval"] and result["approved_count"]==0
+    assert result["gates"]["B-Q01"]=="PASS" and all(result["gates"][f"B-Q0{i}"]=="HOLD" for i in range(2,8))
+    for region in q.REGIONS:
+        for metric in ("ahash","dhash","block_ssim"):
+            with (tmp_path/(region+"_"+metric+"_12x12.csv")).open() as file:rows=list(csv.DictReader(file))
+            assert len(rows)==12 and len(rows[0])==13
+    with (tmp_path/"similarity_matrix.csv").open() as file:assert len(list(csv.DictReader(file)))==66
+    with (tmp_path/"review_worksheet.csv").open() as file:rows=list(csv.DictReader(file))
+    assert len(rows)==12 and all(not row["gt_decision"] and not row["reviewer"] for row in rows)
+    assert (tmp_path/"review_workbook.html").is_file() and (tmp_path/"pose_review_timeseries.csv").is_file()
+    assert (tmp_path/"next_a_requirements.json").is_file() and (tmp_path/"shortcut_summary.json").is_file()
+    assert not any(p.name in ("approval_ledger.jsonl","manifest.csv","split_manifest.csv","train_manifest.csv") for p in tmp_path.iterdir())

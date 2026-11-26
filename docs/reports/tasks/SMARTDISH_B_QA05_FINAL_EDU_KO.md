@@ -6,3 +6,6 @@
 
 ## 리뷰 보강
 초기 CI #45753723933 (43 passed=33 이전+10 QA05, common7, pin), B dataset #45753723931 (174 passed) SUCCESS. 기존 성공은 보존. 후속 리뷰에서 실패 입력 receipt, Layout/Family 충돌 및 exact-pixel cross-family split 제한, nominal center 교차, 그래프 축 자동화와 실제 스키마 유사 양성 fixture를 보강했다. 이는 새로운 합성 테스트이며 실제 12장면 실측이 아니다. 새 SHA CI는 별도 PR 로그로 확인한다. 외부 SIGKILL, clone/환경 실패 또는 출력 디렉터리 생성 실패에서 CLI 진단은 보장되지 않는다.
+
+## 산출물 통합 검수
+중간 보강 CI #45754040613 50 passed (33 이전+17 신규), platform 7 및 pin PASS, B dataset #45754040658 174 passed. 최종 기능 보강: seed0 계약과 물리 signature 중복 차단, 원본/overlay 비교, 상대 xyz 표시 CSV, actual missing-cross 기반 next_a_requirements.json, 12-scene 합성 연결 시험. 모든 실행은 리뷰 전용이며 A16 원본 미확보로 실제 12장면은 NOT_RUN. 최종 CI는 신규 SHA/PR 로그를 참조한다.

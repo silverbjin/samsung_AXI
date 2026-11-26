@@ -88,6 +88,9 @@ def adapt(f,version,scene,pin,prior=None):
     geom=a15.geometry_provenance(d) if version=="a15" else a16.geometry(d,f["scenario.sdf"])
     family=d["geometry_family_id"];layout=d["physical_layout_id"]
     need(layout==d["stack_id"],"LAYOUT_STACK")
+    # Both accepted producer profiles use seed zero; future seed-jitter profiles need a separate contract.
+    need(d["seed"]==0,"UNQUALIFIED_SEED")
+    physical_signature=sha(json.dumps([[x[k] for k in ("radius_m","thickness_m","mass_kg","friction_mu","x","y","z")]+[x.get(k,0.) for k in ("roll","pitch","yaw")] for x in d["initial_dishes"]],separators=(",",":")).encode())
     info=c["camera_info"];k=info["k"]
     need(c["stamp_ns"]==info["stamp_ns"]==a15.T0_NS and c["encoding"]=="rgb8" and info["width"]==640 and info["height"]==480 and len(k)==9 and all(math.isfinite(x) for x in k) and k[0]>0 and k[4]>0,"CAMERA")
     need(all(abs(x)<1e-12 for x in info.get("d",[])),"DISTORTION_UNSUPPORTED")
@@ -136,12 +139,16 @@ def adapt(f,version,scene,pin,prior=None):
     annotated=im.copy();draw=ImageDraw.Draw(annotated);draw.rectangle(traybox,outline="cyan",width=2);draw.rectangle(dishbox,outline="yellow",width=2)
     for n,b in dishboxes.items():draw.rectangle(b,outline="magenta",width=1);draw.text((b[0],b[1]),n,fill="white")
     buf=io.BytesIO();annotated.save(buf,format="PNG")
-    record={"scene_id":scene,"trial_id":d["trial_id"],"layout":layout,"family":family,"stack_id":d["stack_id"],"seed":d["seed"],"version":version,"environment":d["environment_profile_id"],"source_environment":"OWNER_WSL2","inner_sha":pin,"image_sha":c["image_sha256"],"pixel_sha":px,"dish_count":len(ds),"dishes":ds,"relative_t0_xyz_m":rel,"stack_height_nominal_m":sum(x["thickness_m"] for x in ds),"upper_center_distance_m":math.hypot(*p[:2]),"center_nominal":d.get("upper_tray_center_group","CENTER" if math.hypot(top["x"],top["y"])<1e-8 else "ECCENTRIC"),"source_sha":expected,"offset_xy_m":offset,"offset_m":off,"nominal_support_margin_m":margins,"torque_world_nm":d["trigger"]["torque_nm"],"colors":colors,"background":bg,"camera_pose":cam,"brightness":statistics.mean(ImageStat.Stat(im.convert("L")).mean),"dish_bbox_area_px2":(dishbox[2]-dishbox[0])*(dishbox[3]-dishbox[1]),"tray_bbox":traybox,"dish_bbox":dishbox,"dish_bboxes":dishboxes,"bbox_overlap":overlaps,"visibility":"BBOX_ONLY_NOT_SEGMENTATION","support":iv["support"],"settle":iv["dishes"],"trigger":d["trigger"],"end_ns":d["end_ns"],"metrics":metrics,"observation":obs,"contact_health":"HOLD","cleanup":"FAIL","gt":"UNKNOWN_HOLD","human_approved":False,"training_eligible":False}
-    return record,{n:image_data(v) for n,v in rois.items()},buf.getvalue(),trace
+    record={"scene_id":scene,"trial_id":d["trial_id"],"layout":layout,"family":family,"stack_id":d["stack_id"],"physical_signature":physical_signature,"seed":d["seed"],"version":version,"environment":d["environment_profile_id"],"source_environment":"OWNER_WSL2","inner_sha":pin,"image_sha":c["image_sha256"],"pixel_sha":px,"dish_count":len(ds),"dishes":ds,"relative_t0_xyz_m":rel,"stack_height_nominal_m":sum(x["thickness_m"] for x in ds),"upper_center_distance_m":math.hypot(*p[:2]),"center_nominal":d.get("upper_tray_center_group","CENTER" if math.hypot(top["x"],top["y"])<1e-8 else "ECCENTRIC"),"source_sha":expected,"offset_xy_m":offset,"offset_m":off,"nominal_support_margin_m":margins,"torque_world_nm":d["trigger"]["torque_nm"],"torque_tray_nm":a15.rotate(a15.q_inv(a15.norm_q(tp)),tuple(d["trigger"]["torque_nm"])),"support_offset_world_m":a15.rotate(a15.norm_q(tp),(*offset,0.)),"colors":colors,"background":bg,"camera_pose":cam,"brightness":statistics.mean(ImageStat.Stat(im.convert("L")).mean),"dish_bbox_area_px2":(dishbox[2]-dishbox[0])*(dishbox[3]-dishbox[1]),"tray_bbox":traybox,"dish_bbox":dishbox,"dish_bboxes":dishboxes,"bbox_overlap":overlaps,"visibility":"BBOX_ONLY_NOT_SEGMENTATION","support":iv["support"],"settle":iv["dishes"],"trigger":d["trigger"],"end_ns":d["end_ns"],"metrics":metrics,"observation":obs,"visual_review_history":"USER_COMPLETED_NOT_GT_APPROVAL" if version=="a16" else "PER_SCENE_REVIEW_NOT_APPROVED","contact_health":"HOLD","cleanup":"FAIL","gt":"UNKNOWN_HOLD","human_approved":False,"training_eligible":False}
+    return record,{n:image_data(v) for n,v in rois.items()},buf.getvalue(),trace,png
 def unique_layouts(records):
     groups=defaultdict(list)
     for r in records:groups[r["layout"]].append(r)
     need(all(len({r["family"] for r in group})==1 for group in groups.values()),"LAYOUT_FAMILY_CONFLICT")
+    signatures=defaultdict(set)
+    for r in records:
+        if r.get("physical_signature"):signatures[r["physical_signature"]].add(r["layout"])
+    need(all(len(v)==1 for v in signatures.values()),"SAME_PHYSICS_DISTINCT_LAYOUT_REVIEW")
     return groups
 def similarity(items):
     rows=[]
@@ -162,6 +169,7 @@ def risks(records):
       "dish_bbox_2000px2":lambda r:str(int(r["dish_bbox_area_px2"]//2000)),
       "offset_0.03m":lambda r:"small" if r["offset_m"]<=.03 else "large",
       "signed_offset_x":lambda r:"positive" if r["offset_xy_m"][0]>1e-6 else "negative" if r["offset_xy_m"][0]<-1e-6 else "zero",
+      "signed_world_offset_x":lambda r:"positive" if r["support_offset_world_m"][0]>1e-6 else "negative" if r["support_offset_world_m"][0]<-1e-6 else "zero",
       "support_margin":lambda r:"positive" if r["nominal_support_margin_m"]>0 else "nonpositive",
       "environment":lambda r:r["environment"],"background":lambda r:r["background"],
       "camera":lambda r:json.dumps({k:round(v,6) for k,v in r["camera_pose"].items()},sort_keys=True),
@@ -171,7 +179,7 @@ def risks(records):
         cells=defaultdict(Counter)
         for r in records:cells[fn(r)][r["observation"]]+=1
         pure=sum(max(c.values()) for c in cells.values());total=len(records)
-        category="PHYSICAL_OR_PROXY" if field in ("center_0.05m","center_nominal","dish_count","family","height_0.1m","offset_0.03m","signed_offset_x","support_margin","torque") else "POTENTIAL_NUISANCE_OR_PROXY"
+        category="PHYSICAL_OR_PROXY" if field in ("center_0.05m","center_nominal","dish_count","family","height_0.1m","offset_0.03m","signed_offset_x","signed_world_offset_x","support_margin","torque") else "POTENTIAL_NUISANCE_OR_PROXY"
         for k,c in sorted(cells.items()):
             out.append({"variable":field,"category":category,"value":k,"counts":json.dumps(c,sort_keys=True),"n":sum(c.values()),"pure_cell":len(c)==1,"exploratory_in_sample_purity":pure/total,"status":"FIXED_UNTESTABLE" if len(cells)==1 else "DESCRIPTIVE_ONLY"})
     # explicit crossing cells, absent combinations remain zero.
@@ -215,11 +223,11 @@ def trace_svg(trace):
     return '<svg viewBox="0 0 640 190" width="640"><path d="M35 25V160H595" fill="none" stroke="gray"/><text x="2" y="30">'+f'{ymax:.3g}m'+'</text><text x="3" y="160">0</text><text x="35" y="180">2s</text><text x="550" y="180">12.3s</text>'+''.join(lines)+'</svg>'
 def workbook(out,items,pairs):
     worksheet=[];sections=[]
-    for r,_,png,trace in items:
+    for r,_,png,trace,original in items:
         n=r["scene_id"];related=sorted((p for p in pairs if n in (p["a"],p["b"])),key=lambda p:p["dish_ahash"])[:4]
         worksheet.append({"scene_id":n,"layout":r["layout"],"initial_placement":"","occlusion":"","physics_validity":"","learning_suitability":"","license_status":"","gt_decision":"","reviewer":"","reason":""})
-        safe=html.escape(json.dumps({k:r[k] for k in ("dishes","relative_t0_xyz_m","support","settle","trigger","end_ns","metrics","bbox_overlap","contact_health","cleanup","observation")},ensure_ascii=False,indent=2))
-        sections.append(f'<section><h2>{html.escape(n)}</h2><img alt="t0 ROI overlay" width="640" src="data:image/png;base64,{base64.b64encode(png).decode()}"><p>cyan tray; yellow dish union; magenta conservative boxes; not masks. User A16 visual review is not GT approval.</p>{trace_svg(trace)}<p>100ms display only; full physical metrics reused from accepted evidence.</p><pre>{safe}</pre><p>Similar pairs: {html.escape(json.dumps(related))}</p><p>Human decisions: blank — use accompanying CSV.</p></section>')
+        safe=html.escape(json.dumps({k:r[k] for k in ("dishes","relative_t0_xyz_m","support","settle","trigger","end_ns","metrics","bbox_overlap","visual_review_history","contact_health","cleanup","observation")},ensure_ascii=False,indent=2))
+        sections.append(f'<section><h2>{html.escape(n)}</h2><p>Original RGB(t0)</p><img alt="original t0 RGB" width="640" src="data:image/png;base64,{base64.b64encode(original).decode()}"><p>ROI comparison copy</p><img alt="t0 ROI overlay" width="640" src="data:image/png;base64,{base64.b64encode(png).decode()}"><p>cyan tray; yellow dish union; magenta conservative boxes; not masks. User A16 visual review is not GT approval.</p>{trace_svg(trace)}<p>100ms display only; full physical metrics reused from accepted evidence. Relative x/y/z review series: pose_review_timeseries.csv (review only).</p><pre>{safe}</pre><p>Similar pairs: {html.escape(json.dumps(related))}</p><p>Human decisions: blank — use accompanying CSV.</p></section>')
     write_csv(out/"review_worksheet.csv",worksheet)
     (out/"review_workbook.html").write_text('<!doctype html><meta charset="utf-8"><title>QA05 private REVIEW_ONLY</title><style>body{font:16px sans-serif;margin:2rem;max-width:900px}section{border-top:1px solid #aaa;padding:1rem}pre{white-space:pre-wrap}img{max-width:100%}</style><h1>QA05 private REVIEW_ONLY</h1>'+''.join(sections),encoding="utf8")
 def audit(paths,out,receipt=None):
@@ -248,6 +256,9 @@ def audit(paths,out,receipt=None):
             f=a15.read_tar(outer[k],pin,inner=True) if version=="a15" else a16.read_tar(outer[k],pin,allowed=a16.RAW)
             receipt[version].setdefault("inner_manifest_verified",{})[n]=len(f)
             items.append(adapt(f,version,n,pin,prior_map.get(n)))
+    return finalize(items,prior,receipt,out)
+def finalize(items,prior,receipt,out):
+    """Write review-only artifacts after verified adaptation; fixture tests never seal real inputs."""
     records=[x[0] for x in items];pairs=similarity(items)
     need(len(records)==12 and len(unique_layouts(records))==12 and len({r["family"] for r in records})==4 and len(pairs)==66,"INVENTORY_COUNT")
     need(len({r["pixel_sha"] for r in records})==12,"PIXEL_DUPLICATE_DRIFT")
@@ -264,7 +275,12 @@ def audit(paths,out,receipt=None):
     current={tuple(sorted((p["a"],p["b"]))):p["full_ahash"] for p in pairs if p["full_ahash"]<=8}
     roi={"scope":"EXPLORATORY_NOT_DUPLICATE_VERDICT","pair_count":len(pairs),"ahash_threshold_counts":stats,"qa04_full_ahash_matches":current==prior_pairs,"qa04_full_ahash_mismatches":[{"pair":k,"prior":prior_pairs.get(k),"current":current.get(k)} for k in sorted(set(prior_pairs)|set(current)) if prior_pairs.get(k)!=current.get(k)],"methods":"Pillow aHash legacy default; dHash BICUBIC 9x8; block SSIM grayscale BICUBIC 64x64 nonoverlap 8x8 population; rectangular crops; no masks"}
     (out/"roi_similarity_report.json").write_text(json.dumps(roi,indent=2))
-    write_csv(out/"shortcut_risk_matrix.csv",risks(records))
+    risk=risks(records);write_csv(out/"shortcut_risk_matrix.csv",risk)
+    risk_summary={"scope":"DESCRIPTIVE_ONLY_N12_NOT_MODEL_EVALUATION","fixed_variables":sorted({r["variable"] for r in risk if r["status"]=="FIXED_UNTESTABLE"}),"missing_cross_cells":[r["value"] for r in risk if r["status"]=="MISSING_COMBINATION" and r["variable"]=="family_x_nominal_center_x_signed_offset"],"variables":[dict(variable=k,category=next(r["category"] for r in risk if r["variable"]==k),exploratory_in_sample_purity=next(r["exploratory_in_sample_purity"] for r in risk if r["variable"]==k)) for k in sorted({r["variable"] for r in risk if "exploratory_in_sample_purity" in r})],"note":"Pure cells can arise from small sample sizes; physical causes vs nuisance proxies require new controlled data."}
+    (out/"shortcut_summary.json").write_text(json.dumps(risk_summary,indent=2))
+    next_a={"scope":"REQUIREMENTS_REVIEW_ONLY_NO_GENERATION","observed_layouts":len(unique_layouts(records)),"observed_families":len({r["family"] for r in records}),"missing_nominal_center_offset_cells":risk_summary["missing_cross_cells"],"fixed_nuisance_or_physical_variables":risk_summary["fixed_variables"],"required_design":"Cross nominal center/eccentric, signed support offset, small/large support margin, dish count and family; near-boundary review. Add new shape families; vary observation conditions within layout and across outcomes, not independent layouts. Keep hidden torque/material fixed unless prediction contract changes.","pilot_size_proposal":"4-8 independent layouts; 60/6 families is a nonbinding future comparison target","a17_cleanup_separate":True,"no_auto_gt":True}
+    (out/"next_a_requirements.json").write_text(json.dumps(next_a,indent=2))
+    write_csv(out/"pose_review_timeseries.csv",[{"scene_id":r["scene_id"],"entity":n,"sim_ns":p[0],"tray_x_m":p[1],"tray_y_m":p[2],"tray_z_m":p[3],"scope":"REVIEW_ONLY_100MS_DISPLAY_NOT_TRAIN_INPUT"} for r,_,_,trace,_ in items for n,series in trace.items() for p in series])
     split=split_feasibility(records,pairs);(out/"group_split_feasibility.json").write_text(json.dumps(split,indent=2))
     workbook(out,items,pairs)
-    return {"scope":"B_QA05_REVIEW_ONLY","actual_12_scene_roi_review":True,"previous_physics_reused":True,"input_receipt":receipt,"input_sha":{k:v[1] for k,v in INPUTS.items()},"qa04_verifier":QA04_PIN,"scenes":len(records),"layouts":len(unique_layouts(records)),"families":len({r["family"] for r in records}),"observations":dict(Counter(r["observation"] for r in records)),"roi":roi,"split":split,"gates":{f"B-Q0{i}":"PASS" if i==1 else "HOLD" for i in range(1,8)},"ground_truth":"UNKNOWN_HOLD","approved_count":0,"training_eligible":False,"model_training_executed":False,"production_contact_health":"HOLD","cleanup":"FAIL","product_approval":False}
+    return {"scope":"B_QA05_REVIEW_ONLY","actual_12_scene_roi_review":True,"previous_physics_reused":True,"input_receipt":receipt,"input_sha":{k:v[1] for k,v in INPUTS.items()},"qa04_verifier":QA04_PIN,"scenes":len(records),"layouts":len(unique_layouts(records)),"families":len({r["family"] for r in records}),"observations":dict(Counter(r["observation"] for r in records)),"roi":roi,"shortcut":risk_summary,"split":split,"next_a_requirements":next_a,"gates":{f"B-Q0{i}":"PASS" if i==1 else "HOLD" for i in range(1,8)},"ground_truth":"UNKNOWN_HOLD","approved_count":0,"training_eligible":False,"model_training_executed":False,"production_contact_health":"HOLD","cleanup":"FAIL","product_approval":False}
