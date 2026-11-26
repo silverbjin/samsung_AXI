@@ -28,3 +28,15 @@ def workload_env(source, role, *, gpu=False):
         env["CUDA_VISIBLE_DEVICES"]=""
         env["HIP_VISIBLE_DEVICES"]=""
     return env
+
+if __name__=="__main__":
+    import argparse
+    p=argparse.ArgumentParser()
+    p.add_argument("--role",required=True,choices=["A","B","C","D","E"])
+    p.add_argument("--gpu",action="store_true")
+    p.add_argument("command",nargs=argparse.REMAINDER)
+    a=p.parse_args()
+    command=a.command
+    if command and command[0]=="--":command=command[1:]
+    if not command:p.error("command required")
+    os.execvpe(command[0],command,workload_env(os.environ,a.role,gpu=a.gpu))
