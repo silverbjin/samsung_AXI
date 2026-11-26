@@ -22,15 +22,7 @@ from ros_gz_interfaces.msg import Contacts
 
 def dump(path,obj):Path(path).write_text(json.dumps(obj,sort_keys=True,indent=2)+"\n")
 def stamp(s):return int(s.sec)*1_000_000_000+int(s.nanosec)
-def package(out):
-    files=sorted(p for p in out.iterdir() if p.is_file() and not p.is_symlink() and p.name not in ("SHA256SUMS","a16_raw.tar.gz","a16_raw.tar.gz.sha256"))
-    sums=out/"SHA256SUMS";sums.write_text("".join(sha256(p)+"  "+p.name+"\n" for p in files))
-    tar=out/"a16_raw.tar.gz"
-    with tarfile.open(tar,"x:gz") as t:
-        for p in files+[sums]:t.add(p,arcname=p.name,recursive=False)
-    digest=sha256(tar);(out/"a16_raw.tar.gz.sha256").write_text(digest+"  "+tar.name+"\n")
-    verified=verify_archive(tar,digest)
-    print("A16_RAW_SHA256="+digest, "A16_MANIFEST_COUNT="+str(verified["manifest_count"]),flush=True)
+from a16_archive import scene_package as package
 def run(a):
     out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
     report=dict(source_sha=a.sha,scene_id=a.scene,data_verdict="HOLD",gui="NOT_RUN",cleanup="NOT_RUN",ground_truth="UNKNOWN_HOLD",human_approved=False,training_eligible=False,platform_sha=PLATFORM_SHA,producer_version=VERSION,production_contact_health="HOLD",first_error=None)
@@ -86,13 +78,14 @@ def run(a):
         while time.monotonic()<deadline:
             spin()
             r=subprocess.run(["gz","service","-l"],env=env,capture_output=True,text=True,timeout=7)
-            if "/world/smartdish_tray/control" in r.stdout and node.count_publishers(TOPIC)>0 and node.count_publishers("/clock")>0:break
+            if "/world/smartdish_tray/control" in r.stdout and node.count_publishers(TOPIC)>0 and node.count_publishers("/clock")>0 and node.count_publishers(INFO_TOPIC)>0 and all(node.count_publishers(t)>0 for t in meta["contact_topics"]):break
         else:raise RuntimeError("A16_SERVICE_OR_BRIDGE_NOT_READY")
         endpoints={}
         for topic in [TOPIC,INFO_TOPIC,"/clock",*meta["contact_topics"]]:
             pinfo=node.get_publishers_info_by_topic(topic)
             endpoints[topic]=[{"type":e.topic_type,"node":e.node_name,"reliability":str(e.qos_profile.reliability),"durability":str(e.qos_profile.durability),"depth":e.qos_profile.depth} for e in pinfo]
         dump(out/"topic_qos.json",endpoints)
+        need(all(any(e["type"]==wanted for e in endpoints[topic]) for topic,wanted in [(TOPIC,"sensor_msgs/msg/Image"),(INFO_TOPIC,"sensor_msgs/msg/CameraInfo"),("/clock","rosgraph_msgs/msg/Clock")]),"A16_L1_RGB_CLOCK_TYPE")
         # Paused, bounded stepping keeps trigger physically impossible until the input passes.
         for target in range(200_000_000,2_000_000_001,200_000_000):
             gz_call(env,"smartdish_tray","pause: true multi_step: 200")
