@@ -1,0 +1,38 @@
+name: SmartDish B A16 QA04 Review Contract
+on:
+  push:
+    branches: [feat/smartdish-b-a16-qa04]
+    paths: ['ai/scripts/audit_b_a16.py','ai/scripts/b_a16_qa_cli.py','tests/test_b_a16_audit.py','scripts/smartdish_b_a16_qa*.sh','.github/workflows/smartdish-b-a16-qa.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  review-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install Pillow==12.3.0 pytest==9.0.2
+      - run: |
+          set -Eeuo pipefail
+          python -m py_compile ai/scripts/audit_b_a16.py ai/scripts/b_a16_qa_cli.py
+          bash -n scripts/smartdish_b_a16_qa_bootstrap.sh
+          bash -n scripts/smartdish_b_a16_qa_one_shot.sh
+          python scripts/smartdish_platform/baseline.py --root "$PWD" --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+          bash tests/platform/test_pin_checkout.sh
+          python -m unittest discover -s tests/platform -v
+          python -m pytest -q tests/test_b_a15_audit.py tests/test_b_a16_audit.py
+      - name: Source-only bundle for private offline review (no owner data)
+        if: always()
+        run: |
+          mkdir -p qa04_source
+          cp ai/scripts/{audit_b_a15,audit_b_a16,b_a16_qa_cli}.py qa04_source/
+          git rev-parse HEAD > qa04_source/SOURCE_SHA
+          (cd qa04_source && sha256sum *.py SOURCE_SHA > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa04-verifier-source
+          path: qa04_source/
