@@ -73,7 +73,7 @@ if [[ "$MODE" == --gui ]]; then
   [[ -n "$(printenv DISPLAY || :)" ]] || fail DISPLAY_REQUIRED
   # Preflight uses the same client software profile but is diagnostic, not physical evidence.
   rc=0
-  env -u MESA_D3D12_DEFAULT_ADAPTER_NAME -u WAYLAND_DISPLAY GALLIUM_DRIVER=llvmpipe LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb \
+  python3 -c 'import os,sys; sys.path.insert(0,"scripts"); from smartdish_platform.runtime import renderer_env; os.execvpe(sys.argv[1],sys.argv[1:],renderer_env(os.environ,True))' \
     timeout --signal=INT --kill-after=8s 65s python3 -u scripts/smartdish_a_tray_gui_preflight.py \
       --sha "$PIN" --profile xcb > "$DIR/gui_preflight.log" 2>&1 || rc=$?
   printf '%s\n' "$rc" > "$DIR/gui_preflight_exit.txt"

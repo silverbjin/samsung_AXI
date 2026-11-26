@@ -9,13 +9,7 @@ import signal
 import subprocess
 import time
 
-def renderer_env(env,software):
-    result=dict(env)
-    if software:
-        result.update(GALLIUM_DRIVER="llvmpipe",LIBGL_ALWAYS_SOFTWARE="1",QT_QPA_PLATFORM="xcb")
-        result.pop("MESA_D3D12_DEFAULT_ADAPTER_NAME",None)
-        result.pop("WAYLAND_DISPLAY",None)
-    return result
+from smartdish_platform.runtime import renderer_env
 
 def main():
     p=argparse.ArgumentParser()

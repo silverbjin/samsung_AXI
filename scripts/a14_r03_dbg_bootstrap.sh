@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
 # R03 standalone bootstrap and tested exact-pin checkout function.
-a14_pin_checkout() {
-  local url="$1" pin="$2" branch="$3" target="$4"
-  [[ "$pin" =~ ^[0-9a-f]{40}$ ]] || return 2
-  [[ -d "$target" && ! -e "$target/.git" && -z "$(ls -A -- "$target")" ]] || return 2
-  git init -q "$target" || return
-  git -C "$target" remote add origin "$url" || return
-  timeout --signal=INT --kill-after=5s 120s git -C "$target" fetch --no-tags --depth=1 origin "$pin" || return
-  git -C "$target" switch -q -c "$branch" "$pin" || return
-  [[ "$(git -C "$target" rev-parse HEAD)" == "$pin" ]] || return 2
-  [[ "$(git -C "$target" branch --show-current)" == "$branch" ]] || return 2
-  [[ -z "$(git -C "$target" status --porcelain --untracked-files=no)" ]] || return 2
-}
+a14_pin_checkout() { smartdish_pin_checkout "$@"; }
 
 main() {
   set -Eeuo pipefail
@@ -25,7 +14,13 @@ main() {
   case "$HOME" in /mnt/*) echo A14_R03_EXT4_REQUIRED; exit 2;; esac
   URL=https://github.com/silverbjin/samsung_AXI.git
   BRANCH=feat/smartdish-a14-physics-evidence
-  TARGET="$(mktemp -d "$HOME/samsung_AXI_A14_R03_DBG_${PIN:0:7}_XXXXXX")"
+  helper="$(mktemp)"
+  trap 'rm -f -- "$helper"' EXIT
+  curl -fsSL --max-time 30 "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/smartdish_platform_bootstrap.sh" -o "$helper"
+  source "$helper"
+  rm -f -- "$helper"
+  trap - EXIT
+  TARGET="$(smartdish_new_workspace "$PIN" A14_R03_DBG "$HOME")"
   echo "A14_R03_OWNER_DIR=$TARGET"
   # No moving HEAD or merge; same checkout function exercised by L0.
   a14_pin_checkout "$URL" "$PIN" "$BRANCH" "$TARGET" || { echo A14_R03_PIN_CHECKOUT_FAILED; exit 2; }
@@ -34,4 +29,8 @@ main() {
   exec bash scripts/a14_r03_dbg_owner.sh "$MODE" "$RAW"
   
 }
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+else
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/smartdish_platform_bootstrap.sh"
+fi
