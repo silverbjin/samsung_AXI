@@ -72,7 +72,7 @@ def test_readiness_hold(tmp_path):
 def test_missing_inputs_diagnostics_no_overwrite(tmp_path):
     pin="a"*40;reg=tmp_path/"inputs.json";reg.write_text(json.dumps({k:str(tmp_path/"missing") for k in q.PINS}));out=tmp_path/"out"
     args=["audit","--out-dir",str(out),"--verifier-sha",pin,"--input-registry",str(reg)]
-    with patch.object(q.subprocess,"check_output",side_effect=[pin+"\n",""]):assert q.main(args)==2
+    with patch.object(q.platform,"platform",return_value="fixture-linux"), patch.object(q.subprocess,"check_output",side_effect=[pin+"\n",""]):assert q.main(args)==2
     s=json.loads((out/"diagnostic_status.json").read_text());assert s["dataset_release"]=="HOLD" and s["first_error"] and len(s["input_receipt"])==9
     assert not (out/"dataset_v1").exists() and (out/"b_qa06_diagnostics.tar.gz.sha256").is_file()
     with pytest.raises(FileExistsError):q.main(args)
