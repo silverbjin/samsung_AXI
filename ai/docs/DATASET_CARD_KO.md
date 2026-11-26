@@ -126,3 +126,6 @@ A15 실제 4장면 독립 예비 분석: Full aHash ≤4 6/6, Tray 6/6, Dish 2/6
 
 ## B-QA05 실제 결과 갱신
 이전 A16 미확보 상태 종료. 12장면/66쌍 공식 core 실제 검수 PASS REVIEW_ONLY, Q01 PASS Q02–07 HOLD. aHash≤8 Full66/Tray46/Dish40, exact pixel duplicate0, Tray/Dish 합집합55 manual review; 4 family/12 layout, 8/4 관측. offset 크기×부호 결합 위험 및 15/24 교차 cell 부족. Family 단위 가상 분할36개 가능하나 GT 승인0/출고0. WSL2 QA05 checkout NOT_RUN, no real training. 기존 label_map, stack split 및 rights 정책 유지.
+
+## QA06 FINAL Data Freeze
+PM freezes 20 physical candidates A15/A16/A18, six families; no A13/Cloud duplicates, no A19 automatically. Actual audit and approval evidence separate. Existing label map/224 RGB/manifest contract retained; release only after human decisions, rights, near-pair review, family-independent split and explicit PM/B/C research-scope approval. Contact HOLD and historical cleanup preserved; C real training NOT_RUN.
