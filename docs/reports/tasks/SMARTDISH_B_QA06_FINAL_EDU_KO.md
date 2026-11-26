@@ -1,2 +1,6 @@
 # QA06 FINAL 개발 원장
 통합 CLI 및 합성 테스트, 기존 검수기 보존. source-only artifact로 CPU offline actual 검증 가능. 실제 결과/CI는 후속 인수 원장에 기록; 아직 사람 승인0. 데이터 동결 정책 적용, 추가 A19 없음. 외부 강제 종료/clone 실패/디스크 부족 시 archive 보장 불가. 20 후보와 학습 출고를 구분.
+
+
+## 실제 완료 원장
+f9ddc56979626d4a78decb04e7b4ca28c3824b09 verified source; first fixture CI #45772005524 67 passed/1 failed due test mock consuming platform probe; fixed isolated mock b83428d9, #45772242196 68 PASS. First CPU audit tool timeout without code exception; bounded local process retry at 65d80b1 exit0 42.381s, no new simulation. Final feature/contract revision f9ddc569, #45772480074 71 passed (53 existing+18 QA06 cases), common7/pin; #45772480055 174 PASS, #45772480042 SUCCESS. Final actual core rerun once due review/release feature revision exit0 38.154s. Source-only ZIP #15094233535 / #45772473468 SHA c5436c861f978ab8db933a3bdb6b8c6b9090b5a931a4ded4b3dee84142a5aa, manifest7/7 Git blob6/6 exact. Full checkout/WSL2 runner NOT_RUN, no claim Owner CLI acceptance. Candidate frozen/review ready; actual release without approval blocked. No A19, no Gazebo, no real training, no merges. Private report/receipt/worksheet/raw not in Git. See acceptance ledger for exact SHA. Dec7/8/9 PM schedule confirmation remains.

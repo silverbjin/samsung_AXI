@@ -129,3 +129,7 @@ A15 실제 4장면 독립 예비 분석: Full aHash ≤4 6/6, Tray 6/6, Dish 2/6
 
 ## QA06 FINAL Data Freeze
 PM freezes 20 physical candidates A15/A16/A18, six families; no A13/Cloud duplicates, no A19 automatically. Actual audit and approval evidence separate. Existing label map/224 RGB/manifest contract retained; release only after human decisions, rights, near-pair review, family-independent split and explicit PM/B/C research-scope approval. Contact HOLD and historical cleanup preserved; C real training NOT_RUN.
+
+
+## QA06 FINAL actual candidate freeze (2026-11-26)
+20 frozen candidates/6 families, exact archive9/manifest505/505, 190 pair (66 reused+124 new), actual core f9ddc569 exit0. No exact file/pixel duplicates, 167 near pairs manual review, prior family cells13/24, 224 crop geometry20 PASS, 13/5/2 observations NOT labels. Human0, approval/rights/conditional research policy and split HOLD, actual release without approval blocked. C NO_GO, E HOLD, Contact HOLD, historic cleanup12 FAIL+A18 8 PASS. Actual WSL2 checkout NOT_RUN. Existing label map/manifest unchanged. No new A production or model training.
