@@ -23,11 +23,25 @@ def train(args):
     from PIL import Image
     from torch.utils.data import DataLoader, Dataset
 
-    rows = read_verified_split(args.split_manifest, args.root, demo_fixtures=args.demo_fixtures)
+    approval_metadata = None
+    if not args.demo_fixtures:
+        from ai.train.research_approval import approve_training
+        approval_metadata = approve_training(
+            args.root, args.split_manifest,
+            getattr(args, "research_approval", None),
+            getattr(args, "experiment_lock", Path("ai/docs/C_V1_EXPERIMENT_LOCK.json")),
+            phase=args.phase)
+    rows = read_verified_split(args.split_manifest, args.root,
+                               demo_fixtures=args.demo_fixtures,
+                               training_only=not args.demo_fixtures)
     if args.phase == "finetune" and not args.init_checkpoint:
         raise ValueError("C_FINETUNE_BASELINE_CHECKPOINT_REQUIRED")
     random.seed(args.seed)
     torch.manual_seed(args.seed)
+    if not args.demo_fixtures:
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     class TrayDataset(Dataset):
         def __init__(self, split):
@@ -96,16 +110,20 @@ def train(args):
                 "weight_init": "RANDOM_DEMO_ONLY" if args.demo_fixtures and args.phase == "frozen" else "PRETRAINED_OR_FINETUNED",
                 "phase": args.phase,
                 "split_manifest_sha256": hashlib.sha256(args.split_manifest.read_bytes()).hexdigest(),
+                "research_release_status": "UNREVIEWED_NOT_FOR_PRODUCT",
+                "research_dataset_version": approval_metadata["dataset_version"] if approval_metadata else "MOCK_ONLY",
+                "P1_plan_sha256": approval_metadata["plan_sha256"] if approval_metadata else "MOCK_ONLY",
                 "model_state_dict": best_state}, args.out)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     report = {"phase": args.phase, "seed": args.seed, "device": args.device,
               "data_scope": "MOCK_ONLY" if args.demo_fixtures else "PHYSICS_OBSERVED",
-              "deployment_allowed": not args.demo_fixtures,
+              "deployment_allowed": False,  # P2 training never equals P4 research release
               "training_evidence": "DEMO_PIPELINE_ONLY" if args.demo_fixtures else "REAL_TRAINING",
               "split_manifest_sha256": hashlib.sha256(args.split_manifest.read_bytes()).hexdigest(),
               "checkpoint_sha256": hashlib.sha256(args.out.read_bytes()).hexdigest(),
               "checkpoint": str(args.out), "dataset": summarize(rows),
-              "epochs": history, "test_used_for_training": False}
+              "epochs": history, "test_used_for_training": False,
+              "P1_approval": approval_metadata or "MOCK_ONLY"}
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f'C_{"MOCK_ONLY_" if args.demo_fixtures else ""}{args.phase.upper()}_TRAINED ' + json.dumps({
         "checkpoint_sha256": report["checkpoint_sha256"], "val_loss": best_val}))
@@ -119,6 +137,10 @@ def main():
     p.add_argument("--demo-fixtures", action="store_true",
                    help="Opt-in B MOCK_ONLY samples; random init; never deployable")
     p.add_argument("--init-checkpoint", type=Path)
+    p.add_argument("--research-approval", type=Path,
+                   help="private C human approval for real Dataset v1 training; no auto-GO")
+    p.add_argument("--experiment-lock", type=Path,
+                   default=Path("ai/docs/C_V1_EXPERIMENT_LOCK.json"))
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--report", type=Path, required=True)
     p.add_argument("--epochs", type=int, default=3)

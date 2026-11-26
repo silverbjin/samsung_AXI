@@ -31,7 +31,10 @@ def load_predictor(model_path: Path):
             ckpt.get("image_size") != IMAGE_SIZE or
             tuple(ckpt.get("mean", [])) != MEAN or
             tuple(ckpt.get("std", [])) != STD or
-            ckpt.get("data_scope") != "PHYSICS_OBSERVED"):
+            ckpt.get("data_scope") != "PHYSICS_OBSERVED" or
+            ckpt.get("research_release_status") != "C_RESEARCH_PILOT_ACCEPTED" or
+            ckpt.get("research_dataset_version") !=
+                "c4c429b33faf22d904db9ddf2b7aa6e27ade12d70c7ecd407dff7c5cb9422606"):
         raise ValueError("C_MODEL_CONTRACT_MISMATCH")
     model = resnet18(weights=None)
     model.fc = nn.Linear(model.fc.in_features, 2)

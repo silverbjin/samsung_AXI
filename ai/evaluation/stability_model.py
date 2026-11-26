@@ -25,7 +25,7 @@ def new_resnet18(*, pretrained: bool):
     from torchvision.models import ResNet18_Weights, resnet18
 
     # No silent random-weight fallback: no internet/cache => explicit exception.
-    model = resnet18(weights=ResNet18_Weights.DEFAULT if pretrained else None)
+    model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1 if pretrained else None)
     model.fc = nn.Linear(model.fc.in_features, len(LABELS))
     return model
 

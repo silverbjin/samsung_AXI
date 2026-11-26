@@ -159,6 +159,18 @@ def write_rows(tmp_path, rows):
     return path
 
 
+def test_real_training_view_does_not_open_test_images(tmp_path):
+    rows = physical_rows(tmp_path)
+    for row in rows:
+        if row["split"] == "test":
+            (tmp_path / row["image_path"]).unlink()
+            row["label"] = "BROKEN_TEST_LABEL_NOT_TO_BE_READ"
+    checked = read_verified_split(write_rows(tmp_path, rows), tmp_path, training_only=True)
+    assert len(checked) == 4 and {r["split"] for r in checked} == {"train", "val"}
+    with pytest.raises(ValueError):
+        read_verified_split(write_rows(tmp_path, rows), tmp_path)
+
+
 def test_contract_rejects_b_fixture_even_when_label_looks_valid(tmp_path):
     rows=physical_rows(tmp_path)
     rows[0].update(source='CONTRACT_FIXTURE',ground_truth='MOCK_ONLY')

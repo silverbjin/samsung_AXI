@@ -17,7 +17,8 @@ LABEL_MAP = {"STABLE": 0, "UNSTABLE": 1}
 SPLITS = ("train", "val", "test")
 
 
-def read_verified_split(manifest: Path, root: Path, *, demo_fixtures: bool = False) -> list[dict[str, str]]:
+def read_verified_split(manifest: Path, root: Path, *, demo_fixtures: bool = False,
+                        training_only: bool = False) -> list[dict[str, str]]:
     """Validate a strict real-data or explicitly isolated B MOCK_ONLY fixture split.
 
     A caller must opt into demo_fixtures. No mixed real/mock provenance is allowed.
@@ -32,6 +33,10 @@ def read_verified_split(manifest: Path, root: Path, *, demo_fixtures: bool = Fal
         if reader.fieldnames != list(FIELDS):
             raise ValueError("C_SPLIT_SCHEMA_MISMATCH")
         rows = list(reader)
+    # Test pixels and labels never enter the P2 training verifier.
+    # The original frozen manifest is unchanged; P0 separately audits all 18.
+    if training_only:
+        rows = [r for r in rows if r.get("split") in ("train", "val")]
     if not rows:
         raise ValueError("C_TRAINING_NOT_RUN_NO_REAL_DATA")
     root = root.resolve()
@@ -116,7 +121,8 @@ def read_verified_split(manifest: Path, root: Path, *, demo_fixtures: bool = Fal
         raise ValueError("C_STACK_SPLIT_LEAK")
     if any(len(x) != 1 for x in scene_stacks.values()):
         raise ValueError("C_SCENE_SPANS_STACKS")
-    if any(not groups[(split, label)] for split in SPLITS for label in LABEL_MAP):
+    required_splits = SPLITS[:2] if training_only else SPLITS
+    if any(not groups[(split, label)] for split in required_splits for label in LABEL_MAP):
         raise ValueError("C_INDEPENDENT_SPLIT_CLASS_MISSING")
     return rows
 
