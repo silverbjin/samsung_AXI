@@ -43,12 +43,12 @@ def batch(root,pin,mode,rc,phase):
             # Retain partial files if collector was terminated before its finally.
             raw.extend(s+"/"+n for n in sorted(RAW) if (d/n).is_file())
         scenes[s]=row
-        logs.extend(s+"/"+n for n in sorted(LOGS) if (d/n).is_file())
+        logs.extend(s+"/"+n for n in sorted(LOGS|{"roi_review.png"}) if (d/n).is_file())
         logs.append(s+".log")
     summary={"schema":3,"phase":phase,"planned_scenes":list(phase_scenes(phase)),"source_sha":pin,"producer_version":VERSION,"platform_sha":PLATFORM_SHA,"source_class":"CLOUD_CI" if mode=="--ci" else "OWNER_WSL2","exit_code":rc,"scenes":scenes,"ground_truth":"UNKNOWN_HOLD","human_approved":False,"training_eligible":False,"production_contact_health":"HOLD","visual_review":"USER_ONLY_NOT_AUTOMATIC_GATE"}
     with (p/"batch_status.json").open("x") as f:json.dump(summary,f,indent=2,sort_keys=True);f.write("\n")
     digest=bundle(p,["batch_status.json",*raw],"a18_pilot_evidence.tar.gz")
-    diag=bundle(p,["batch_status.json","preflight.json","contrast.json","build_pose.log","build_health.log",*logs],"a18_pilot_diagnostics.tar.gz")
+    diag=bundle(p,["batch_status.json","preflight.json","contrast.json","phase_gate.json","review_worksheet.csv","build_pose.log","build_health.log",*logs],"a18_pilot_diagnostics.tar.gz")
     print("A18_EVIDENCE_ARCHIVE="+str(p/"a18_pilot_evidence.tar.gz"));print("A18_EVIDENCE_SHA256="+digest)
     print("A18_DIAGNOSTICS_ARCHIVE="+str(p/"a18_pilot_diagnostics.tar.gz"));print("A18_DIAGNOSTICS_SHA256="+diag)
 if __name__=="__main__":batch(sys.argv[1],sys.argv[2],sys.argv[3],int(sys.argv[4]),int(sys.argv[5]))

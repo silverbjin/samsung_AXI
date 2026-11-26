@@ -2,10 +2,12 @@
 set -Eeuo pipefail
 umask 077
 PIN="$(printenv SMARTDISH_A18_SOURCE_SHA || :)"
-MODE=--gui; PHASE=1
+MODE=--gui; PHASE=1; PRIOR=""
 if [[ "${1:-}" == --phase ]]; then PHASE="${2:-}"; shift 2; fi
+if [[ "${1:-}" == --prior ]]; then PRIOR="$(realpath -e "${2:?prior archive required}")"; shift 2; fi
 MODE="${1:---gui}"
-[[ "$PHASE" == 1 && $# -le 1 ]] || { echo A18_PHASE2_NOT_RELEASED; exit 2; }
+[[ "$PHASE" == 1 || "$PHASE" == 2 || "$PHASE" == all ]] && [[ $# -le 1 ]] || { echo A18_PHASE_ARGUMENT; exit 2; }
+if [[ "$PHASE" == 2 ]];then [[ -f "$PRIOR" && -f "$PRIOR.sha256" ]] || { echo A18_PRIOR_REQUIRED; exit 2; };else [[ -z "$PRIOR" ]] || exit 2;fi
 # Bootstrap failures also leave a minimal private diagnostic with sidecar.
 DIAG="$(mktemp -d "$HOME/smartdish_a18_boot_XXXXXX")"
 finish(){
@@ -28,4 +30,11 @@ TARGET="$(smartdish_new_workspace "$PIN" A18 "$HOME")"
 smartdish_pin_checkout "$URL" "$PIN" feat/smartdish-a18-crossed-layouts "$TARGET" >> "$DIAG/bootstrap.log" 2>&1
 echo "REQUESTED_SHA=$PIN";echo "ACTUAL_SOURCE_SHA=$(git -C "$TARGET" rev-parse HEAD)";echo "OWNER_WORKSPACE=$TARGET"
 cd "$TARGET"
-bash scripts/a18_pilot_batch.sh "$PIN" "$TARGET/generated_a18" "$MODE" "$PHASE"
+if [[ "$PHASE" == all ]];then
+ bash scripts/a18_pilot_batch.sh "$PIN" "$TARGET/generated_a18_phase1" "$MODE" 1
+ bash scripts/a18_pilot_batch.sh "$PIN" "$TARGET/generated_a18_phase2" "$MODE" 2 "$TARGET/generated_a18_phase1/a18_pilot_evidence.tar.gz"
+elif [[ "$PHASE" == 2 ]];then
+ bash scripts/a18_pilot_batch.sh "$PIN" "$TARGET/generated_a18_phase2" "$MODE" 2 "$PRIOR"
+else
+ bash scripts/a18_pilot_batch.sh "$PIN" "$TARGET/generated_a18_phase1" "$MODE" 1
+fi

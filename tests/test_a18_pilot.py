@@ -108,4 +108,17 @@ class A18(unittest.TestCase):
         self.assertIn('profile==RETAIN',text);self.assertIn('profile==INHERIT',text)
         self.assertIn('observe_server_profile(server,profile_record,"runtime_observation_pre_shutdown")',text)
         self.assertIn('report["cleanup"]=="PASS"',text)
+    def test_phase2_owner_gate_rejects_failed_cleanup(self):
+        from a18_phase_gate import owner_row,verify_owner
+        v={"data_verdict":"PASS","cleanup":"FAIL","all_owned_stopped":True,"human_approved":False,"training_eligible":False,"ground_truth":"UNKNOWN_HOLD","production_contact_health":"HOLD"}
+        with self.assertRaisesRegex(ValueError,"OWNER_VERDICT"):owner_row(v)
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaisesRegex(ValueError,"OWNER_ARCHIVE_REQUIRED"):verify_owner(Path(td)/"absent.tar.gz","a"*40)
+        v["cleanup"]="PASS"
+        with self.assertRaisesRegex(ValueError,"OWNER_PROFILE"):owner_row(v)
+        v["server_runtime_profile"]={"profile":"wsl_d3d12_retention_v1","production_cleanup":"PASS","runtime_observation":{"pid":1},"runtime_observation_pre_shutdown":{"pid":1}}
+        v["processes"]=[{"role":r,"returncode":0,"stopped":True,"process_group_remaining":False,"signals":[2]} for r in ("server","native_contact","rgb_bridge","contact_bridge")]
+        owner_row(v)
+        v["processes"][0]["signals"]=[2,15]
+        with self.assertRaisesRegex(ValueError,"OWNER_SERVER_SIGNAL"):owner_row(v)
 if __name__=="__main__":unittest.main()

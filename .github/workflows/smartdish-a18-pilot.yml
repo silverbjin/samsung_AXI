@@ -1,4 +1,4 @@
-name: SmartDish A18 Crossed Layouts Phase 1
+name: SmartDish A18 Crossed Layouts Phase 2
 on:
   push:
     branches: [feat/smartdish-a18-crossed-layouts]
@@ -45,16 +45,16 @@ jobs:
             ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
             ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs \
             ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor xvfb xauth mesa-utils libgl1-mesa-dri
-      - name: Actual four new phase 1 layouts only
+      - name: Actual four new phase 2 layouts only
         shell: bash
         run: |
           set -Eeuo pipefail
           export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD"
-          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a18_pilot_batch.sh "$GITHUB_SHA" "$PWD/generated_a18_ci" --ci 1
+          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a18_pilot_batch.sh "$GITHUB_SHA" "$PWD/generated_a18_ci" --ci 2
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: a18-phase1-${{ github.run_id }}
+          name: a18-phase2-${{ github.run_id }}
           path: |
             generated_a18_ci/a18_pilot_evidence.tar.gz*
             generated_a18_ci/a18_pilot_diagnostics.tar.gz*
