@@ -1,0 +1,54 @@
+name: SmartDish B A15 QA03 Owner Review Contract
+on:
+  push:
+    branches: [feat/smartdish-b-real-dataset]
+    paths:
+      - 'ai/scripts/audit_b_a15.py'
+      - 'ai/scripts/b_a15_qa_cli.py'
+      - 'tests/test_b_a15_audit.py'
+      - 'scripts/smartdish_b_a15_qa_one_shot.sh'
+      - 'scripts/smartdish_b_a15_qa_bootstrap.sh'
+      - '.github/workflows/smartdish-b-a15-qa.yml'
+  pull_request:
+    branches: [integration/smartdish-platform-next]
+    paths:
+      - 'ai/scripts/audit_b_a15.py'
+      - 'ai/scripts/b_a15_qa_cli.py'
+      - 'tests/test_b_a15_audit.py'
+      - 'scripts/smartdish_b_a15_qa_one_shot.sh'
+      - 'scripts/smartdish_b_a15_qa_bootstrap.sh'
+      - '.github/workflows/smartdish-b-a15-qa.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  b-a15-qa03-fixture-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # platform baseline ancestry required by stable policy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU-only requirements
+        run: python -m pip install --disable-pip-version-check Pillow==12.3.0 pytest==9.0.2
+      - name: Preflight script and immutable Platform contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m compileall -q ai/scripts/audit_b_a15.py ai/scripts/b_a15_qa_cli.py tests/test_b_a15_audit.py
+          bash -n scripts/smartdish_b_a15_qa_one_shot.sh
+          bash -n scripts/smartdish_b_a15_qa_bootstrap.sh
+          bash scripts/smartdish_b_a15_qa_bootstrap.sh --help
+          python scripts/smartdish_platform/baseline.py --root "$PWD" --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+          bash tests/platform/test_pin_checkout.sh
+          python -m unittest discover -s tests/platform -v
+          SMARTDISH_B_QA03_SOURCE_SHA="$GITHUB_SHA" bash scripts/smartdish_b_a15_qa_one_shot.sh --help
+      - name: RED/GREEN A15 fixture tests (NOT Owner raw)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pytest -q tests/test_b_a15_audit.py
+          echo B_A15_QA03_FIXTURE_CONTRACT_PASS_OWNER_RAW_NOT_IN_CI

@@ -1,0 +1,51 @@
+# B-DATA-QA-01 — DACON 기준 기반 SmartDish 물리 데이터셋 적합성 검수 원장
+
+- 기준: 사용자가 첨부한 `SMARTDISH_B_DACON_DATA_QUALITY_BASELINE_20261125_KO(1).md`의 **v1.0 / B-Q01~B-Q07**. 사용자 승인 전 *제안* 프로파일로 해석합니다.
+- 이번 직접 실증 입력: A13 원본 `smartdish_a_tray_evidence.tar(6).gz` SHA `bfc3465448dd34f0cb113fc73b7d07e9ae5c0028c844fd1d3c75f94c6a2f8e6e`, 기존 B-10 검증 `raw` 및 B-11 `candidate_manifest.csv`/`review.html`.
+- **DACON 원본 audit ZIP(`6870dd8e...`)은 이번 QA 작업에 첨부되지 않았습니다.** DACON 수치는 사용자 기준선 문서에 기록된 결과를 *비교 기준으로 재사용*하며 DACON 원본 파일을 이번에 재검했다고 주장하지 않습니다.
+- 실험 범위: Linux 오프라인 실제 A13 TAR/기존 B 검토 데이터. Gazebo/WSL2 신규 시뮬레이션 미수행. AI OFF/A/C/D 코드 무변경. 학습/안전 승인 미수행.
+
+## 실제 인수 결과 (4건)
+
+| 검사 | 실증 | 판정 |
+|---|---|---|
+| **B-Q01 Provenance** | Archive SHA 원본 재계산, TAR 내부 SHA **88/88** 직접 확인. 기존 A13 소스 SHA/후보 이미지·trace 파일 해시 연결 | **PASS** |
+| **B-Q02 Input** | RGB PNG **4/4 640×480**, source topic/frame, SDF 카메라 포즈 `0 0 1.50 0 1.57079632679 0`, capture **0.60s**, 최근접 Pose **0.55s(50ms)** 확인. 영상 가림/인식 가능성에 대한 사람 서명 검수 없음. B15 진단 subset만 사용 시 SDF 카메라 pose가 누락될 수 있음 | **HOLD** |
+| **B-Q03 Physics** | JSONL 식기 Pose **407/609/407/407 rows**, 물체 2/3/2/2, world-frame 누적 이동 진단 성공. **트레이 상대 좌표 시계열·실측 velocity/contact·독립 규칙 버전 미제출** | **HOLD** |
+| **B-Q04 GT** | ST-01/02 유지, UN-01/02 낙하 관측. 자동 추천 **STABLE 2 / UNSTABLE 2**. 사람 승인 **0**, GT 규칙 미인수 | **HOLD** |
+| **B-Q05 Diversity** | 4 고정 장면, 모든 장면 단일 카메라/고정 환경, Geometry family 교차 클래스 및 경계·가림 사례 검증 부족. 제안 60개 장면/6 family는 미충족(확정 기준 아님) | **HOLD** |
+| **B-Q06 Split** | 현재 승인된 split manifest **없음**. 4장 간 파일 SHA/디코딩 픽셀 SHA 정확 중복 **0**. 8×8 aHash 유사 후보 **2쌍**(2/4 해밍), 동일 장면 및 파생 형상 누수 방지 추가 검토 필요. 유사 후보는 **자동 중복 확정이 아님** | **HOLD** |
+| **B-Q07 C contract** | 승인 manifest와 C 실제 입력 재현 계약 없음. B 모델 학습 **NOT_RUN**, 현행 B12R review는 GT 입력이 아님 | **HOLD** |
+
+### 실제 월드 좌표계 식기 누적 이동 — 참고만
+
+| Scene | 가장 많이 이동한 식기의 월드 누적 거리 | 상태 |
+|---|---:|---|
+| ST-01 | 0.000130 m | 진단값 / 라벨 불가 |
+| ST-02 | 0.000110 m | 진단값 / 라벨 불가 |
+| UN-01 | 0.743370 m | 진단값 / 라벨 불가 |
+| UN-02 | 1.246708 m | 진단값 / 라벨 불가 |
+
+각 식기는 `world` 좌표계 `pose`만 갖고 있습니다. 위 거리와 기준선의 **`max_i L_i` 트레이 상대 누적 이동**은 동일 지표가 아닙니다. 0.015m는 DACON 비교 **후보 임계치**일 뿐 GT 자동 결정에 사용하지 않았습니다. 주행 중 트레이 움직임이 있으면 월드 거리로 접시의 상대 안정성을 추정하면 안 됩니다.
+
+실제 원본 밝기(0~255 전체 이미지 평균): ST-01 173.695, ST-02 174.351, UN-01 172.486, UN-02 172.704. DACON 기준선 Train front/top 밝기 약 214/222와 직접 동등하게 비교할 수 없습니다(조명·시점·표면 분포가 서로 다름). 네 장 모두 구분 가능한 파일/픽셀 SHA이며, aHash 유사 쌍은 사람 점검 요청 상태입니다.
+
+## 기준선 v1.0과 후속 도입 경계
+
+1. 제품 경로 **단일 RGB 카메라/원본 640×480** 유지. DACON 384×384 front+top은 비교 대상이며 현재 B 실데이터를 즉시 두 시점 모델로 변경하지 않음. 추가 카메라 도입은 A/C 제품 계약 변경 승인 필요.
+2. **정지 중 중력 안정성**과 **주행 중 가감속 안정성**을 별도 프로파일로 분리. A-13 현재 고정 트레이 기능 데이터는 주행 안전성 증거가 아님.
+3. **A 담당:** 시뮬레이션 t0 이전 입력·트레이 상대 이동/접촉·속도·지지 상실·시간 동기화, 다양한 물리 가족 및 클래스 교차 사례를 새 수집 계약으로 설계. 기존 4/4 A13 인수 재실행 금지.
+4. **B 담당:** 실제 GT 후보는 사람 검토·독립 규칙 버전·사용권 승인 뒤에만 학습 manifest 등록; 이미지와 label-only 시계열 혼합 금지. 동일 geometry family/seed/렌더 변형의 split 교차 차단, 픽셀 SHA 및 유사 구조 검토.
+5. **C 담당:** 승인된 B release와 Train/Valid/Test 독립 그룹 계약을 읽기 전용 재검. DACON 기반 LogLoss/혼동행렬/unstable recall/calibration/slice 평가는 그 후 진행. 전용 안전제어 자동 인수 아님.
+
+### 완료 상태
+
+`B_QA01_AUDIT_COMPLETED` = **오프라인 감사 기능 PASS**. `B_DATA_QA01_DATASET_HOLD` = **실제 학습 데이터셋 출고 부적합(조건 미충족)**. `B-15 USER WSL2 PASS`와 B-12R B-CI 기존 증거를 덮어쓰지 않으며, B-Q03~07을 우회하지 않습니다.
+
+## 2026-11-25 B-DATA-QA-01 Owner 실제 진단 수신 및 DBG-01 사후 수정
+
+- 사용자 WSL2 TAR `b_dacon_qa01_diagnostics.tar.gz` SHA `483c859767566d1d46bd7da07014dd1dfcda7f0804b9b833c33136cc81bc0dbe` sidecar 일치, 내부 12/12 PASS, 13 regular members, 코드 `ff1e2e2c32f8d3f53df3352b1bc0601a003d0b81`, `AUDIT_COMPLETED exit_code=0` / `quality_verdict=HOLD`. **Owner B QA 실행 PASS / 데이터셋 HOLD**.
+- 이전 B-Q02의 `B_Q02_CAMERA_POSE_MISSING`은 B12R 부분증거에 원본 SDF가 누락돼 발생한 **B QA artifact scope 오판**. 실제 A13 88/88 authenticated TAR에서 camera SDF 4개가 모두 존재(센서 `smartdish_tray_rgb`, pose `0 0 1.50 0 1.57079632679 0`, 640×480, topic/frame match). B QA에서 authenticated TAR SDF fallback 추가, 변조·해시 불일치 fail-closed. 수정후 ChatGPT Linux 오프라인 실제 A13 재검 **B-Q02 HOLD (occlusion human QA missing only)**. SDF 정적 설정 != 동적 카메라 TF 실측.
+- 기존 B-Q05에서 60장면 권고 미달을 gate blocker로 처리한 것은 첨부 v1 baseline의 nonbinding 목표에 부합하지 않아 별도 `nonbinding_advisories`로 변경. B-Q05는 geometry/environment cross coverage 부족으로 HOLD 유지.
+- 사람 승인 0건/원장 미존재, B-Q03 tray-relative/velocity/contact 증거 부족, B-Q06 split 없음, B-Q07 C release 없음. 장면별 WORLD 누적 값은 진단 통계이며 0.015m DACON 비교 후보 제품 임계치 승격 금지.
+- 새 SHA의 B CI/Owner 인수는 별도 추적. 사용자 진단 SHA는 이전 Owner 실행 코드의 증거이며 새 코드 Owner PASS로 재분류하지 않음. [상세 Owner 원장](SMARTDISH_B_DATA_QA01_OWNER_20261125_KO.md) / [DBG-01](../issues/SMARTDISH_B_DATA_QA01_DBG_01_CAMERA_SDF_SUBSET_KO.md).

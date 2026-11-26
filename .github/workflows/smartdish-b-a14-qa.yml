@@ -1,0 +1,38 @@
+name: SmartDish B A14 Owner Evidence Audit
+on:
+  push:
+    branches: [feat/smartdish-b-real-dataset]
+    paths:
+      - 'ai/scripts/audit_b_a14.py'
+      - 'tests/test_b_a14_audit.py'
+      - 'scripts/smartdish_b_a14_qa_one_shot.sh'
+      - '.github/workflows/smartdish-b-a14-qa.yml'
+  pull_request:
+    branches: [integration/smartdish-platform-next]
+    paths:
+      - 'ai/scripts/audit_b_a14.py'
+      - 'tests/test_b_a14_audit.py'
+      - 'scripts/smartdish_b_a14_qa_one_shot.sh'
+      - '.github/workflows/smartdish-b-a14-qa.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  a14-audit-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check Pillow==12.3.0
+      - name: Audit fail-closed regressions (fixtures only, not actual Owner evidence)
+        run: |
+          set -Eeuo pipefail
+          python -m py_compile ai/scripts/audit_b_a14.py
+          bash -n scripts/smartdish_b_a14_qa_one_shot.sh
+          python -m unittest discover -s tests -p test_b_a14_audit.py -v
+          python -m unittest discover -s tests/platform -v
+          bash tests/platform/test_pin_checkout.sh
+          SMARTDISH_B_SOURCE_SHA="$GITHUB_SHA" bash scripts/smartdish_b_a14_qa_one_shot.sh --help
+          echo B_A14_FIXTURE_CONTRACT_PASS_NOT_OWNER_OR_GT

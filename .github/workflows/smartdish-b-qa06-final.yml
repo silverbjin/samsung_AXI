@@ -1,0 +1,41 @@
+name: SmartDish B QA06 final contract
+on:
+  push:
+    branches: [feat/smartdish-b-qa06-final]
+    paths: ['ai/scripts/*qa06*','tests/test_b_qa06_final.py','scripts/*qa06*','.github/workflows/smartdish-b-qa06-final.yml']
+  pull_request:
+    branches: [feat/smartdish-b-qa05-diversity]
+    paths: ['ai/scripts/*qa06*','tests/test_b_qa06_final.py','scripts/*qa06*','.github/workflows/smartdish-b-qa06-final.yml']
+permissions: {contents: read}
+jobs:
+  fixture-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow==12.3.0 pytest==9.0.2
+      - run: |
+          python scripts/smartdish_platform/baseline.py --root "$PWD" --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+          bash tests/platform/test_pin_checkout.sh
+          python -m unittest discover -s tests/platform -v
+          bash -n scripts/smartdish_b_qa06_bootstrap.sh scripts/smartdish_b_qa06_one_shot.sh
+          python -m pytest -q tests/test_b_qa06_final.py tests/test_b_qa05_diversity.py tests/test_b_a15_audit.py tests/test_b_a16_audit.py
+      - name: Source only, no user evidence
+        if: always()
+        run: |
+          mkdir source-only
+          cp ai/scripts/{b_qa06_cli.py,qa06_a18_registry.json,audit_b_a15.py,audit_b_a16.py,audit_b_qa05_diversity.py,prepare_dataset.py} source-only/
+          git rev-parse HEAD > source-only/SOURCE_SHA
+          (cd source-only && sha256sum *.py *.json SOURCE_SHA > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa06-source-only
+          path: source-only/
+          retention-days: 3

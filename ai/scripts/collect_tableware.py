@@ -61,7 +61,7 @@ def _reject_orphans(root: Path, manifest: Path, records: list[dict],
 
 def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
             stack_id: str, source: str, license_status: str, evidence: str,
-            camera: str) -> dict:
+            camera: str, *, a13_provenance: dict | None = None) -> dict:
     if label not in LABELS:
         raise ValueError('B_LABEL_MUST_BE_STABLE_OR_UNSTABLE')
     if source not in {'GAZEBO_TRAY', 'REAL_TRAY'}:
@@ -113,15 +113,40 @@ def collect(image: Path, root: Path, manifest: Path, label: str, scene_id: str,
             if dest.exists():
                 # Existing unindexed content is not ours to overwrite.
                 raise ValueError('B_IMAGE_DEST_EXISTS_NOT_IN_MANIFEST')
+            capture_config = {
+                'camera': camera, 'physics_evidence': str(evidence_file),
+                'physics_evidence_sha256': evidence_hash.hexdigest(),
+                'physics_evidence_size_bytes': evidence_bytes,
+                'preprocess': 'RGB_224_FIT_BILINEAR'
+            }
+            if a13_provenance is not None:
+                # Only the B-12 approved A13 adapter uses this path. Generic
+                # pre-existing collection/CLI behavior remains unchanged.
+                if source != 'GAZEBO_TRAY' or not isinstance(a13_provenance, dict):
+                    raise ValueError('B_A13_PROVENANCE_SOURCE_INVALID')
+                required = ('a13_candidate_id', 'source_archive_sha256',
+                            'source_image_sha256', 'source_git_sha',
+                            'approval_record_sha256')
+                allowed = set(required) | {'source_trial_id', 'source_scene_id',
+                                            'seed', 'capture_stamp_ns'}
+                if (not set(required) <= set(a13_provenance)
+                        or not set(a13_provenance) <= allowed
+                        or any(not isinstance(a13_provenance[k], str)
+                               or not a13_provenance[k] for k in required)):
+                    raise ValueError('B_A13_PROVENANCE_INVALID')
+                if not evidence_file.is_relative_to(root):
+                    raise ValueError('B_A13_EVIDENCE_NOT_WITHIN_RELEASE_ROOT')
+                # Relative references survive copying the private release
+                # directory to another WSL2/C training workspace.
+                capture_config['physics_evidence'] = evidence_file.relative_to(root).as_posix()
+                capture_config.update(a13_provenance)
             row = {'sample_id': sid, 'scene_id': scene_id, 'stack_id': stack_id,
                    'label': label, 'image_path': dest.relative_to(root).as_posix(),
-                   'source': source, 'capture_config': json.dumps(
-                       {'camera': camera, 'physics_evidence': str(evidence_file),
-                        'physics_evidence_sha256': evidence_hash.hexdigest(),
-                        'physics_evidence_size_bytes': evidence_bytes,
-                        'preprocess': 'RGB_224_FIT_BILINEAR'},
-                       sort_keys=True, separators=(',', ':')),
-                   'license_status': license_status, 'ground_truth': 'PHYSICS_OBSERVED',
+                   'source': source,
+                   'capture_config': json.dumps(capture_config, sort_keys=True,
+                                                separators=(',', ':')),
+                   'license_status': license_status,
+                   'ground_truth': 'PHYSICS_OBSERVED',
                    'image_sha256': sha}
             tmp.replace(dest)
             try:
