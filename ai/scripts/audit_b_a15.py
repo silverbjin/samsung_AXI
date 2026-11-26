@@ -257,7 +257,7 @@ def geometry_provenance(design:dict):
     need(family==design['geometry_family_id'] and layout==design['physical_layout_id'],'GEOMETRY_FAMILY_LAYOUT_HASH_MISMATCH')
     return {'geometry_family_id':family,'physical_layout_id':layout}
 
-def visibility_geometry(pose_bytes:bytes,initial:dict,info:dict,t0=T0_NS):
+def visibility_geometry(pose_bytes:bytes,design:dict,validity:dict,info:dict,t0=T0_NS):
     """Independently recompute conservative cuboid frustum; not an occlusion mask."""
     observations={}
     for row in csv.DictReader(io.StringIO(pose_bytes.decode('utf8')),delimiter='\t'):
@@ -267,7 +267,7 @@ def visibility_geometry(pose_bytes:bytes,initial:dict,info:dict,t0=T0_NS):
     cam=observations['camera'];cq=q_inv(norm_q(cam));origin=xyz(cam)
     fx,fy,cx,cy=(info['k'][0],info['k'][4],info['k'][2],info['k'][5])
     out={}
-    for d in initial['initial_dishes']:
+    for d in design['initial_dishes']:
         rad=math.hypot(d['radius_m'],d['thickness_m']/2)
         pos=xyz(observations[d['name']]);pixels=[]
         for dx in (-rad,rad):
@@ -278,7 +278,7 @@ def visibility_geometry(pose_bytes:bytes,initial:dict,info:dict,t0=T0_NS):
                     pixels.append((cx-fx*local[1]/local[0],cy-fy*local[2]/local[0]))
         bounds=[min(x for x,y in pixels),min(y for x,y in pixels),max(x for x,y in pixels),max(y for x,y in pixels)]
         need(0<=bounds[0]<=bounds[2]<640 and 0<=bounds[1]<=bounds[3]<480,'CAMERA_FOV_OUTSIDE')
-        recorded=initial.get('dishes',{}).get(d['name'],{}).get('conservative_projected_bbox_px',[])
+        recorded=validity.get('dishes',{}).get(d['name'],{}).get('conservative_projected_bbox_px',[])
         need(len(recorded)==4 and all(abs(x-y)<1e-4 for x,y in zip(recorded,bounds)),'CAMERA_FOV_RECALC_MISMATCH')
         out[d['name']]=bounds
     return out
@@ -333,7 +333,7 @@ def scene_audit(files,scene):
         pixel_hash=sha(image.tobytes());stat=ImageStat.Stat(image);perceptual=ahash(image)
         brightness=sum(stat.mean)/3
     metrics=read_pose_grid(files['poses.tsv'],design,t0=t0)
-    visible_bounds=visibility_geometry(files['poses.tsv'],design,info,t0=t0)
+    visible_bounds=visibility_geometry(files['poses.tsv'],design,initial,info,t0=t0)
     need(all(initial['support'][key]['exact_t0_positive'] is True for key in ('tray_platform__dish_01','dish_01__dish_02')),'INITIAL_SUPPORT_REPORT_NOT_EXACT')
     for d,m in metrics.items():
         emitted=verdict['metrics'][d]

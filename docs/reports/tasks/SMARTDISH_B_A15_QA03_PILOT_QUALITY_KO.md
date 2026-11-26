@@ -1,6 +1,6 @@
 # B-QA03 — A15 Owner 물리 파일럿 독립 QA 검수기 교육·개발 보고서
 
-## 0. 상태와 증거 구분 (2026-11-26)
+## 0. 최초 개발 시점 상태와 증거 구분 (2026-11-26, 역사 기록 — 현재 상태는 §7)
 
 - **코드 및 합성 계약 시험**: `ai/scripts/audit_b_a15.py`, `ai/scripts/b_a15_qa_cli.py`, `tests/test_b_a15_audit.py`, `scripts/smartdish_b_a15_qa_one_shot.sh` 개발. 신규 로컬 테스트 **25/25 PASS**. 이 테스트는 **fixture**이며 물리 인수 증거가 아니다.
 - **실제 A15 Owner 원본 재검**: **NOT_RUN — 필수 `a15_pilot_evidence.tar.gz` / `.sha256` 바이트가 이번 작업 컨테이너에 없음**. 연결된 개인 Library에는 과거 별도 확인 JSON이 있으나 그것을 새 원본 재계산으로 가장할 수 없다.
@@ -61,3 +61,7 @@ bash scripts/smartdish_b_a15_qa_one_shot.sh --owner "$OWNER" --out-dir "$OUT"
 - QA03 첫 실패 경계는 **Owner 원본 TAR 및 sidecar의 실제 접근성**이다. Owner 검수 JSON/Cloud ZIP/합성 fixture/기존 A 보고서만으로 QA03의 `actual_owner_raw_directly_recomputed=true`를 기록하지 않는다.
 - 독립 형상 계열은 2, 실제 배치 4만 이전 Owner에 기록되어 있다. 4 장면 또는 반복 Cloud/Owner 8 장면으로 train/valid/test split 해선 안 된다.
 - 기존 B 147개 테스트는 수정하지 않으며 전용 scope CI와 공통 baseline, merge 차단 정책을 유지한다.
+
+## 7. 실제 원본 수령 후 RED → GREEN (2026-11-26)
+
+실제 첨부 TAR/sidecar를 기존 고정 pin으로 공식 Python CLI 실행하였다. Linux 컨테이너 DNS 제약으로 full clone/WSL2 runner는 미실행, GitHub blob 일치 확인 후 실행. 최초 exit2 `B_A15_CAMERA_FOV_RECALC_MISMATCH`: `a15_design.json.initial_dishes`와 `initial_validity.json.dishes`를 같은 dict에서 읽으려 한 연결 오류. 투영 수식 및 1e-4 px 비교 허용치는 정상. `visibility_geometry`에 design/validity를 각각 전달; 실패 입력이 존재할 때 `OWNER_INPUT_PRESENT_VALIDATION_FAILED`로 분리. 기존 fail-closed 및 SHA/GT/진단 계약 보존. 합성 분리 스키마 양성/변조 음성 및 상태 분리 2건 RED→GREEN (2/2 PASS); 새 원본 CLI exit0 REVIEW_ONLY, 외부15/내부64, 실제 4장면 검수, Q01 PASS 나머지 HOLD. 기존 QA03 CI 25+7 및 B172은 이전 SHA 증거, 새 CI 별도 확인. 새 Gazebo 없음, private 원본/진단 Git 미게시. [실제 인수 원장](../acceptance/SMARTDISH_B_A15_QA03_ACCEPTANCE_KO.md), [DBG-02](../issues/SMARTDISH_B_A15_QA03_DBG_02_FOV_SCHEMA_KO.md).

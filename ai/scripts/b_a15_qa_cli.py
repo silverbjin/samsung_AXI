@@ -47,6 +47,8 @@ def main(argv=None):
             report=audit_owner(owner.read_bytes(),side.read_bytes());code=0
         except (QAError,OSError,KeyError,ValueError,UnicodeError,TypeError) as exc:
             report['first_error']=str(exc)
+            report['source_class']='OWNER_INPUT_PRESENT_VALIDATION_FAILED'
+            report['scope']='B_QA03_OWNER_RAW_VALIDATION_FAILED'
             report['reason']='B_A15_OWNER_INTAKE_OR_PHYSICS_VALIDATION_FAILED'
     (out/'qa_report.json').write_text(json.dumps(report,ensure_ascii=False,sort_keys=True,indent=2)+'\n',encoding='utf8')
     rows=review_rows(report)

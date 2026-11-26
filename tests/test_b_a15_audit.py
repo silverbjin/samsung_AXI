@@ -232,4 +232,41 @@ class ExtraIdentityAndFOV(unittest.TestCase):
         o=io.StringIO();w=csv.DictWriter(o,fieldnames=posefields,delimiter='\t');w.writeheader();w.writerows(rows)
         meta=dict(initial_dishes=[dict(name='dish_01',radius_m=.05,thickness_m=.02),dict(name='dish_02',radius_m=.05,thickness_m=.02)],dishes={})
         info=dict(k=[381.,0,320.,0,381.,240.,0,0,1])
-        with self.assertRaisesRegex(a.QAError,'CAMERA_FOV_RECALC_MISMATCH'):a.visibility_geometry(o.getvalue().encode(),meta,info,t0=t)
+        with self.assertRaisesRegex(a.QAError,'CAMERA_FOV_RECALC_MISMATCH'):a.visibility_geometry(o.getvalue().encode(),meta,{'dishes':{}},info,t0=t)
+
+class ActualSchemaRegression(unittest.TestCase):
+    """Synthetic fixtures with the production schema separation; no private raw."""
+    def test_fov_separate_design_and_validity_success_and_tamper(self):
+        t=2_000_000_000
+        q=math.sqrt(.5)
+        rows=[dict(sim_ns=t,entity='camera',x=0,y=0,z=1.5,qx=0,qy=q,qz=0,qw=q),
+              dict(sim_ns=t,entity='dish_01',x=0,y=0,z=.7,qx=0,qy=0,qz=0,qw=1),
+              dict(sim_ns=t,entity='dish_02',x=0,y=0,z=.75,qx=0,qy=0,qz=0,qw=1)]
+        o=io.StringIO();w=csv.DictWriter(o,fieldnames=list(rows[0]),delimiter='\t');w.writeheader();w.writerows(rows)
+        design=dict(initial_dishes=[dict(name=n,radius_m=.05,thickness_m=.02) for n in ('dish_01','dish_02')])
+        info=dict(k=[381.,0,320.,0,381.,240.,0,0,1])
+        rad=math.hypot(.05,.01)
+        validity={'dishes':{}}
+        for name,z in [('dish_01',.7),('dish_02',.75)]:
+            span=381.*rad/(1.5-z-rad)
+            validity['dishes'][name]={'conservative_projected_bbox_px':[320-span,240-span,320+span,240+span]}
+        result=a.visibility_geometry(o.getvalue().encode(),design,validity,info,t0=t)
+        for name,bounds in result.items():
+            for actual,expected in zip(bounds,validity['dishes'][name]['conservative_projected_bbox_px']):
+                self.assertAlmostEqual(actual,expected,places=7)
+        validity['dishes']['dish_01']['conservative_projected_bbox_px'][0]+=.01
+        with self.assertRaisesRegex(a.QAError,'CAMERA_FOV_RECALC_MISMATCH'):
+            a.visibility_geometry(o.getvalue().encode(),design,validity,info,t0=t)
+    def test_wrong_hash_source_class_distinct_from_missing(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d);archive=p/'a15_pilot_evidence.tar.gz';archive.write_bytes(b'not an Owner file')
+            (p/(archive.name+'.sha256')).write_text(a.sha(archive.read_bytes())+'  '+archive.name+'\n')
+            self.assertEqual(main(['--owner',str(archive),'--out-dir',str(p/'bad')]),2)
+            bad=json.loads((p/'bad'/'qa_report.json').read_text())
+            self.assertEqual(bad['source_class'],'OWNER_INPUT_PRESENT_VALIDATION_FAILED')
+            self.assertEqual(bad['scope'],'B_QA03_OWNER_RAW_VALIDATION_FAILED')
+            self.assertTrue(all(x=='HOLD' for x in bad['gates'].values()))
+            self.assertEqual(main(['--owner',str(p/'missing.tar.gz'),'--out-dir',str(p/'missing')]),2)
+            missing=json.loads((p/'missing'/'qa_report.json').read_text())
+            self.assertEqual(missing['source_class'],'OWNER_RAW_NOT_AVAILABLE')
+            self.assertFalse(bad['actual_owner_raw_directly_recomputed'])

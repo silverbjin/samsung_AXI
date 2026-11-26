@@ -95,9 +95,15 @@ Ubuntu/WSL2 수집기 `collect_tableware.py`는 동일 manifest에 대한 동시
 - DACON 384×384 front/top, 10s 및 0.015m cumulative movement는 **비교 후보**, 기존 제품 640×480 원본/단일 카메라와 구분. 0.015m와 월드 누적 이동으로 사람 라벨을 자동 승인하지 않음.
 - 최종: **B-DATA-QA-01 감사 실행 PASS / 데이터셋 출고 HOLD**, 운영자 승인 0, C 모델 학습 NOT_RUN. [교육 보고](../../docs/reports/tasks/SMARTDISH_B_DATA_QA01_DACON_EDU_KO.md) / [실제 게이트 원장](../../docs/reports/acceptance/SMARTDISH_B_DATA_QA01_ACCEPTANCE_20261125_KO.md) / [WSL2 원샷](../../docs/guides/SMARTDISH_B_DATA_QA01_WSL2_RUNBOOK_KO.md).
 
-## B-QA03 A15 Owner 파일럿 검수 계약 (2026-11-26)
+## B-QA03 A15 Owner 파일럿 검수 계약 (2026-11-26 최초 개발 시점; 아래 실제 검수 갱신 참조)
 
 - A15 과거 Owner 검수보고 SHA `828c1689031f46f9523cdf836eabac9dbd22f8eff6b37860067d2ee328feee05`, 4/4 실물 data+GUI PASS, teardown server `-11` ×4 FAIL 및 전체 contact production health HOLD. 출처 [A15 Owner 보고](../../docs/reports/acceptance/SMARTDISH_B_A15_QA03_ACCEPTANCE_KO.md). 이 B-QA03 작업 공간에는 **Owner 원본 TAR 바이트 자체가 없어 독립적인 outer15/inner64 및 1ms 물리 궤적 재계산은 NOT_RUN**. 기존 A 보고서·연결된 독립 리뷰 JSON을 임의로 이번 B 직접 PASS로 승격하지 않습니다.
 - 신규 `ai/scripts/audit_b_a15.py`는 OWNER 정확한 외부 SHA, 모든 내부 SHA, 4×(10301×4 entity) 동기화 1ms Pose/초기 지지, tray inverse/속도 유도 경계, 상단 식기 변위/거리/회전, 500×1ms 명령, Contact ECM/ROS 동일 시각의 positive subset을 재검할 수 있는 CPU 전용 offline consumer입니다. 원본 없으면 B-Q01까지 HOLD.
 - 사람 검토 worksheet의 승인 칸은 공란입니다. 현재 A15 사람 승인 0, `rule_candidate=UNKNOWN`, `ground_truth=NOT_OPERATOR_APPROVED`, B-Q01~07 직접 검사 전체 HOLD. **학습용 real manifest/split/C 모델 학습 NOT_RUN**.
 - 두 geometry family/네 layout, top 640×480 RGB 단일 카메라, static world-Y 0.12Nm 명령은 DACON front+top 또는 주행 트레이 가속도와 동등하지 않습니다. 제품 0.015m 임계치 확정 금지, Cloud+Owner 동일 layout은 8개 독립 표본으로 계산 불가. [교육 보고](../../docs/reports/tasks/SMARTDISH_B_A15_QA03_PILOT_QUALITY_KO.md) / [A16 확대 요구](../../docs/plans/SMARTDISH_A16_EXPANSION_QA03_REQUIREMENTS_KO.md) / [C 인계](../../docs/handoff/SMARTDISH_B_A15_QA03_TO_A_C_KO.md).
+
+### B-QA03 실제 원본 직접 검수 갱신 (2026-11-26)
+
+- Owner 원본 수령 및 공식 CPU Python CLI 검수 완료(exit0 REVIEW_ONLY). 원본 고정 SHA/outer15/inner64, RGB 4장, 1ms Pose/ECM, exact t0 support, 500-step torque, ROS same-stamp subset, geometry/family/layout 및 파일·픽셀 SHA 재검. B-Q01 PASS/Q02~Q07 HOLD. FOV design/validity 분리 연결 오류 수정; 원본 미제공 기록은 과거 상태.
+- 2 family/4 layout; exact duplicate 0; aHash 유사 후보 6쌍(0–2), 운영자 검토 필요. ROS positive subset 55932/140744는 전체 전달률이 아님. Cleanup -11 ×4 FAIL, full production contact HOLD, GT UNKNOWN_HOLD, 승인 0, split/manifest/C 실학습 0. 실제 data/GUI PASS와 제품 승인을 혼동하지 않음.
+- 원본/worksheet/진단은 private, Git에 포함하지 않음. [실제 원장](../../docs/reports/acceptance/SMARTDISH_B_A15_QA03_ACCEPTANCE_KO.md) / [DBG-02](../../docs/reports/issues/SMARTDISH_B_A15_QA03_DBG_02_FOV_SCHEMA_KO.md).

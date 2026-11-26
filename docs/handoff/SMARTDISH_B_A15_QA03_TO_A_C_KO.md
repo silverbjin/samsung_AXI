@@ -2,7 +2,7 @@
 
 ## A15 현재 상태 (출처 분리)
 
-A15 **이전 Owner 원본 검수 보고** SHA `828c1689031f46f9523cdf836eabac9dbd22f8eff6b37860067d2ee328feee05`: data 4/4 + GUI 4/4 PASS, server cleanup -11 ×4 FAIL, contact production health HOLD, GT UNKNOWN_HOLD, human labels 0. QA03의 새 독립 원본 바이트 검수는 **원본 부재로 NOT_RUN**. Cloud CI #45737733210과 Owner는 동일 family/layout 재연이며 독립 표본 8개가 아니다. A15를 다시 돌려 데이터 4개를 재생성하지 말 것.
+A15 **이전 Owner 원본 검수 보고** SHA `828c1689031f46f9523cdf836eabac9dbd22f8eff6b37860067d2ee328feee05`: data 4/4 + GUI 4/4 PASS, server cleanup -11 ×4 FAIL, contact production health HOLD, GT UNKNOWN_HOLD, human labels 0. QA03 공식 CLI의 실제 원본 오프라인 검수는 FOV 스키마 연결 오류 수정 후 exit0 REVIEW_ONLY, B-Q01 PASS / Q02~Q07 HOLD. outer15/inner64, 4 RGB/초기 지지/1ms Pose·ECM·500 명령/ROS exact positive subset을 직접 검증. 새 Owner WSL2 runner는 미실행. Cloud CI #45737733210과 Owner는 동일 family/layout 재연이며 독립 표본 8개가 아니다. A15를 다시 돌려 데이터 4개를 재생성하지 말 것.
 
 ## A16 요구안 — 품질 우선, 단순 seed 반복 금지
 
@@ -20,4 +20,4 @@ A15 **이전 Owner 원본 검수 보고** SHA `828c1689031f46f9523cdf836eabac9db
 
 ## 다음 작업
 
-B 담당이 `a15_pilot_evidence.tar.gz`와 sidecar를 private 경로에서 읽을 수 있게 된 이후 B-QA03 원샷을 실행하고, `qa_report.json` 및 `b_a15_qa03_diagnostics.tar.gz(.sha256)`를 비공개 전달합니다. **원본 물리 시험 반복이나 main 병합은 이 단계에 필요하지 않습니다.**
+실제 B 오프라인 CLI 검수는 완료되었습니다. private `qa_report.json`, 4행 공란 worksheet 및 진단 TAR/sidecar로 운영자 가림·안착·사용권을 검토하십시오. 정확한 수정 SHA로 WSL2 원샷을 사용하면 기존 원본의 읽기 전용 재검수만 수행됩니다. A16 신규 4~8 독립 구성은 계획이며 데이터셋 출고 승인이 아닙니다. **원본 물리 시험 반복이나 main 병합은 이 단계에 필요하지 않습니다.**
