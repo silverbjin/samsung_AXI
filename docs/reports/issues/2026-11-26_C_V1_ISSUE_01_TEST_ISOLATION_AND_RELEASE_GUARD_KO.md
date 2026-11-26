@@ -26,3 +26,10 @@
 1. Data SHA를 읽는 독립 P0와 Test 이미지의 픽셀을 학습에 제공하는 행위는 무엇이 다른가요?
 2. 학습이 성공한 모델이더라도 ROS가 즉시 로딩하면 왜 위험할까요?
 3. Test 1회 검사에서 실패했을 때 학습 파라미터를 고쳐 같은 Test를 다시 측정하면 왜 독립 평가가 무너질까요?
+
+## C-V1-CI-DBG-01 — 경량 CI 의존성 누락 (원격 RED)
+
+- 실제 RED [GitHub Run #45784287293](https://github.com/silverbjin/samsung_AXI/actions/runs/45784287293): **49 passed, 2 failed**.
+- 첫 오류: `tests/test_c_stability.py::test_rgb_and_bgr_padded_rows`, `test_bad_image_encoding_and_corrupt_buffer` → `stability_inference_node.py:18`의 `ModuleNotFoundError: No module named 'numpy'`.
+- 근본 원인: 기존 ROS-free 이미지 unpack 회귀를 새 L0 검증에 포함하면서 이전 C CI가 제공하던 `numpy` 설치를 누락했습니다. 코드/데이터 품질이 아니라 테스트 환경 불일치입니다.
+- 최소 조치: 새 경량 CI `python -m pip install pytest pillow numpy`; 실 모델·Gazebo·private 데이터·A/B 작업은 재실행하지 않았습니다. GREEN 원격 확인 후 QA 원장에 별도로 기록합니다.

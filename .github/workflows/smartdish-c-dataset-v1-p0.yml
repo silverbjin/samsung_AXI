@@ -51,7 +51,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install fixture-only L0 test requirements
-        run: python -m pip install pytest pillow
+        run: python -m pip install pytest pillow numpy
       - name: Audit code-only P0 gates; no B/private/real model used
         run: |
           python -m compileall -q ai/train/dataset_v1_gate.py ai/train/research_approval.py ai/train/pilot_eval_gate.py ai/train/seal_v1_research_model.py ai/train/train_classifier.py ai/train/evaluate.py src/smartdish_ai/smartdish_ai/model_runtime.py
