@@ -1,0 +1,63 @@
+name: SmartDish A18 Crossed Layouts Phase 2
+on:
+  push:
+    branches: [feat/smartdish-a18-crossed-layouts]
+    paths: ['scripts/a18_*','config/smartdish_a18_layouts.json','tests/test_a18_pilot.py','.github/workflows/smartdish-a18-pilot.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/a18_*.py
+          python3 -m unittest discover -s tests -p test_a18_pilot.py -v
+          python3 -m unittest discover -s tests -p 'test_a17*.py' -v
+          bash -n scripts/a18_pilot_batch.sh scripts/a18_pilot_bootstrap.sh
+          python3 -m unittest discover -s tests -p test_a16_pilot.py -v
+          python3 -m unittest discover -s tests -p test_a15_pilot.py -v
+          python3 -m unittest discover -s tests/platform -v
+          bash tests/platform/test_pin_checkout.sh
+          python3 scripts/smartdish_platform/baseline.py --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+  l2:
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Actual Jazzy Harmonic build/runtime
+        shell: bash
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git cmake g++ make python3-yaml python3-pil \
+            ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs \
+            ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Actual four new phase 2 layouts only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD"
+          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a18_pilot_batch.sh "$GITHUB_SHA" "$PWD/generated_a18_ci" --ci 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a18-phase2-${{ github.run_id }}
+          path: |
+            generated_a18_ci/a18_pilot_evidence.tar.gz*
+            generated_a18_ci/a18_pilot_diagnostics.tar.gz*
+            generated_a18_ci/batch_status.json
+            generated_a18_ci/contrast.json
+          if-no-files-found: ignore
