@@ -4,6 +4,7 @@ import argparse,hashlib,json,os,random,subprocess,sys,time,tarfile
 from pathlib import Path
 from PIL import Image as PILImage
 from smartdish_platform.runtime import gui_profile
+from a17_production_profile import PROFILES,INHERIT,RETAIN,prepare as prepare_server_profile,observe as observe_server_profile,cleanup_result as production_cleanup_result
 from smartdish_platform.lifecycle import stop_owned
 from smartdish_platform.evidence import sha256,verify_archive
 from a16_pilot_world import generate,SCENES,TRIGGER_NS,END_NS,PLATFORM_SHA,VERSION
@@ -26,7 +27,9 @@ from a16_archive import scene_package as package
 def run(a):
     out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
     report=dict(source_sha=a.sha,scene_id=a.scene,data_verdict="HOLD",gui="NOT_RUN",cleanup="NOT_RUN",ground_truth="UNKNOWN_HOLD",human_approved=False,training_eligible=False,platform_sha=PLATFORM_SHA,producer_version=VERSION,production_contact_health="HOLD",first_error=None)
-    procs=[];handles=[];node=None;initialized=False;gui=None
+    procs=[];handles=[];node=None;initialized=False;gui=None;server=None;profile_record=None
+    profile=getattr(a,"server_profile",INHERIT)
+    if profile!=INHERIT:report["server_runtime_profile"]={"profile":profile,"production_cleanup":"HOLD","runtime_observation":None}
     state=dict(clock=0,frames={},frame_stamps=[],infos={},raw=[],overflow=False)
     env=dict(os.environ,GZ_PARTITION="smartdish_a16_"+str(os.getpid())+"_"+str(random.randrange(1000000)),ROS_DOMAIN_ID=str(random.randrange(40,180)))
     env.setdefault("GZ_SIM_RENDER_ENGINE","ogre2")
@@ -58,13 +61,16 @@ def run(a):
             state["raw"].append(dict(topic=topic,sim_time_ns=t,receive_monotonic_ns=time.monotonic_ns(),timestamp_source="ROS_CONTACT_HEADER_STAMP" if t>0 else "INVALID_ZERO_STAMP",contacts=[dict(collision1=str(x.collision1.name),collision2=str(x.collision2.name),collision1_id=int(x.collision1.id),collision2_id=int(x.collision2.id)) for x in msg.contacts]))
         return cb
     try:
+        # Resolve explicit profile before launching any owned child. Only server receives the new env.
+        server_env,profile_record=prepare_server_profile(env,profile,a.source_class)
+        if profile_record is not None:report["server_runtime_profile"]=profile_record
         meta=generate(a.scene,out,a.pose_plugin,a.health_plugin);meta["source_sha"]=a.sha;meta["source_class"]=a.source_class;dump(out/"a16_design.json",meta)
         native=launch("native_contact",[str(a.native_tap),str(out/"native_contacts.tsv"),*meta["contact_topics"]],env)
         until=time.monotonic()+8
         while time.monotonic()<until and "A16_NATIVE_SUBSCRIBED" not in (out/"native_contact.log").read_text():
             need(native.poll() is None,"A16_NATIVE_START_FAILED");time.sleep(.05)
         need("A16_NATIVE_SUBSCRIBED" in (out/"native_contact.log").read_text(),"A16_NATIVE_START_TIMEOUT")
-        launch("server",["gz","sim","-s","-v2",str(out/"scenario.sdf")],env)
+        server=launch("server",["gz","sim","-s","-v2",str(out/"scenario.sdf")],server_env)
         root=Path(__file__).resolve().parents[1]
         for role,cfg in (("rgb_bridge",root/"config/smartdish_tray_bridge.yaml"),("contact_bridge",out/"a14_contact_bridge.yaml")):
             launch(role,["ros2","run","ros_gz_bridge","parameter_bridge","--ros-args","-p","config_file:="+str(cfg)],env)
@@ -105,6 +111,7 @@ def run(a):
         dump(out/"capture.json",dict(stamp_ns=t0,frame_id=m.header.frame_id,encoding=m.encoding,width=m.width,height=m.height,image_sha256=sha256(out/"tray_rgb_t0.png"),camera_info=ci,source="ACTUAL_ROS_GZ_IMAGE_HEADER",pixel_sha256=hashlib.sha256(bytes(m.data)).hexdigest(),visual_review_required=True))
         tracks=load_poses(out/"poses.tsv",meta);ecm,overflow=read_ecm(out/"ecm_contact_steps.tsv");need(not overflow,"A16_ECM_OVERFLOW")
         initial=check_initial(tracks,meta,t0,ci,ecm);dump(out/"initial_validity.json",initial)
+        if profile_record is not None:observe_server_profile(server,profile_record)
         print("A16_INITIAL_VALIDITY_PASS="+str(t0),flush=True)
         if not a.headless:
             try:
@@ -139,6 +146,7 @@ def run(a):
         report["registration"]=registration(out/"entity_registry.tsv",ecm,meta,report["trigger"])
         report["contact_diagnostic"]=transport_diagnostic(ecm,state["raw"],load_native(out/"native_contacts.tsv"),meta["contact_topics"],t0,END_NS)
         report["data_verdict"]="PASS"
+        if profile_record is not None:observe_server_profile(server,profile_record,"runtime_observation_pre_shutdown")
         print("A16_REAL_CAPTURE_PASS_GT_HOLD="+a.scene,flush=True)
     except Exception as exc:
         report["first_error"]=type(exc).__name__+": "+str(exc)
@@ -164,11 +172,13 @@ def run(a):
         report["cleanup"]="PASS" if report["all_owned_stopped"] and all(x["returncode"]==0 for x in rows if x["role"]!="gui") else "FAIL"
         if report["gui"]=="PASS" and any(x["role"]=="gui" and x["returncode"]!=0 for x in rows):report["gui"]="FAIL"
         if report["gui"]=="RUNNING":report["gui"]="FAIL"
+        if profile_record is not None:production_cleanup_result(profile_record,rows,report["data_verdict"],report["all_owned_stopped"])
         dump(out/"verdict.json",report);package(out)
-    return 0 if report["data_verdict"]=="PASS" and report["all_owned_stopped"] else 2
+    profile_ok=profile==INHERIT or report["server_runtime_profile"]["production_cleanup"]=="PASS"
+    return 0 if report["data_verdict"]=="PASS" and report["all_owned_stopped"] and profile_ok else 2
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument("--sha",required=True);p.add_argument("--scene",choices=SCENES,required=True);p.add_argument("--out",required=True,type=Path);p.add_argument("--pose-plugin",required=True,type=Path);p.add_argument("--health-plugin",required=True,type=Path);p.add_argument("--headless",action="store_true");p.add_argument("--native-tap",required=True,type=Path);p.add_argument("--source-class",choices=("CLOUD_CI","OWNER_WSL2"),required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument("--sha",required=True);p.add_argument("--scene",choices=SCENES,required=True);p.add_argument("--out",required=True,type=Path);p.add_argument("--pose-plugin",required=True,type=Path);p.add_argument("--health-plugin",required=True,type=Path);p.add_argument("--headless",action="store_true");p.add_argument("--native-tap",required=True,type=Path);p.add_argument("--source-class",choices=("CLOUD_CI","OWNER_WSL2"),required=True);p.add_argument("--server-profile",choices=PROFILES,default=INHERIT,help="Explicit A-only server profile; retain is Owner WSL2 only");a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     need(len(a.sha)==40 and subprocess.check_output(["git","-C",str(root),"rev-parse","HEAD"],text=True).strip()==a.sha,"A16_PIN_MISMATCH")
     need(not subprocess.check_output(["git","-C",str(root),"status","--porcelain","--untracked-files=no"],text=True).strip(),"A16_TRACKED_DIRTY")
