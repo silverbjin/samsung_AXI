@@ -63,7 +63,7 @@ def classify(summary,trial,cleanup,diag=None,roles=None):
     if error:
         m=re.fullmatch(r"A13_GAZEBO_GUI_EARLY_EXIT_RC=(-?[0-9]+)",error)
         require(m and gui=="FAIL" and trial.get("gui_failure_reason")==error and diag
-                and diag.get("phase")=="evidence_verification"
+                and diag.get("stage")=="evidence_verification"
                 and diag.get("first_error")=="RuntimeError: "+error,"DBG_NOT_GUI_ONLY_FAILURE")
         rc=int(m.group(1))
         before=diag.get("owned_processes_before_cleanup",[])
@@ -97,7 +97,7 @@ def classify(summary,trial,cleanup,diag=None,roles=None):
             "processes":rows}
 
 def review(archive,pin,scene,reviewer_sha,*,reuse=False,trace=None):
-    require(not __debug__ is False,"DBG_PYTHON_OPTIMIZED")
+    require(__debug__,"DBG_PYTHON_OPTIMIZED")
     require(re.fullmatch("[0-9a-f]{40}",pin) and re.fullmatch("[0-9a-f]{40}",reviewer_sha),
             "DBG_SHA_FORMAT")
     archive=Path(archive)

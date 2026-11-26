@@ -11,7 +11,7 @@ def fixture(error=True,server=0,stopped=True):
         dict(pid=3,stopped=True,returncode_after_cleanup=-6 if error else 0),
         dict(pid=2,stopped=True,returncode_after_cleanup=0),
         dict(pid=1,stopped=stopped,returncode_after_cleanup=server)])
-    d=dict(phase="evidence_verification",first_error="RuntimeError: "+str(e),
+    d=dict(stage="evidence_verification",first_error="RuntimeError: "+str(e),
            owned_processes_before_cleanup=[dict(pid=1,running_at_failure=True),
                dict(pid=3,running_at_failure=False,returncode_at_failure=-6)]) if error else None
     return s,t,c,d,{1:"server",2:"aux",3:"gui"}
@@ -29,7 +29,7 @@ def test_fail_closed(kind):
     if kind=="physics":t["sensor_physics_verdict"]="HOLD"
     if kind=="server":d["owned_processes_before_cleanup"][0]["running_at_failure"]=False
     if kind=="wrong_rc":c["owned_processes"][0]["returncode_after_cleanup"]=-11
-    if kind=="wrong_phase":d["phase"]="physics_observation"
+    if kind=="wrong_phase":d["stage"]="physics_observation"
     if kind=="wrong_role":roles={1:"gui",2:"aux",3:"server"}
     with pytest.raises(ValueError):classify(s,t,c,d,roles)
 def make_tar(path,items):
