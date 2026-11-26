@@ -107,3 +107,8 @@ Ubuntu/WSL2 수집기 `collect_tableware.py`는 동일 manifest에 대한 동시
 - Owner 원본 수령 및 공식 CPU Python CLI 검수 완료(exit0 REVIEW_ONLY). 원본 고정 SHA/outer15/inner64, RGB 4장, 1ms Pose/ECM, exact t0 support, 500-step torque, ROS same-stamp subset, geometry/family/layout 및 파일·픽셀 SHA 재검. B-Q01 PASS/Q02~Q07 HOLD. FOV design/validity 분리 연결 오류 수정; 원본 미제공 기록은 과거 상태.
 - 2 family/4 layout; exact duplicate 0; aHash 유사 후보 6쌍(0–2), 운영자 검토 필요. ROS positive subset 55932/140744는 전체 전달률이 아님. Cleanup -11 ×4 FAIL, full production contact HOLD, GT UNKNOWN_HOLD, 승인 0, split/manifest/C 실학습 0. 실제 data/GUI PASS와 제품 승인을 혼동하지 않음.
 - 원본/worksheet/진단은 private, Git에 포함하지 않음. [실제 원장](../../docs/reports/acceptance/SMARTDISH_B_A15_QA03_ACCEPTANCE_KO.md) / [DBG-02](../../docs/reports/issues/SMARTDISH_B_A15_QA03_DBG_02_FOV_SCHEMA_KO.md).
+
+
+## B-QA04 — A16 실제 Owner raw 독립 검수 (2026-11-26)
+
+A16 Owner DATA/GUI 8/8 PASS and user visual review completed, server -11×8 and minimal camera-only -11, all stopped. Exact production bacc1af and B verifier b36694d; actual independent CPU CLI exit0 REVIEW_ONLY for A15+A16. 12 distinct layout/pixel hashes, 4 geometry families, 66/66 pairwise aHash <=8 review candidates (22 aHash distance0, not exact pixel duplicates). Q01 PASS Q02–07 HOLD, actual approved0, contact production HOLD, C real training0. See [actual QA04 report](../../docs/reports/acceptance/SMARTDISH_B_A16_QA04_OWNER_RELEASE_KO.md). No public raw/worksheet or new learning manifest. WSL2 B runner NOT_RUN. Same layout Cloud/Owner one group. Future t0 RGB only; no post-t0 leakage. 
