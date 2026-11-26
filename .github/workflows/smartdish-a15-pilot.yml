@@ -41,12 +41,16 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y --no-install-recommends git cmake g++ make python3-yaml python3-pil \
-            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
             ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs \
             ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor xvfb xauth mesa-utils libgl1-mesa-dri
       - name: Four actual loaded-domain scenes, one GUI
         shell: bash
-        run: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a15_pilot_batch.sh "$GITHUB_SHA" "$PWD/generated_a15_ci" --ci
+        run: |
+          set -Eeuo pipefail
+          # Trust only this CI checkout, inherited by Git subprocesses; no owner config changes.
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD"
+          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a15_pilot_batch.sh "$GITHUB_SHA" "$PWD/generated_a15_ci" --ci
       - uses: actions/upload-artifact@v4
         if: always()
         with:

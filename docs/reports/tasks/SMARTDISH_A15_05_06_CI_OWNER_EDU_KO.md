@@ -4,3 +4,6 @@ Eight L0 tests check same family and shared intervention, exact t0, pre-fall rej
 
 ## Static API review
 Before L2 finished, reviewed sdformat14 include/sdf/Param.hh `ParamVariant`, `TypeToString`, `Get`: std::uint64_t supported, signed int64_t absent; std::get_if<T> would instantiate an unsupported variant type. Fixed the two nonnegative nanosecond parameters to std::uint64_t, preserving signed internal duration comparisons and experiment constants. This is a source-review defect, not a claimed observed L2 failure. Prior L0 #45737419258 passed. New exact pin requires L2 proof.
+
+## CI environment RED
+Actual #45737419258 L2 job 139633945022 failed before build/collection at Git dubious ownership of /__w/samsung_AXI/samsung_AXI in ROS container. L0 8/8 + common 7/7 + pin fixture PASS. Restrict Git safe.directory to exact checkout via process-local GIT_CONFIG environment on CI only. Use ros-gz-sim rather than demos/RViz aggregate ros-gz package; required bridge and vendor packages unchanged. No Owner global Git configuration change. New L2 required.
