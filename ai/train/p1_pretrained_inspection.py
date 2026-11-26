@@ -109,8 +109,13 @@ def main() -> int:
               "A19": "NOT_AUTHORIZED"}
     try:
         result.update(inspect(args.p0_report, args.experiment_lock))
-    except (IntakeHold, OSError, ValueError, ImportError, RuntimeError) as exc:
+    except ImportError as exc:
+        result["reason"] = "C_V1_TORCH_OR_TORCHVISION_MISSING"
+        result["error_type"] = type(exc).__name__
+        result["verdict"] = "HOLD"
+    except (IntakeHold, OSError, ValueError, RuntimeError) as exc:
         result["reason"] = str(exc).split(" ")[0]
+        result["error_type"] = type(exc).__name__
         result["verdict"] = "HOLD"
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

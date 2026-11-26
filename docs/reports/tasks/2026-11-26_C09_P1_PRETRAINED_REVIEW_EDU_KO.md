@@ -37,3 +37,16 @@ CLI 결과 `HOLD`는 모델 결함으로 단정할 수 없습니다. Cache/torch
 - P6: D/E 코드·계약만 인계, AI ON **HOLD**. AI OFF 기본 유지.
 
 교육 토론: P0의 SHA 42/42 검사 성공과 `training_permitted=false`가 동시에 참인 이유는 무엇인가요? P1 weight cache를 읽지 못했다고 합성 이미지로 학습하면 왜 다른 모델이 되나요? Test 평가 전에 threshold을 봉인해야 하는 이유는 무엇인가요?
+
+## P1 Owner immutable 원샷 추가
+
+`scripts/smartdish_c_v1_p1_pretrained_once.sh`는 WSL2에서 새 C SHA를 detached/clean checkout한 뒤, **기존 P0 보고서만 재사용**하여 pre-trained 캐시+환경을 확인합니다. B audit/출고/물리 Gazebo/P0 42해시 재실행/학습·Test는 전부 미수행. P1 결과 `p1_report.json`, checkout, stdout/stderr, 실행상태를 자동 TAR+SHA sidecar로 생성합니다. 비공개 archive는 GitHub에 게시하지 않습니다.
+
+```bash
+PIN=<새로운_40자리_C_immutable_SHA>
+curl -fsSLo "$HOME/smartdish_c_v1_p1_pretrained_once.sh" \
+  "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$PIN/scripts/smartdish_c_v1_p1_pretrained_once.sh"
+SMARTDISH_C_PIN="$PIN" bash "$HOME/smartdish_c_v1_p1_pretrained_once.sh"
+```
+
+가중치가 캐시에 없다면 `exit2 HOLD`를 기록하며 자동 다운로드를 시도하지 않습니다. 성공해도 사용권과 C 독립 학습 승인 조건은 별개입니다.
