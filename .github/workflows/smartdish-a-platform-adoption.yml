@@ -1,0 +1,73 @@
+name: SmartDish A Platform Adoption
+on:
+  pull_request:
+    branches: [feat/smartdish-a14-physics-evidence]
+    paths:
+      - 'scripts/a14_r03_dbg*'
+      - 'scripts/smartdish_platform/**'
+      - 'tests/test_a14_platform_adoption.py'
+      - '.github/workflows/smartdish-a-platform-adoption.yml'
+permissions: {contents: read}
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest
+          python3 -m unittest discover -s tests -p test_a14_platform_adoption.py -v
+          python3 -m pytest -q tests/test_a14_r03_dbg_review.py
+          bash tests/test_a14_r03_dbg_pin.sh
+          bash -n scripts/a14_r03_dbg_owner.sh
+  l2:
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Actual Jazzy and Harmonic
+        shell: bash
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git cmake g++ make python3-yaml python3-pil \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs \
+            ros-jazzy-rosgraph-msgs ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: One actual GUI case with common renderer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          cmake -S scripts/a14_physics_freshness -B /tmp/a14_platform_build
+          cmake --build /tmp/a14_platform_build -j2
+          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a14_r03_dbg_trial.sh \
+            "$GITHUB_SHA" UN-01 /tmp/a14_platform_build/liba14_physics_freshness.so generated/a_platform_adoption
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path('generated/a_platform_adoption')
+          r=json.loads((p/'verdict.json').read_text())
+          assert r['source_sha']==os.environ['GITHUB_SHA'] and r['gui']=='PASS' and r['data_verdict']=='PASS' and r['cleanup']=='PASS'
+          trace=json.loads((p/'process_trace.json').read_text())
+          gui=[x for x in trace['events'] if x['event']=='launch' and x['role']=='gui'][0]
+          assert gui['renderer']['GALLIUM_DRIVER']=='llvmpipe' and gui['renderer']['QT_QPA_PLATFORM']=='xcb'
+          print('A_PLATFORM_ACTUAL_GUI_PASS_GT_HOLD')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a-platform-adoption-${{ github.run_id }}
+          path: generated/a_platform_adoption/
+          if-no-files-found: ignore
