@@ -1,5 +1,5 @@
 """A16 versioned independent layout registry, no labels or outcome-dependent selection."""
-import hashlib,json,math
+import hashlib,json,math,uuid,os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 import smartdish_tray_world as w
@@ -40,7 +40,7 @@ def generate(scene,out,pose_plugin,health_plugin):
         world.append(w.plate_model(d["name"],d["x"],d["y"],d["z"],0.,0.,d["radius_m"],d["thickness_m"],d["color"]))
     path=out/"scenario.sdf"
     with path.open("xb") as f:f.write(ET.tostring(root,encoding="utf-8",xml_declaration=True))
-    meta.update(trial_id=out.parent.name+"_"+out.name,seed=0,stack_id=meta["physical_layout_id"])
+    meta.update(trial_id=uuid.uuid4().hex, batch_id=os.environ.get("SMARTDISH_A16_BATCH_ID",uuid.uuid4().hex),seed=0,stack_id=meta["physical_layout_id"])
     # Reuse exact A14 contact SDF/bridge generator; its STATIC_GRAVITY metadata
     # is auxiliary legacy output, NOT the A15 profile. Keep A16 metadata separate.
     cfg=configure_sdf(path,dict(meta))

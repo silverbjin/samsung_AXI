@@ -14,6 +14,7 @@ finish(){
 }
 trap finish EXIT
 cd "$ROOT"
+export SMARTDISH_A16_BATCH_ID="$(python3 -c 'import uuid;print(uuid.uuid4().hex)')"
 [[ "$PIN" =~ ^[0-9a-f]{40}$ && "$(git rev-parse HEAD)" == "$PIN" ]] || exit 2
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] || exit 2
 BASE=b8ef3998973a5e33b67ddd5c5b63c3c89b837840
