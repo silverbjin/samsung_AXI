@@ -1,0 +1,90 @@
+name: SmartDish A14 R03 DBG GUI and Evidence
+on:
+  push:
+    branches: [feat/smartdish-a14-physics-evidence]
+    paths:
+      - 'scripts/a14_r03_dbg*'
+      - 'tests/test_a14_r03_dbg*'
+      - '.github/workflows/smartdish-a14-r03-dbg.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest
+          python3 -m py_compile scripts/a14_r03_dbg*.py
+          for f in scripts/a14_r03_dbg*.sh; do bash -n "$f"; done
+          python3 -m pytest -q tests/test_a14_r03_dbg_review.py
+          bash tests/test_a14_r03_dbg_pin.sh
+  l2:
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual ROS Jazzy and Harmonic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git cmake g++ make python3-yaml python3-pil \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs \
+            ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Build verified observer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          cmake -S scripts/a14_physics_freshness -B /tmp/a14_dbg_build
+          cmake --build /tmp/a14_dbg_build -j2
+      - name: Actual production GUI normal and actual GUI SIGABRT
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          mkdir -p generated/r03_dbg
+          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a14_r03_dbg_trial.sh \
+            "$GITHUB_SHA" ST-02 /tmp/a14_dbg_build/liba14_physics_freshness.so generated/r03_dbg/normal
+          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a14_r03_dbg_trial.sh \
+            "$GITHUB_SHA" UN-01 /tmp/a14_dbg_build/liba14_physics_freshness.so generated/r03_dbg/injected --inject-gui-abort
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('generated/r03_dbg')
+          for mode,gui in [('normal','PASS'),('injected','FAIL')]:
+              p=root/mode;r=json.loads((p/'verdict.json').read_text())
+              t=json.loads((p/'process_trace.json').read_text())
+              assert r['source_sha']==r['reviewer_sha']==os.environ['GITHUB_SHA']
+              assert r['data_verdict']=='PASS' and r['gui']==gui and r['cleanup']=='PASS'
+              assert r['all_owned_stopped'] and r['human_approved'] is False
+              assert t['injected']==(mode=='injected')
+              assert any(x['event']=='launch' and x['role']=='gui' for x in t['events'])
+              if mode=='injected': assert any(x['event']=='gui_abort_injected' for x in t['events'])
+              print('R03_DBG_REAL_'+mode.upper()+'_PASS_GUI_'+gui+'_CLEANUP_PASS_GT_HOLD')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a14-r03-dbg-${{ github.run_id }}
+          path: generated/r03_dbg/
+          if-no-files-found: ignore
+          retention-days: 14

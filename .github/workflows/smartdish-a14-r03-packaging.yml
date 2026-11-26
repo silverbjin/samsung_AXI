@@ -1,0 +1,20 @@
+name: SmartDish A14 R03 Owner Packaging
+on:
+  push:
+    branches: [feat/smartdish-a14-physics-evidence]
+    paths:
+      - 'scripts/a14_r03_*'
+      - 'tests/test_a14_r03_pin_checkout.sh'
+      - '.github/workflows/smartdish-a14-r03-packaging.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  packaging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -Eeuo pipefail
+          for f in scripts/a14_r03_bootstrap.sh scripts/a14_r03_owner.sh tests/test_a14_r03_pin_checkout.sh; do bash -n "$f"; done
+          bash tests/test_a14_r03_pin_checkout.sh

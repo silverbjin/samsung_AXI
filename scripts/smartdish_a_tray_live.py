@@ -238,7 +238,7 @@ def gz_spawn_dynamic(env, world, item, timeout=18):
 
 
 def run_trial(root:Path, directory:Path, scenario:str, seed:int,
-              source_sha:str, gui:bool, index:int, run_id:str):
+              source_sha:str, gui:bool, index:int, run_id:str, a14=False):
     import rclpy
     from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy
     from sensor_msgs.msg import Image
@@ -248,6 +248,11 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
     directory.mkdir(parents=True,exist_ok=False)
     sdf=directory/"scenario.sdf"
     config=write_trial(scenario,seed,sdf,f"{run_id}_{index:02d}")
+    if a14:
+        from smartdish_a14_physics import configure_sdf
+        a14_cfg=configure_sdf(sdf,config)
+    else:
+        a14_cfg=None
     sensor_world_sdf,spawn_manifest=split_scene_for_sensor_warmup(sdf)
     dish_names=[x["name"] for x in config["initial_dishes"]]
     env=os.environ.copy()
@@ -271,7 +276,8 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
            "image_last_stamp_ns":None,
            "clock_callbacks_total":0,"clock_advances_total":0,
            "clock_nonadvancing_total":0,"clock_last_progress_monotonic_ns":None,
-           "image_events":[],"clock_events":[]}
+           "image_events":[],"clock_events":[],
+           "a14_poses":[],"a14_contacts":[],"a14_contact_overflow":False}
     gui_process=None
     probe_data_path=None
     failure=None
@@ -332,12 +338,43 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             name,pose=row
             if name not in dish_names:
                 continue
+            if a14 and phase in ("post_spawn_camera_pose","physics_observation"):
+                # Actual header stamp from ROS bridged Gazebo PosePublisher,
+                # not the /clock time when rclpy happened to invoke callback.
+                stamp=(int(t.header.stamp.sec)*1_000_000_000+
+                       int(t.header.stamp.nanosec))
+                stamped={"sim_time_ns":stamp if stamp>0 else state["sim_ns"],
+                         "entity":name,"pose":pose,
+                         "stamp_source":("ROS_TF_HEADER_STAMP" if stamp>0 else
+                                         "ROS_CALLBACK_CLOCK_APPROX_NOT_GT")}
+                state["a14_poses"].append(stamped)
             previous=state["pose_times"].get(name,-1)
             if now>previous and (previous<0 or now-previous>=50_000_000):
                 state["traces"].append({"sim_ns":now,"entity":name,"pose":pose,
                                         "source":"ROS_BRIDGED_GAZEBO_DYNAMIC_POSE"})
                 state["poses"][name]=pose
                 state["pose_times"][name]=now
+
+    def a14_contact_cb(topic):
+        from smartdish_a14_physics import retain_contact_sample
+        def cb(msg):
+            stamp=(int(msg.header.stamp.sec)*1_000_000_000+
+                   int(msg.header.stamp.nanosec))
+            collisions=[]
+            for item in msg.contacts:
+                collisions.append({"collision1":str(item.collision1.name),
+                                   "collision2":str(item.collision2.name),
+                                   "collision1_id":int(item.collision1.id),
+                                   "collision2_id":int(item.collision2.id)})
+            # A REAL contact update can arrive hundreds of times/sec/sensor.
+            # Preserve ALL pair transitions and cap redundant state samples
+            # at one per 50ms per topic; keep RAW callback counts separately.
+            retain_contact_sample(state,{
+                "topic":topic,"sim_time_ns":stamp if stamp>0 else state["sim_ns"],
+                "timestamp_source":("ROS_CONTACT_HEADER_STAMP" if stamp>0
+                                    else "ROS_CALLBACK_CLOCK_APPROX_NOT_GT"),
+                "contacts":collisions})
+        return cb
 
     def spin(seconds=.15):
         if any(p.poll() is not None for p in procs[:2]):
@@ -346,12 +383,17 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
 
     phase="launch_gazebo_bridge"
     try:
-        for name,cmd in [
+        launches=[
             ("gazebo",["gz","sim","-s","-v2",str(sensor_world_sdf.resolve())]),
             ("bridge",["ros2","run","ros_gz_bridge","parameter_bridge",
                        "--ros-args","-p","config_file:="+
                        str((root/"config/smartdish_tray_bridge.yaml").resolve())]),
-        ]:
+        ]
+        if a14:
+            launches.append(("a14_contact_bridge",[
+                "ros2","run","ros_gz_bridge","parameter_bridge","--ros-args",
+                "-p","config_file:="+str(Path(a14_cfg["bridge"]).resolve())]))
+        for name,cmd in launches:
             handle=(directory_log/(directory.name+"_"+name+".log")).open("w")
             handles.append(handle)
             procs.append(subprocess.Popen(cmd,env=env,stdout=handle,
@@ -384,6 +426,11 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             node.create_subscription(TFMessage,"/smartdish/tray/pose/"+name,
                                      poses_cb,qos_profile_sensor_data)
         node.create_subscription(Clock,"/clock",clock_cb,QoSProfile(depth=10))
+        if a14:
+            from ros_gz_interfaces.msg import Contacts
+            for contact_topic in a14_cfg["topics"]:
+                node.create_subscription(Contacts,contact_topic,
+                    a14_contact_cb(contact_topic),qos_profile_sensor_data)
         start=time.monotonic()
         while time.monotonic()-start<75:
             spin()
@@ -463,6 +510,9 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         state["poses"]={}
         state["pose_times"]={}
         state["traces"]=[]
+        if a14:
+            state["a14_poses"]=[]
+            state["a14_contacts"]=[]
         for item in spawn_manifest["spawned_dynamic_models"]:
             gz_spawn_dynamic(env,WORLD,item)
         print("SMARTDISH_A_TRAY_DYNAMIC_SPAWN_REQUESTS_OK count="+
@@ -641,6 +691,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         # Only now unpause the actual physics simulation for 10 simulated s.
         phase="physics_observation"
         observation_start_ns=state["sim_ns"]
+        if a14: state["a14_observation_start_ns"]=observation_start_ns
         gz_call(env,WORLD,"pause: false")
         deadline=time.monotonic()+190
         gui_failure_reason=None
@@ -659,6 +710,7 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
         for _ in range(6):
             spin(.1)
         observation_end_ns=state["sim_ns"]
+        if a14: state["a14_observation_end_ns"]=observation_end_ns
         if gui:
             if gui_process.poll() is not None and gui_failure_reason is None:
                 gui_failure_reason="A13_GAZEBO_GUI_EARLY_EXIT_RC="+str(gui_process.returncode)
@@ -723,6 +775,55 @@ def run_trial(root:Path, directory:Path, scenario:str, seed:int,
             **timing}
         (directory/"trial_summary.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
         verify_trial(directory)
+        if a14:
+            from smartdish_a14_physics import build_v2
+            state["a14_capture_ns"]=stamp
+            state["a14_observation"]=motion["observation"]
+            state["a14_initial_collapse"]=any(
+                row["z"]<TRAY_TOP-.08 for row in snapshot.values())
+            a14_report=build_v2(directory,config,state,a14_cfg["topics"],source_sha)
+            summary["a14_quality_verdict"]=a14_report["quality_verdict"]
+            summary["a14_rule_candidate"]=a14_report["rule_candidate"]
+            summary["a14_contact_status"]=a14_report["contact_status"]
+            (directory/"trial_summary.json").write_text(
+                json.dumps(summary,indent=2,sort_keys=True)+"\n")
+            print("SMARTDISH_A14_REAL_PHYSICS_EVIDENCE="+
+                  json.dumps({"scene":scenario,"quality":a14_report["quality_verdict"],
+                              "contact":a14_report["contact_status"],
+                              "candidate":a14_report["rule_candidate"],
+                              "invalid_reasons":a14_report["invalid_reasons"]},
+                             sort_keys=True),flush=True)
+            if a14_report["contact_status"] in (
+                    "CONTACT_SENSOR_UNAVAILABLE","CONTACT_DATA_INCOMPLETE"):
+                # Provenance-only: Gazebo topic advert and ROS publishers do
+                # not imply a real Contacts callback. Preserve both graphs
+                # and the owned bridge logs for first-failure diagnostics.
+                contact_diag={"schema":1,"source_sha":source_sha,
+                              "scene_id":scenario,"status":a14_report["contact_status"],
+                              "topics":{},"procs":[]}
+                for pidx,proc in enumerate(procs[:3]):
+                    contact_diag["procs"].append({"index":pidx,"pid":proc.pid,
+                                                  "returncode":proc.poll()})
+                def call_probe(cmd):
+                    try:
+                        cp=subprocess.run(cmd,env=env,capture_output=True,text=True,
+                                          errors="replace",timeout=8,
+                                          stdin=subprocess.DEVNULL)
+                        return {"rc":cp.returncode,"stdout":cp.stdout[-8192:],
+                                "stderr":cp.stderr[-2048:]}
+                    except BaseException as exc:
+                        return {"error":repr(exc)}
+                contact_diag["gz_topic_list"]=call_probe(["gz","topic","-l"])
+                contact_diag["ros_topic_list"]=call_probe(["ros2","topic","list","-t"])
+                for topic in a14_cfg["topics"]:
+                    contact_diag["topics"][topic]={
+                        "gazebo":call_probe(["gz","topic","-i","-t",topic]),
+                        "ros":call_probe(["ros2","topic","info","-v",topic]),
+                        "callback_count":a14_report["contact_callback_counts"].get(topic,0)}
+                (directory/"a14_contact_boundary.json").write_text(
+                    json.dumps(contact_diag,indent=2,sort_keys=True)+"\n")
+                print("A14_CONTACT_BOUNDARY_DIAGNOSTICS="+
+                      json.dumps(contact_diag,sort_keys=True),flush=True)
         if gui_failure_reason is not None:
             # SENSOR_PHYSICS PASS is independently preserved in the real
             # trial_summary, but the GUI-required overall gate remains FAIL.
@@ -781,6 +882,8 @@ def run(args):
         text=True,timeout=8).strip()
     if not re.fullmatch("[0-9a-f]{40}",local) or local!=args.expected_sha:
         raise RuntimeError("A13_SOURCE_SHA_PIN_MISMATCH_NO_GOAL")
+    if args.a14_static and args.mode!="single":
+        raise RuntimeError("A14_ONLY_INDEPENDENT_SINGLE_SCENE_SUPPORTED")
     if args.gui and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         raise RuntimeError("A13_WSLG_DISPLAY_MISSING")
     from datetime import datetime,timezone
@@ -811,7 +914,7 @@ def run(args):
         for i,scenario in enumerate(scenarios,1):
             print("SMARTDISH_A_TRAY_START_SCENARIO="+scenario,flush=True)
             row=run_trial(root,dest/("trial_%04d"%i),scenario,args.seed+i,
-                          local,args.gui,i,run_id)
+                          local,args.gui,i,run_id,a14=args.a14_static)
             summary["trials"].append(row)
         result={r["scene_id"]:r["motion"]["observation"] for r in summary["trials"]}
         if args.mode=="smoke":
@@ -885,6 +988,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("mode",choices=("demo","single","batch","smoke"))
     p.add_argument("--scene",choices=SCENARIOS,default="ST-01")
+    p.add_argument("--a14-static",action="store_true",help="A14 contact & tray-relative opt-in; original A13 unchanged")
     p.add_argument("--seed",type=int,default=101)
     p.add_argument("--expected-sha",required=True)
     group=p.add_mutually_exclusive_group()

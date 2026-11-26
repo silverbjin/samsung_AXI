@@ -1,0 +1,62 @@
+name: SmartDish A15 Loaded Domain Pilot
+on:
+  push:
+    branches: [feat/smartdish-a14-physics-evidence]
+    paths:
+      - 'scripts/a15_*'
+      - 'scripts/a15_pilot/**'
+      - 'tests/test_a15_pilot.py'
+      - '.github/workflows/smartdish-a15-pilot.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/a15_*.py
+          bash -n scripts/a15_pilot_batch.sh
+          bash -n scripts/a15_pilot_bootstrap.sh
+          python3 -m unittest discover -s tests -p test_a15_pilot.py -v
+          python3 -m unittest discover -s tests/platform -v
+          bash tests/platform/test_pin_checkout.sh
+  l2:
+    needs: l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual ROS and Gazebo
+        shell: bash
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git cmake g++ make python3-yaml python3-pil \
+            ros-jazzy-ros-gz-sim ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs ros-jazzy-rosgraph-msgs \
+            ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Four actual loaded-domain scenes, one GUI
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Trust only this CI checkout, inherited by Git subprocesses; no owner config changes.
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD"
+          xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/a15_pilot_batch.sh "$GITHUB_SHA" "$PWD/generated_a15_ci" --ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a15-pilot-${{ github.run_id }}
+          path: |
+            generated_a15_ci/a15_pilot_evidence.tar.gz*
+            generated_a15_ci/batch_status.json
+            generated_a15_ci/*.log
+          if-no-files-found: ignore

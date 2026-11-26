@@ -1,0 +1,186 @@
+name: SmartDish A14 Physics Evidence P0
+on:
+  push:
+    branches: [feat/smartdish-a14-physics-evidence]
+    paths:
+      - 'scripts/smartdish_a14_*'
+      - 'scripts/smartdish_a_tray_live.py'
+      - 'tests/test_smartdish_a14_physics.py'
+      - '.github/workflows/smartdish-a14-physics-ci.yml'
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: smartdish-a14-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  a14-l0:
+    name: A14 L0 offline math, timing, contact, no GT
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install L0 dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml python3-pil
+      - name: Real-code contract, simulated failure fixtures
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/smartdish_a14_bootstrap.sh
+          bash -n scripts/smartdish_a14_one_shot.sh
+          python3 -m py_compile scripts/smartdish_a14_physics.py scripts/smartdish_a14_verify.py scripts/smartdish_a_tray_live.py
+          python3 -m pytest -q tests/test_smartdish_a14_physics.py tests/test_smartdish_tray_world.py tests/test_smartdish_tray_evidence.py
+          echo A14_L0_MATH_CONTACT_NO_GT_PASS
+  a14-l1:
+    name: A14 L1 ROS Jazzy Contacts and Gazebo Harmonic Contact System
+    needs: a14-l0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    container: {image: ros:jazzy-ros-base-noble}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual Gazebo ROS bridge
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-yaml python3-pil \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs
+      - name: Verify Contacts interface and installed Gazebo Contact System
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          gz sim --versions
+          ros2 pkg prefix ros_gz_bridge
+          ros2 interface show ros_gz_interfaces/msg/Contacts | tee /tmp/a14_contacts.msg
+          ros2 interface show ros_gz_interfaces/msg/Contact | tee /tmp/a14_contact.msg
+          grep -q contacts /tmp/a14_contacts.msg
+          grep -q collision /tmp/a14_contact.msg
+          python3 - <<'PY'
+          from ros_gz_interfaces.msg import Contacts
+          from pathlib import Path
+          m=Contacts()
+          assert hasattr(m,"header") and hasattr(m,"contacts")
+          # Debian/Ubuntu Gazebo distributions may use versioned .so.8
+          # rather than an unversioned *.so symlink; enumerate both.
+          # Jazzy uses Gazebo *vendor* packages under /opt/ros/jazzy/opt.
+          # Not the OSRF APT-only libgz-sim8-plugins package.
+          roots=[Path("/opt/ros/jazzy/opt/gz_sim_vendor/lib"),
+                 Path("/usr/lib")]
+          paths=[p for root in roots if root.exists()
+                 for p in root.rglob("*contact*system*.so*") if p.is_file()]
+          print("A14_CONTACT_PLUGIN_PATHS="+str([str(p) for p in paths[:10]]))
+          assert paths,"A14_CONTACT_SYSTEM_PLUGIN_UNAVAILABLE"
+          print("A14_L1_ROS_GZ_CONTACT_INTERFACE_PASS")
+          PY
+  a14-l2:
+    name: A14 L2 REAL contact evidence and incomplete-channel GT HOLD
+    needs: a14-l1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 36
+    container: {image: ros:jazzy-ros-base-noble}
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install real Gazebo and bridge
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-yaml python3-pil \
+            ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-ros-gz-interfaces \
+            ros-jazzy-ros-base ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs \
+            xvfb xauth mesa-utils libgl1-mesa-dri
+      - name: Observe REAL Contact + Pose TF + RGB + derived velocity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trap 'echo A14_L2_FIRST_FAILURE; find generated/smartdish_tray -type f \( -name "a14_contact_boundary.json" -o -name "contact_sensor_status.json" \) -print -exec head -c 10000 {} \; 2>/dev/null || true; find generated/smartdish_tray -path "*/logs/*" -type f -name "*bridge.log" -print -exec tail -n 100 {} \; 2>/dev/null || true; find generated/smartdish_tray -path "*/logs/*" -type f -name "*gazebo.log" -print -exec tail -n 80 {} \; 2>/dev/null || true' ERR
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          for scene in ST-02 UN-01; do
+            echo "A14_L2_START_SCENE=$scene"
+            xvfb-run -a -s '-screen 0 1280x720x24' \
+              timeout --signal=INT --kill-after=20s 900s \
+              python3 -u scripts/smartdish_a_tray_live.py single --headless \
+                --scene "$scene" --seed 211 --a14-static --expected-sha "$GITHUB_SHA"
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          from sys import path
+          path.insert(0,"scripts")
+          from smartdish_a14_verify import verify_trial
+          roots=sorted(Path("generated/smartdish_tray").glob("run_*/summary.json"))
+          assert len(roots)==2,roots
+          for x,scene in zip(roots,("ST-02","UN-01")):
+              summary=json.loads(x.read_text())
+              assert summary["source_sha"]==os.environ["GITHUB_SHA"]
+              assert summary["verdict"]=="GAZEBO_TRAY_L2_PHYSICS_AND_CAMERA_PASS"
+              trial=x.parent/"trial_0001"
+              qa=json.loads((trial/"a14_gt_candidate.json").read_text())
+              report=verify_trial(trial,os.environ["GITHUB_SHA"])
+              assert report["scene_id"]==scene
+              core=("A14_SOURCE_SHA_PASS","A14_TRAY_RELATIVE_POSE_PASS",
+                    "A14_VELOCITY_PROVENANCE_PASS","A14_TIME_ALIGNMENT_PASS",
+                    "A14_PHYSICS_TRACE_INTEGRITY_PASS",
+                    "A14_GT_CANDIDATE_REVIEW_REQUIRED")
+              assert all(report["checks"][c] for c in core),report
+              events=[json.loads(y) for y in (trial/"contact_events.jsonl").read_text().splitlines()]
+              category="TRAY_DISH" if scene=="ST-02" else "FLOOR_DISH"
+              observed=[e for e in events if e["category"]==category and
+                        e["event"] in ("CONTACT_STARTED","CONTACT_OBSERVED")]
+              assert observed, ("A14_REAL_CONTACT_COLLISION_NOT_OBSERVED",scene,
+                                qa["contact_status"],len(events))
+              assert all(e["sim_time_ns"]>0 and e["source"]==
+                         "ROS_BRIDGED_GAZEBO_CONTACT_SENSOR" for e in observed)
+              assert all("collision1_id" in e and "collision2_id" in e for e in observed)
+              assert qa["contact_raw_callback_total"]>len(events)
+              assert qa["contact_redundant_suppressed"]>0
+              assert "A14_CONTACT_BUFFER_OVERFLOW" not in qa["invalid_reasons"]
+              assert report["contact_status"]=="CONTACT_DATA_INCOMPLETE"
+              assert report["quality_verdict"]=="HOLD"
+              assert report["gt_candidate"]=="UNKNOWN"
+              assert qa["human_approved"] is False
+              assert qa["ground_truth"]=="NOT_OPERATOR_APPROVED"
+              print("A14_L2_REAL_CONTACT_CAPTURE_PASS="+scene+" events="+
+                    str(len(observed))+" raw_callbacks="+
+                    str(qa["contact_raw_callback_total"]))
+              print("A14_L2_GT_REVIEW_HOLD_UNOBSERVED_SENSOR="+scene+" "+
+                    str(qa["contact_sensor_unobserved_topics"]))
+          print("A14_L2_REAL_PHYSICS_EVIDENCE_PASS_GT_CANDIDATES_HOLD")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-a14-l2-evidence-${{ github.run_id }}
+          path: |
+            generated/smartdish_tray/run_*/summary.json
+            generated/smartdish_tray/run_*/SHA256SUMS
+            generated/smartdish_tray/run_*/smartdish_a_tray_evidence.tar.gz
+            generated/smartdish_tray/run_*/failure_context.json
+            generated/smartdish_tray/run_*/trial_*/a14_gt_candidate.json
+            generated/smartdish_tray/run_*/trial_*/contact_sensor_status.json
+            generated/smartdish_tray/run_*/trial_*/a14_contact_boundary.json
+            generated/smartdish_tray/run_*/trial_*/contact_events.jsonl
+            generated/smartdish_tray/run_*/trial_*/physics_observations_v2.jsonl
+            generated/smartdish_tray/run_*/trial_*/tray_pose_timeline.jsonl
+            generated/smartdish_tray/run_*/trial_*/geometry_layout.json
+            generated/smartdish_tray/run_*/trial_*/camera_pose_metadata.json
+            generated/smartdish_tray/run_*/trial_*/scenario.scenario.json
+            generated/smartdish_tray/run_*/trial_*/process_cleanup.json
+            generated/smartdish_tray/run_*/trial_*/failure_diagnostics.json
+            generated/smartdish_tray/run_*/logs/*.log
+          if-no-files-found: ignore
+          retention-days: 14
