@@ -1,0 +1,38 @@
+name: SmartDish Platform Contract
+on:
+  push:
+    branches: ['fix/shared-*','platform/smartdish-stable','feat/smartdish-*','integration/smartdish-*']
+  pull_request:
+    branches: ['main','platform/smartdish-stable','feat/smartdish-*','integration/smartdish-*']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  common-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Common contract fixtures and owned process / Git tests
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s tests/platform -v
+          bash tests/platform/test_pin_checkout.sh
+      - name: Consumer must include trusted stable baseline and preserve common paths
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -Eeuo pipefail
+          role="${HEAD_REF:-$REF_NAME}"
+          case "$role" in
+            fix/shared-*|platform/smartdish-stable)
+              echo PLATFORM_CANDIDATE_REQUIRES_REVIEW_AND_CONTRACT_CI
+              ;;
+            *)
+              git fetch --no-tags origin refs/heads/platform/smartdish-stable:refs/remotes/origin/platform/smartdish-stable
+              BASE="$(git rev-parse refs/remotes/origin/platform/smartdish-stable)"
+              python3 scripts/smartdish_platform/baseline.py --baseline "$BASE"
+              ;;
+          esac
