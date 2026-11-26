@@ -30,7 +30,7 @@ def train(args):
             args.root, args.split_manifest,
             getattr(args, "research_approval", None),
             getattr(args, "experiment_lock", Path("ai/docs/C_V1_EXPERIMENT_LOCK.json")),
-            phase=args.phase)
+            phase=args.phase, p0_report=getattr(args, "p0_report", None))
     rows = read_verified_split(args.split_manifest, args.root,
                                demo_fixtures=args.demo_fixtures,
                                training_only=not args.demo_fixtures)
@@ -137,6 +137,8 @@ def main():
     p.add_argument("--demo-fixtures", action="store_true",
                    help="Opt-in B MOCK_ONLY samples; random init; never deployable")
     p.add_argument("--init-checkpoint", type=Path)
+    p.add_argument("--p0-report", type=Path,
+                   help="independent immutable Owner P0 report (no Test pixels read here)")
     p.add_argument("--research-approval", type=Path,
                    help="private C human approval for real Dataset v1 training; no auto-GO")
     p.add_argument("--experiment-lock", type=Path,
