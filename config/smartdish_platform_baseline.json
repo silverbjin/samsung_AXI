@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "version": "0.1.0",
+  "ubuntu": "24.04",
+  "ros": "jazzy",
+  "gazebo": "harmonic",
+  "physics_observer_exact_version": "8.15.0",
+  "profiles": {
+    "sensor_server": "inherit",
+    "r03_gui": "xcb_software",
+    "legacy_gui": "xcb",
+    "b_offline": "cpu",
+    "c_training": "explicit_gpu"
+  },
+  "protected_paths": [
+    "scripts/smartdish_platform_bootstrap.sh",
+    "scripts/smartdish_platform/",
+    "tests/platform/",
+    "config/smartdish_platform_baseline.json",
+    "config/smartdish_regression_ledger.json",
+    "docs/standards/SMARTDISH_PLATFORM_BRANCH_POLICY_KO.md",
+    ".github/workflows/smartdish-platform-ci.yml"
+  ],
+  "source_anchor": "63e147289e307e0b9900ca365e9c4557c5921804",
+  "evidence_boundary": "CLOUD_AND_OWNER_SCOPED_NOT_GLOBAL_GPU_OR_GT_PASS"
+}

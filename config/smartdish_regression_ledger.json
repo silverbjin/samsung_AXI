@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "owner_archive_sha256": "3eb140934b814278ccd55a15f1229330426354ca5f2c3966117bca51623b997f",
+  "regressions": [
+    {
+      "id": "REG-001",
+      "issue": "SHA drift",
+      "status": "PASS",
+      "test": "test_pin_checkout",
+      "run_id": "45728116690",
+      "source_sha": "194db1429899775174096e24cde2e785feecda6b"
+    },
+    {
+      "id": "REG-002",
+      "issue": "Qt GLX context failure",
+      "status": "MITIGATION_OWNER_PASS_NATIVE_ROOT_OPEN",
+      "test": "test_gui_profile",
+      "run_id": "45730378065",
+      "source_sha": "7c6e950653384cf7c9ac8af58ea849281886a468"
+    },
+    {
+      "id": "REG-003",
+      "issue": "GUI abort loses data",
+      "status": "PASS_SCOPED",
+      "test": "test_independent_verdict",
+      "run_id": "45730378065",
+      "source_sha": "7c6e950653384cf7c9ac8af58ea849281886a468"
+    },
+    {
+      "id": "REG-004",
+      "issue": "RGB warmup failure",
+      "status": "PASS_HISTORICAL",
+      "test": "A13 actual image stamps",
+      "run_id": "45544462994",
+      "source_sha": "6cb5b6bfc69687ded0b565b1a3ed6b0cf34b36df"
+    },
+    {
+      "id": "REG-005",
+      "issue": "Server shutdown SIGSEGV",
+      "status": "OWNER_FAIL_OPEN",
+      "test": "test_owned_process",
+      "run_id": "45730378065",
+      "source_sha": "7c6e950653384cf7c9ac8af58ea849281886a468"
+    },
+    {
+      "id": "REG-006",
+      "issue": "Contact silence mistaken for healthy",
+      "status": "GT_HOLD",
+      "test": "R02 actual refresh positive control",
+      "run_id": "45727749943",
+      "source_sha": "a71c2b67ac9eb3aafc902ed4775ff64dfbc68a44"
+    },
+    {
+      "id": "REG-007",
+      "issue": "Evidence SHA mismatch",
+      "status": "PASS_SCOPED",
+      "test": "test_archive",
+      "run_id": "45730378065",
+      "source_sha": "7c6e950653384cf7c9ac8af58ea849281886a468"
+    },
+    {
+      "id": "REG-008",
+      "issue": "Unapproved GT training",
+      "status": "HOLD_REVIEW_REQUIRED",
+      "test": "test_independent_verdict",
+      "run_id": "45728116649",
+      "source_sha": "194db1429899775174096e24cde2e785feecda6b"
+    },
+    {
+      "id": "REG-009",
+      "issue": "Independent group/data leakage",
+      "status": "B_QA_HOLD",
+      "test": "B producer/consumer tests",
+      "run_id": null,
+      "source_sha": "7048f7f01b6c9d03cae2c082a93af01dfc9a5531"
+    }
+  ]
+}
