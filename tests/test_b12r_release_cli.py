@@ -39,7 +39,7 @@ def pack(tmp,mutate=None,**kwargs):
 
 def checkout(tmp):
     root=tmp/'local checkout (spaces)'
-    for source in (SH,RUN,RECEIVE,AUDIT):
+    for source in (SH,RUN,RECEIVE,AUDIT,ROOT/'scripts/smartdish_platform/runtime.py'):
         p=root/source.relative_to(ROOT)
         p.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(source,p)
