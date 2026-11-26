@@ -1,0 +1,2 @@
+# QA06 FINAL 개발 명세
+PM Data Freeze: A15 4+A16 8+A18 8, 20 Layout/6 Family, A13/Cloud 재실행 제외. A19 자동 금지, 구체적 blocker 및 PM 승인만 예외. B-QA05 e014cab 부모, A18 adcf695 읽기 전용. 단일 CLI audit→review→release→readiness. 정확한 9 archive/sidecar 및 prior QA05 report, registry pin, A18 schema3. 기존 66 pair 재사용, 124 신규. PM/B/C의 명시적 연구용 ECM/pose 조건부 승인 필요; production Contact HOLD/기존 cleanup FAIL 별도. 사람/rights/near pair/Family split 승인 전 release 차단. 코드/fixture/CI와 actual execution 분리. 12/7 freeze, 12/8 rehearsal, 12/9 demo PM 변경 여부 확인 필요.

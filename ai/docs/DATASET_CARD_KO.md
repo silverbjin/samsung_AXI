@@ -117,3 +117,19 @@ A16 Owner DATA/GUI 8/8 PASS and user visual review completed, server -11×8 and 
 ### B-QA04 Owner 검수 제품 인수 완료 (2026-11-26)
 
 제출 진단 외부 SHA 6bb16e93a22079c588a63afc9f04e8725154b25313ea133d277d5ba547eea83f 및 내부 3/3 PASS; exit 0, verifier b36694d 기록, 실제 독립 검수 JSON byte-for-byte 일치. B_QA04_OWNER_VERIFIER_ACCEPTED_REVIEW_ONLY. Q01 PASS Q02–07 HOLD, 12 layout/4 family, 승인 0, Contact HOLD 및 cleanup FAIL 유지. [Owner 인수 원장](../../docs/reports/acceptance/SMARTDISH_B_A16_QA04_OWNER_20261126_KO.md). 실제 WSL2 checkout 별도 로그는 진단에 없음; 기존 raw 검수 증거 재사용. 새 학습 승인 또는 제품 병합 아님.
+
+## B-QA05 ROI/Shortcut 독립 검수
+QA04 Owner 인수 결과 보존. 새 검수 제품은 read-only REVIEW_ONLY; 기존 12 layout/4 family/66쌍은 이전 증거. A16 및 QA04 원본 미확보 상태에서 신규 12장면 ROI 분석 NOT_RUN. 사람 승인/권리/split/C 학습 없음, Q01 이전 PASS/Q02~Q07 HOLD. ROI는 보수적 사각 경계, segmentation 아님. post-t0 정보와 물리 inventory는 검수 전용.
+
+A15 실제 4장면 독립 예비 분석: Full aHash ≤4 6/6, Tray 6/6, Dish 2/6; block SSIM Full 0.9393–0.9813, Dish 0.4645–0.7199. 공식 12장면 QA05 결과 아님, ROI 후보 판단/시각 승인 필요. 기존 raw 및 승인 정책 유지.
+
+
+## B-QA05 실제 결과 갱신
+이전 A16 미확보 상태 종료. 12장면/66쌍 공식 core 실제 검수 PASS REVIEW_ONLY, Q01 PASS Q02–07 HOLD. aHash≤8 Full66/Tray46/Dish40, exact pixel duplicate0, Tray/Dish 합집합55 manual review; 4 family/12 layout, 8/4 관측. offset 크기×부호 결합 위험 및 15/24 교차 cell 부족. Family 단위 가상 분할36개 가능하나 GT 승인0/출고0. WSL2 QA05 checkout NOT_RUN, no real training. 기존 label_map, stack split 및 rights 정책 유지.
+
+## QA06 FINAL Data Freeze
+PM freezes 20 physical candidates A15/A16/A18, six families; no A13/Cloud duplicates, no A19 automatically. Actual audit and approval evidence separate. Existing label map/224 RGB/manifest contract retained; release only after human decisions, rights, near-pair review, family-independent split and explicit PM/B/C research-scope approval. Contact HOLD and historical cleanup preserved; C real training NOT_RUN.
+
+
+## QA06 FINAL actual candidate freeze (2026-11-26)
+20 frozen candidates/6 families, exact archive9/manifest505/505, 190 pair (66 reused+124 new), actual core f9ddc569 exit0. No exact file/pixel duplicates, 167 near pairs manual review, prior family cells13/24, 224 crop geometry20 PASS, 13/5/2 observations NOT labels. Human0, approval/rights/conditional research policy and split HOLD, actual release without approval blocked. C NO_GO, E HOLD, Contact HOLD, historic cleanup12 FAIL+A18 8 PASS. Actual WSL2 checkout NOT_RUN. Existing label map/manifest unchanged. No new A production or model training.

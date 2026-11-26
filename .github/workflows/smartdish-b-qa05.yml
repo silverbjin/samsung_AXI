@@ -1,0 +1,30 @@
+name: SmartDish B QA05 Diversity Contract
+on:
+  push:
+    branches: [feat/smartdish-b-qa05-diversity]
+    paths: ['ai/scripts/*qa05*','tests/test_b_qa05_diversity.py','scripts/*qa05*','.github/workflows/smartdish-b-qa05.yml']
+  pull_request:
+    branches: [feat/smartdish-b-a16-qa04]
+    paths: ['ai/scripts/*qa05*','tests/test_b_qa05_diversity.py','scripts/*qa05*','.github/workflows/smartdish-b-qa05.yml']
+permissions: {contents: read}
+jobs:
+  fixture-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow==12.3.0 pytest==9.0.2
+      - run: |
+          python scripts/smartdish_platform/baseline.py --root "$PWD" --baseline b8ef3998973a5e33b67ddd5c5b63c3c89b837840
+          bash tests/platform/test_pin_checkout.sh
+          python -m unittest discover -s tests/platform -v
+          bash -n scripts/smartdish_b_qa05_bootstrap.sh scripts/smartdish_b_qa05_one_shot.sh
+          SMARTDISH_B_QA05_SOURCE_SHA="$GITHUB_SHA" bash scripts/smartdish_b_qa05_one_shot.sh --help
+          python -m pytest -q tests/test_b_qa05_diversity.py tests/test_b_a15_audit.py tests/test_b_a16_audit.py
+          echo B_QA05_FIXTURE_ONLY_NO_OWNER_RAW

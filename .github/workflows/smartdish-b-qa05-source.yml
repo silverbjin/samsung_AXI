@@ -1,0 +1,30 @@
+name: SmartDish B QA05 source-only transport
+on:
+  push:
+    branches: [feat/smartdish-b-qa05-diversity]
+    paths: ['.github/workflows/smartdish-b-qa05-source.yml']
+permissions: {contents: read}
+jobs:
+  source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Seal pinned source only (no Owner data)
+        env:
+          PIN: f1d9e803725caeeeb43e6d2ad2d66c3945d30a99
+        run: |
+          mkdir source-only
+          for f in audit_b_a15.py audit_b_a16.py audit_b_qa05_diversity.py b_qa05_cli.py; do
+            git show "$PIN:ai/scripts/$f" > "source-only/$f"
+          done
+          printf '%s\n' "$PIN" > source-only/SOURCE_SHA
+          (cd source-only && sha256sum *.py SOURCE_SHA > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa05-pinned-source-only
+          path: source-only/
+          retention-days: 3
