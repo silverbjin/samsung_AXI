@@ -112,3 +112,8 @@ Ubuntu/WSL2 수집기 `collect_tableware.py`는 동일 manifest에 대한 동시
 ## B-QA04 — A16 실제 Owner raw 독립 검수 (2026-11-26)
 
 A16 Owner DATA/GUI 8/8 PASS and user visual review completed, server -11×8 and minimal camera-only -11, all stopped. Exact production bacc1af and B verifier b36694d; actual independent CPU CLI exit0 REVIEW_ONLY for A15+A16. 12 distinct layout/pixel hashes, 4 geometry families, 66/66 pairwise aHash <=8 review candidates (22 aHash distance0, not exact pixel duplicates). Q01 PASS Q02–07 HOLD, actual approved0, contact production HOLD, C real training0. See [actual QA04 report](../../docs/reports/acceptance/SMARTDISH_B_A16_QA04_OWNER_RELEASE_KO.md). No public raw/worksheet or new learning manifest. WSL2 B runner NOT_RUN. Same layout Cloud/Owner one group. Future t0 RGB only; no post-t0 leakage. 
+
+
+### B-QA04 Owner 검수 제품 인수 완료 (2026-11-26)
+
+제출 진단 외부 SHA 6bb16e93a22079c588a63afc9f04e8725154b25313ea133d277d5ba547eea83f 및 내부 3/3 PASS; exit 0, verifier b36694d 기록, 실제 독립 검수 JSON byte-for-byte 일치. B_QA04_OWNER_VERIFIER_ACCEPTED_REVIEW_ONLY. Q01 PASS Q02–07 HOLD, 12 layout/4 family, 승인 0, Contact HOLD 및 cleanup FAIL 유지. [Owner 인수 원장](../../docs/reports/acceptance/SMARTDISH_B_A16_QA04_OWNER_20261126_KO.md). 실제 WSL2 checkout 별도 로그는 진단에 없음; 기존 raw 검수 증거 재사용. 새 학습 승인 또는 제품 병합 아님.
