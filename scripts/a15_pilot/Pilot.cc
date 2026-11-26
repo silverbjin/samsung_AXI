@@ -37,7 +37,7 @@ class A15Pilot final : public gz::sim::System, public gz::sim::ISystemConfigure,
 public:
  void Configure(const Entity &,const std::shared_ptr<const sdf::Element> &s,ECM &,gz::sim::EventManager &) override {
   out.open(s->Get<std::string>("output"));trigger.open(s->Get<std::string>("trigger_output"));
-  start=s->Get<std::int64_t>("trigger_ns");duration=s->Get<std::int64_t>("duration_ns");torque=s->Get<double>("torque_nm");
+  start=s->Get<std::uint64_t>("trigger_ns");duration=s->Get<std::uint64_t>("duration_ns");torque=s->Get<double>("torque_nm");
   out<<std::setprecision(17)<<"sim_ns\titeration\tentity\tentity_id\tx\ty\tz\tqx\tqy\tqz\tqw\n";
   trigger<<std::setprecision(17)<<"sim_ns\titeration\tlink_id\ttorque_y_nm\n";
   out.flush();trigger.flush();
