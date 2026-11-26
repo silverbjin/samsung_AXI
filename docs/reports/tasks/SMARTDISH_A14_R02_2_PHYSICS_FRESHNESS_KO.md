@@ -11,3 +11,7 @@ Harmonic gz-sim8 8.15.0 [Physics.cc](https://github.com/gazebosim/gz-sim/blob/gz
 
 ## 검증 상태
 음성 fixture 작성, 실제 테스트 실행은 전용 CI에서 확인한다. 신규 C++ build/실제 Gazebo 진단은 커밋 시점 미검증. 기존 A14/P0와 R02-1 CI 재실행 금지. R02-3 통합은 별도 단위; 실제 생산 RGB t0 구간에서 재검증하기 전 인수 출고 금지. 
+
+## 실제 CI 결과 (2026-11-26 KST)
+- SHA `a71c2b67ac9eb3aafc902ed4775ff64dfbc68a44`, [Run #45727749943](https://github.com/silverbjin/samsung_AXI/actions/runs/45727749943) completed success. L0 13 passed, L2 real C++ build and metadata normal/late negative control PASS; log `R02_2_REAL_PHYSICS_COMPONENT_REFRESH_PASS_GT_HOLD`.
+- [Artifact #15075900684](https://github.com/silverbjin/samsung_AXI/actions/runs/45727749943/artifacts/15075900684) inner TAR SHA from CI log `aa9cb11679ba78e0cfdfd496eecb4001bfa9051883ad486c194c6b66713cca7e`, ZIP digest `a56be4a02b0189a9a415d585c6066eeaa41b50c4d07b41e5bc2de19194c182f1`. Cloud binary independently rehashed outside CI: NOT_RUN. Vendor Physics binary SHA `c672bc21950d6c522e1238c050550112cfc124dc34219aa7b173d862e4795fa8`. R02-2 component-refresh PASS, no GT promotion.

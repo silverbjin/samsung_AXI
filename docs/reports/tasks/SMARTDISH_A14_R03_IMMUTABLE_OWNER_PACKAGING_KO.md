@@ -1,10 +1,10 @@
 # R03 — WSL2 Owner 출고 실행기 개발·교육 보고서
 
 ## 문제와 해결
-기존 A14-07 bootstrap은 pinned SHA 요청 뒤 branch 최신 HEAD를 merge하여 SHA_DRIFT가 발생했다. 사용자는 별도 디렉터리에서 exact SHA fetch/branch checkout 후 실제 교정 PASS를 제출했다. R03 bootstrap은 매 실행마다 새 mktemp 디렉터리, exact SHA fetch(120s), 동일 local branch 이름과 HEAD 확인, 기존 workspace 무변경. 기존 A14-07은 이미 인수했으므로 재실행 금지. 로컬 fixture는 원격 HEAD가 진전된 상태에서도 과거 SHA checkout, 기존 폴더 거부 및 파일 보존을 확인한다. fixture helper와 bootstrap의 동일 동작은 별도 코드 경로이므로 bootstrap 직접 WSL 검증은 Owner에서만 확인 가능하다.
+기존 A14-07 bootstrap은 pinned SHA 요청 뒤 branch 최신 HEAD를 merge하여 SHA_DRIFT가 발생했다. 사용자는 별도 디렉터리에서 exact SHA fetch/branch checkout 후 실제 교정 PASS를 제출했다. R03 bootstrap은 매 실행마다 새 mktemp 디렉터리, exact SHA fetch(120s), 동일 local branch 이름과 HEAD 확인, 기존 workspace 무변경. 기존 A14-07은 이미 인수했으므로 재실행 금지. 로컬 fixture는 원격 HEAD가 진전된 상태에서도 과거 SHA checkout, 기존 폴더 거부 및 파일 보존을 확인한다. fixture는 실제 standalone bootstrap의 동일 checkout 함수를 source하여 검증한다. WSL 실제 진입 및 GPU/ROS 환경 검증은 Owner에서만 확인 가능하다.
 
 ## Owner 실행 계약
-R02-2 / R02-3 Cloud 실제 PASS 및 packaging fixture PASS 확인 후에만 최종 SHA 출고. GUI 기본; GPU 환경 변수는 사용자 설정 그대로 상속. Harmonic 8.15.0 EXACT, 빌드 전 ROS vendor package 및 physics binary fingerprint 기록. 설치/환경 변경을 자동 수행하지 않는다. cmake 120s, build 180s, GUI 65s, 신규 ST-02/UN-01 각 600s 상한. 증거 capture 검수 PASS ≠ production GT PASS. 실패시 최초 경계와 가능한 원본 TAR/SHA 저장, 다음 장면으로 무한 retry 금지. 
+R02-2 / R02-3 Cloud 실제 PASS 및 packaging fixture PASS 확인 후에만 최종 SHA 출고. GUI 기본; GPU 환경 변수는 사용자 설정 그대로 상속. Harmonic 8.15.0 EXACT, 빌드 전 ROS vendor package 및 physics binary fingerprint 기록. 설치/환경 변경을 자동 수행하지 않는다. cmake 120s, build 180s, GUI 65s, 신규 ST-02/UN-01 각 600s 상한. 증거 capture 검수 PASS ≠ production GT PASS. 각 생산 원본 TAR의 내부 SHA256SUMS까지 재검증한다. 실패시 최초 경계와 가능한 원본 TAR/SHA 저장, 다음 장면으로 무한 retry 금지. 
 
 ## 출고 명령 (검증 전 실행 금지)
 ```bash

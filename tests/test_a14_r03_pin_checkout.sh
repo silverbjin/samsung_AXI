@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 root="$(mktemp -d)"
 trap 'rm -rf -- "$root"' EXIT
-source scripts/a14_r03_pin_checkout.sh
+source scripts/a14_r03_bootstrap.sh
 git init -q -b main "$root/remote"
 git -C "$root/remote" -c user.name=Fixture -c user.email=fixture@example.invalid commit --allow-empty -qm first
 pin="$(git -C "$root/remote" rev-parse HEAD)"

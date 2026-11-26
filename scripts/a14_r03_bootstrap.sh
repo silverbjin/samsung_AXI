@@ -1,22 +1,35 @@
 #!/usr/bin/env bash
-# R03 production evidence only. Deploy the exact validated SHA, not branch tip.
-set -Eeuo pipefail
-MODE="${1:---gui}"
-[[ $# -le 1 && ( "$MODE" == --gui || "$MODE" == --headless ) ]] || { echo A14_R03_INVALID_MODE; exit 2; }
-PIN="$(printenv SMARTDISH_A14_SOURCE_SHA || :)"
-[[ "$PIN" =~ ^[0-9a-f]{40}$ ]] || { echo A14_R03_PIN_REQUIRED; exit 2; }
-[[ -n "$(printenv WSL_DISTRO_NAME || :)" ]] && grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease || { echo A14_R03_REAL_WSL2_REQUIRED; exit 2; }
-case "$HOME" in /mnt/*) echo A14_R03_EXT4_REQUIRED; exit 2;; esac
-URL=https://github.com/silverbjin/samsung_AXI.git
-BRANCH=feat/smartdish-a14-physics-evidence
-TARGET="$(mktemp -d "$HOME/samsung_AXI_A14_R03_${PIN:0:7}_XXXXXX")"
-echo "A14_R03_OWNER_DIR=$TARGET"
-# No downloaded helper from moving HEAD. Fetch only the requested object.
-git init -q "$TARGET"
-git -C "$TARGET" remote add origin "$URL"
-timeout --signal=INT --kill-after=5s 120s git -C "$TARGET" fetch --no-tags --depth=1 origin "$PIN"
-git -C "$TARGET" switch -q -c "$BRANCH" "$PIN"
-[[ "$(git -C "$TARGET" rev-parse HEAD)" == "$PIN" ]] || { echo A14_R03_SHA_MISMATCH; exit 2; }
-echo "A14_R03_PIN_PASS=$PIN"
-cd "$TARGET"
-exec bash scripts/a14_r03_owner.sh "$MODE"
+# R03 standalone bootstrap and tested exact-pin checkout function.
+a14_pin_checkout() {
+  local url="$1" pin="$2" branch="$3" target="$4"
+  [[ "$pin" =~ ^[0-9a-f]{40}$ ]] || return 2
+  [[ -d "$target" && ! -e "$target/.git" && -z "$(ls -A -- "$target")" ]] || return 2
+  git init -q "$target" || return
+  git -C "$target" remote add origin "$url" || return
+  timeout --signal=INT --kill-after=5s 120s git -C "$target" fetch --no-tags --depth=1 origin "$pin" || return
+  git -C "$target" switch -q -c "$branch" "$pin" || return
+  [[ "$(git -C "$target" rev-parse HEAD)" == "$pin" ]] || return 2
+  [[ "$(git -C "$target" branch --show-current)" == "$branch" ]] || return 2
+  [[ -z "$(git -C "$target" status --porcelain --untracked-files=no)" ]] || return 2
+}
+
+main() {
+  set -Eeuo pipefail
+  MODE="${1:---gui}"
+  [[ $# -le 1 && ( "$MODE" == --gui || "$MODE" == --headless ) ]] || { echo A14_R03_INVALID_MODE; exit 2; }
+  PIN="$(printenv SMARTDISH_A14_SOURCE_SHA || :)"
+  [[ "$PIN" =~ ^[0-9a-f]{40}$ ]] || { echo A14_R03_PIN_REQUIRED; exit 2; }
+  [[ -n "$(printenv WSL_DISTRO_NAME || :)" ]] && grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease || { echo A14_R03_REAL_WSL2_REQUIRED; exit 2; }
+  case "$HOME" in /mnt/*) echo A14_R03_EXT4_REQUIRED; exit 2;; esac
+  URL=https://github.com/silverbjin/samsung_AXI.git
+  BRANCH=feat/smartdish-a14-physics-evidence
+  TARGET="$(mktemp -d "$HOME/samsung_AXI_A14_R03_${PIN:0:7}_XXXXXX")"
+  echo "A14_R03_OWNER_DIR=$TARGET"
+  # No moving HEAD or merge; same checkout function exercised by L0.
+  a14_pin_checkout "$URL" "$PIN" "$BRANCH" "$TARGET" || { echo A14_R03_PIN_CHECKOUT_FAILED; exit 2; }
+  echo "A14_R03_PIN_PASS=$PIN"
+  cd "$TARGET"
+  exec bash scripts/a14_r03_owner.sh "$MODE"
+  
+}
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi

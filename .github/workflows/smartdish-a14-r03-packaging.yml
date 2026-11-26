@@ -16,5 +16,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -Eeuo pipefail
-          bash -n scripts/a14_r03_bootstrap.sh scripts/a14_r03_owner.sh scripts/a14_r03_pin_checkout.sh
+          for f in scripts/a14_r03_bootstrap.sh scripts/a14_r03_owner.sh tests/test_a14_r03_pin_checkout.sh; do bash -n "$f"; done
           bash tests/test_a14_r03_pin_checkout.sh

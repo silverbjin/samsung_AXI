@@ -32,7 +32,7 @@ def sha(f):
     with f.open('rb') as r:
         for chunk in iter(lambda:r.read(1<<20),b''): h.update(chunk)
     return h.hexdigest()
-files=sorted(f for f in p.rglob('*') if f.is_file() and not f.is_symlink())
+files=sorted(f for f in p.rglob('*') if f.is_file() and not f.is_symlink() and f.relative_to(p).parts[0]!='build')
 sums=p/'SHA256SUMS'
 sums.write_text(''.join(sha(f)+'  '+f.relative_to(p).as_posix()+'\n' for f in files))
 bundle=p/'a14_r03_owner_evidence.tar.gz'
@@ -86,6 +86,15 @@ for scene in ST-02 UN-01; do
   [[ -n "$path" && -s "$path" ]] || fail "A14_R03_ARCHIVE_MISSING_$scene"
   cp "$path" "$out/production_raw.tar.gz"
   (cd "$out" && sha256sum production_raw.tar.gz > production_raw.tar.gz.sha256)
+  python3 - "$out/production_raw.tar.gz" <<'PY' || fail "A14_R03_RAW_ARCHIVE_INTEGRITY_$scene"
+import hashlib,sys,tarfile
+with tarfile.open(sys.argv[1], "r:gz") as t:
+    rows=t.extractfile("SHA256SUMS").read().decode().splitlines()
+    assert rows
+    for row in rows:
+        expected,name=row.split("  ",1)
+        assert hashlib.sha256(t.extractfile(name).read()).hexdigest()==expected,name
+PY
   [[ "$rc" == 0 ]] || fail "A14_R03_RUNNER_EXIT_${scene}_$rc"
   python3 -u scripts/a14_r02_production_verify.py --sha "$PIN" \
      --trial "$(dirname "$path")/trial_0001" > "$out/verifier.log" 2>&1 || fail "A14_R03_VERIFIER_$scene"
