@@ -1,0 +1,1 @@
+A16 uses eight predeclared actual geometry layouts, two new families with 2/3 dishes. See P0/P1 matrix. A15 camera/world and physical constants reused; new plugin observes all dish model names and commands uppermost link, no change to old producer. Dynamic entity count and support chain validated in P2. Hypotheses are not GT. No data generated in this commit; L2 pending.
