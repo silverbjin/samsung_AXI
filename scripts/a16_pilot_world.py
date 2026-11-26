@@ -50,7 +50,7 @@ def generate(scene,out,pose_plugin,health_plugin):
     (out/"geometry_layout.json").unlink()
     tree=ET.parse(path);world=tree.getroot().find("world")
     p=ET.SubElement(world,"plugin",filename=str(Path(pose_plugin).resolve()),name="smartdish::A16Pilot")
-    for k,v in dict(output=str((out/"poses.tsv").resolve()),trigger_output=str((out/"trigger.tsv").resolve()),trigger_ns=TRIGGER_NS,duration_ns=DURATION_NS,torque_nm=TORQUE_NM,target_model=meta["initial_dishes"][-1]["name"]).items():ET.SubElement(p,k).text=str(v)
+    for k,v in dict(output=str((out/"poses.tsv").resolve()),trigger_output=str((out/"trigger.tsv").resolve()),trigger_ns=TRIGGER_NS,duration_ns=DURATION_NS,torque_nm=TORQUE_NM,target_model=meta["initial_dishes"][-1]["name"],registry_output=str((out/"entity_registry.tsv").resolve())).items():ET.SubElement(p,k).text=str(v)
     p=ET.SubElement(world,"plugin",filename=str(Path(health_plugin).resolve()),name="smartdish::A14ProductionHealth")
     ET.SubElement(p,"output").text=str((out/"ecm_contact_steps.tsv").resolve())
     ET.SubElement(p,"late_control").text="false"

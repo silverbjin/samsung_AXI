@@ -8,6 +8,7 @@ from smartdish_platform.lifecycle import stop_owned
 from smartdish_platform.evidence import sha256,verify_archive
 from a16_pilot_world import generate,SCENES,TRIGGER_NS,END_NS,PLATFORM_SHA,VERSION
 from a16_pilot_contract import load_poses,check_initial,check_trigger,metrics,need
+from a16_diagnostics import load_native,registration,transport_diagnostic
 from a14_production_health_probe import read_ecm
 from a14_physics_freshness_contract import evaluate,read_rows
 from a14_r02_production_collect import expected_sensors,cross_check
@@ -66,6 +67,11 @@ def run(a):
         return cb
     try:
         meta=generate(a.scene,out,a.pose_plugin,a.health_plugin);meta["source_sha"]=a.sha;meta["source_class"]=a.source_class;dump(out/"a16_design.json",meta)
+        native=launch("native_contact",[str(a.native_tap),str(out/"native_contacts.tsv"),*meta["contact_topics"]],env)
+        until=time.monotonic()+8
+        while time.monotonic()<until and "A16_NATIVE_SUBSCRIBED" not in (out/"native_contact.log").read_text():
+            need(native.poll() is None,"A16_NATIVE_START_FAILED");time.sleep(.05)
+        need("A16_NATIVE_SUBSCRIBED" in (out/"native_contact.log").read_text(),"A16_NATIVE_START_TIMEOUT")
         launch("server",["gz","sim","-s","-v2",str(out/"scenario.sdf")],env)
         root=Path(__file__).resolve().parents[1]
         for role,cfg in (("rgb_bridge",root/"config/smartdish_tray_bridge.yaml"),("contact_bridge",out/"a14_contact_bridge.yaml")):
@@ -82,6 +88,11 @@ def run(a):
             r=subprocess.run(["gz","service","-l"],env=env,capture_output=True,text=True,timeout=7)
             if "/world/smartdish_tray/control" in r.stdout and node.count_publishers(TOPIC)>0 and node.count_publishers("/clock")>0:break
         else:raise RuntimeError("A16_SERVICE_OR_BRIDGE_NOT_READY")
+        endpoints={}
+        for topic in [TOPIC,INFO_TOPIC,"/clock",*meta["contact_topics"]]:
+            pinfo=node.get_publishers_info_by_topic(topic)
+            endpoints[topic]=[{"type":e.topic_type,"node":e.node_name,"reliability":str(e.qos_profile.reliability),"durability":str(e.qos_profile.durability),"depth":e.qos_profile.depth} for e in pinfo]
+        dump(out/"topic_qos.json",endpoints)
         # Paused, bounded stepping keeps trigger physically impossible until the input passes.
         for target in range(200_000_000,2_000_000_001,200_000_000):
             gz_call(env,"smartdish_tray","pause: true multi_step: 200")
@@ -132,6 +143,8 @@ def run(a):
         report.update(refresh=refresh,transport=transport,raw_ros_callbacks=len(state["raw"]),capture_ns=t0,observation_end_ns=END_NS,actual_clock_ns=state["clock"],observation_after_trigger_s=(END_NS-TRIGGER_NS)/1e9)
         need(refresh["refresh_contract_pass"] and ok,"A16_CONTACT_COMPONENT_OR_POSITIVE_MATCH")
         if gui and report["gui"]=="RUNNING":report["gui"]="PASS" if gui.poll() is None else "FAIL"
+        report["registration"]=registration(out/"entity_registry.tsv",ecm,meta,report["trigger"])
+        report["contact_diagnostic"]=transport_diagnostic(ecm,state["raw"],load_native(out/"native_contacts.tsv"),meta["contact_topics"],t0,END_NS)
         report["data_verdict"]="PASS"
         print("A16_REAL_CAPTURE_PASS_GT_HOLD="+a.scene,flush=True)
     except Exception as exc:
@@ -144,12 +157,17 @@ def run(a):
         if initialized:rclpy.shutdown()
         rows=[]
         for role,p in reversed(procs):
+            started=time.monotonic_ns()
             try:row=stop_owned(p)
             except Exception as exc:row=dict(pid=p.pid,returncode=p.poll(),stopped=p.poll() is not None,error=str(exc))
-            row["role"]=role;rows.append(row)
+            row.update(role=role,cleanup_start_monotonic_ns=started,cleanup_end_monotonic_ns=time.monotonic_ns(),timeout_budget_s=18)
+            try:os.killpg(p.pid,0);row["process_group_remaining"]=True
+            except ProcessLookupError:row["process_group_remaining"]=False
+            except PermissionError:row["process_group_remaining"]=True
+            rows.append(row)
         for h in handles:h.close()
         report["processes"]=rows
-        report["all_owned_stopped"]=bool(rows) and all(x["stopped"] for x in rows)
+        report["all_owned_stopped"]=bool(rows) and all(x["stopped"] and not x["process_group_remaining"] for x in rows)
         report["cleanup"]="PASS" if report["all_owned_stopped"] and all(x["returncode"]==0 for x in rows if x["role"]!="gui") else "FAIL"
         if report["gui"]=="PASS" and any(x["role"]=="gui" and x["returncode"]!=0 for x in rows):report["gui"]="FAIL"
         if report["gui"]=="RUNNING":report["gui"]="FAIL"
@@ -157,10 +175,10 @@ def run(a):
     return 0 if report["data_verdict"]=="PASS" and report["all_owned_stopped"] else 2
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument("--sha",required=True);p.add_argument("--scene",choices=SCENES,required=True);p.add_argument("--out",required=True,type=Path);p.add_argument("--pose-plugin",required=True,type=Path);p.add_argument("--health-plugin",required=True,type=Path);p.add_argument("--headless",action="store_true");p.add_argument("--source-class",choices=("CLOUD_CI","OWNER_WSL2"),required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument("--sha",required=True);p.add_argument("--scene",choices=SCENES,required=True);p.add_argument("--out",required=True,type=Path);p.add_argument("--pose-plugin",required=True,type=Path);p.add_argument("--health-plugin",required=True,type=Path);p.add_argument("--headless",action="store_true");p.add_argument("--native-tap",required=True,type=Path);p.add_argument("--source-class",choices=("CLOUD_CI","OWNER_WSL2"),required=True);a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     need(len(a.sha)==40 and subprocess.check_output(["git","-C",str(root),"rev-parse","HEAD"],text=True).strip()==a.sha,"A16_PIN_MISMATCH")
     need(not subprocess.check_output(["git","-C",str(root),"status","--porcelain","--untracked-files=no"],text=True).strip(),"A16_TRACKED_DIRTY")
-    need(a.pose_plugin.is_file() and a.health_plugin.is_file(),"A16_PLUGIN_MISSING")
+    need(a.pose_plugin.is_file() and a.health_plugin.is_file() and a.native_tap.is_file(),"A16_PLUGIN_MISSING")
     return run(a)
 if __name__=="__main__":raise SystemExit(main())

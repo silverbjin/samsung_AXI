@@ -12,6 +12,8 @@
 #include <gz/sim/Link.hh>
 #include <gz/sim/Util.hh>
 #include <gz/sim/components/Model.hh>
+#include <gz/sim/components/Collision.hh>
+#include <gz/sim/components/ContactSensor.hh>
 #include <gz/sim/components/Link.hh>
 #include <gz/sim/components/Sensor.hh>
 #include <gz/sim/components/Name.hh>
@@ -21,7 +23,8 @@ namespace smartdish {
 class A16Pilot final : public gz::sim::System, public gz::sim::ISystemConfigure,
  public gz::sim::ISystemPreUpdate, public gz::sim::ISystemPostUpdate {
  using Entity=gz::sim::Entity; using ECM=gz::sim::EntityComponentManager;
- std::ofstream out,trigger;
+ std::ofstream out,trigger,registry;
+ bool registryDone=false;
  std::int64_t start=0,duration=0; double torque=0;
  std::string targetModel;
  Entity target=gz::sim::kNullEntity; std::uint64_t rows=0;
@@ -40,6 +43,8 @@ public:
   out.open(s->Get<std::string>("output"));trigger.open(s->Get<std::string>("trigger_output"));
   start=s->Get<std::uint64_t>("trigger_ns");duration=s->Get<std::uint64_t>("duration_ns");torque=s->Get<double>("torque_nm");
   targetModel=s->Get<std::string>("target_model");
+  registry.open(s->Get<std::string>("registry_output"));
+  registry<<"sim_ns\tkind\tentity_id\tparent_id\tname\n";
   out<<std::setprecision(17)<<"sim_ns\titeration\tentity\tentity_id\tx\ty\tz\tqx\tqy\tqz\tqw\n";
   trigger<<std::setprecision(17)<<"sim_ns\titeration\tlink_id\ttorque_y_nm\n";
   out.flush();trigger.flush();
@@ -58,6 +63,17 @@ public:
  void PostUpdate(const gz::sim::UpdateInfo &i,const ECM &ecm) override {
   if(i.paused || !out) return;
   using namespace gz::sim::components;
+  if(!registryDone && ns(i)==2000000000LL){
+   auto row=[&](const std::string &kind, Entity id, const Name *name){
+    const auto *parent=ecm.Component<ParentEntity>(id);
+    registry<<ns(i)<<'\t'<<kind<<'\t'<<id<<'\t'<<(parent?parent->Data():0)<<'\t'<<name->Data()<<'\n';
+   };
+   ecm.Each<Model,Name>([&](const Entity &id,const Model *,const Name *n){row("model",id,n);return true;});
+   ecm.Each<Link,Name>([&](const Entity &id,const Link *,const Name *n){row("link",id,n);return true;});
+   ecm.Each<Collision,Name>([&](const Entity &id,const Collision *,const Name *n){row("collision",id,n);return true;});
+   ecm.Each<ContactSensor,Name>([&](const Entity &id,const ContactSensor *,const Name *n){row("contact_sensor",id,n);return true;});
+   registry.flush();registryDone=true;
+  }
   ecm.Each<Model,Name>([&](const Entity &id,const Model *,const Name *n){
    const auto &name=n->Data();
    if(name.rfind("dish_",0)==0||name=="tray_platform") pose(i,ecm,id,name);
