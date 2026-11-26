@@ -191,7 +191,7 @@ def test_qa01_no_mutation_on_ledger(tmp_path):
 def checkout(tmp):
     root=tmp/'checkout (B QA)'
     for name in ('ai/scripts/audit_b_dacon_qa01.py','ai/scripts/smartdish_b_dacon_qa01_cli.py',
-                 'scripts/smartdish_b_dacon_qa01_one_shot.sh'):
+                 'scripts/smartdish_b_dacon_qa01_one_shot.sh','scripts/smartdish_platform/runtime.py'):
         target=root/name;target.parent.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(ROOT/name,target)
     (root/'docs/quality').mkdir(parents=True)

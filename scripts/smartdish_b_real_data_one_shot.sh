@@ -112,9 +112,9 @@ fi
 # No ROS/Gazebo execution; source archive is read-only.
 printf "%s" "$WORKDIR" > "$DIAG_STAGE/workdir.txt"
 mkdir -p "$WORKDIR"
-python3 "$ROOT/ai/scripts/import_a13_evidence.py" \
+python3 "$ROOT/scripts/smartdish_platform/runtime.py" --role B -- python3 "$ROOT/ai/scripts/import_a13_evidence.py" \
   --archive "$ARCHIVE" --output "$WORKDIR/raw"
-python3 "$ROOT/ai/scripts/extract_a13_candidates.py" \
+python3 "$ROOT/scripts/smartdish_platform/runtime.py" --role B -- python3 "$ROOT/ai/scripts/extract_a13_candidates.py" \
   --raw "$WORKDIR/raw" --out "$WORKDIR/review" \
   --archive-sha256 "$ACTUAL_ARCHIVE_SHA"
 [[ -s "$WORKDIR/review/review.html" && -s "$WORKDIR/review/candidate_manifest.csv" ]] || {
@@ -152,7 +152,7 @@ if (( OUT_TEE_RC != 0 || ERR_TEE_RC != 0 )); then
 fi
 GIT_HEAD="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf 'UNAVAILABLE')"
 set +e
-python3 "$ROOT/ai/scripts/package_a13_diagnostics.py" \
+python3 "$ROOT/scripts/smartdish_platform/runtime.py" --role B -- python3 "$ROOT/ai/scripts/package_a13_diagnostics.py" \
   --log "$DIAG_LOG" --workdir-file "$DIAG_STAGE/workdir.txt" \
   --archive-file "$DIAG_STAGE/source_archive.txt" \
   --output "$DIAG_OUTPUT" --exit-code "$RUN_RC" --git-sha "$GIT_HEAD"

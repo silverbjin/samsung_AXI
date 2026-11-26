@@ -1,0 +1,17 @@
+name: SmartDish B Platform Adoption
+on:
+  pull_request:
+    branches: [feat/smartdish-b-real-dataset]
+    paths:
+      - 'scripts/smartdish_b*'
+      - 'scripts/smartdish_platform/**'
+      - 'tests/test_b_platform_adoption.py'
+      - '.github/workflows/smartdish-b-platform-adoption.yml'
+permissions: {contents: read}
+jobs:
+  adoption:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tests -p test_b_platform_adoption.py -v

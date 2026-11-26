@@ -16,6 +16,9 @@ def prepare_git_repo(tmp_path):
     (root / 'scripts').mkdir(parents=True)
     dst = root / 'scripts' / SHELL.name
     shutil.copyfile(SHELL, dst)
+    helper=dst.parent / "smartdish_platform" / "runtime.py"
+    helper.parent.mkdir()
+    shutil.copyfile(SHELL.parent / "smartdish_platform" / "runtime.py",helper)
     subprocess.run(['git', 'init', '-q', str(root)], check=True)
     subprocess.run(['git', '-C', str(root), 'config', 'user.email', 'qa@example.invalid'], check=True)
     subprocess.run(['git', '-C', str(root), 'config', 'user.name', 'Test Only'], check=True)

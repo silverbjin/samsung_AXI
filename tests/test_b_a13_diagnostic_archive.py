@@ -22,6 +22,9 @@ def checkout(tmp_path, *, success=False):
     (root/'scripts').mkdir(parents=True)
     (root/'ai/scripts').mkdir(parents=True)
     shutil.copyfile(SHELL,root/'scripts'/SHELL.name)
+    helper=root/'scripts/smartdish_platform/runtime.py'
+    helper.parent.mkdir()
+    shutil.copyfile(ROOT/'scripts/smartdish_platform/runtime.py',helper)
     shutil.copyfile(PACKAGER,root/'ai/scripts'/PACKAGER.name)
     data=None
     if success:
