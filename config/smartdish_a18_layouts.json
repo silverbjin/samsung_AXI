@@ -64,50 +64,72 @@
       "dims": [
         [
           0.125,
-          0.025
+          0.03
         ],
         [
-          0.085,
-          0.06
+          0.095,
+          0.045
         ]
       ],
-      "id": "c30ee33eb93de5d3e639055fecb71b7716f9e81aa99ef6c03c70586592bfe3a8"
+      "id": "ee9bcc236fce5b25af4c3f398f5b0ebbd21e124382dad44ffc23324e17533b9d"
     },
     "F6": {
       "dims": [
         [
-          0.155,
-          0.025
-        ],
-        [
-          0.12,
-          0.02
-        ],
-        [
-          0.09,
-          0.025
-        ],
-        [
-          0.06,
+          0.15,
           0.04
+        ],
+        [
+          0.115,
+          0.035
+        ],
+        [
+          0.07,
+          0.035
         ]
       ],
-      "id": "abed84979eafbb7b004a0af892e4ccfd7b39469cb4909d015880cc77f88f3726"
+      "id": "7b6d48b19dfca7fc3dff4014f5d9b3791ebd2220d36053831177eac0a47b7c20"
     }
   },
   "layouts": [
     {
       "scene_id": "L18-01",
+      "family": "F1",
+      "x": [
+        0.092,
+        0
+      ],
+      "phase": 1,
+      "comparison": "L15-02",
+      "physical_signature_v1": "29aa55a4cd1f7dac2c08b107616e6c68fd448cb5715924501c17414f0c3464ce",
+      "layout_id": "ced9fa734c8c9110db91e77a3d73db955112c6d2d15222875341da0fd7941f63"
+    },
+    {
+      "scene_id": "L18-02",
+      "family": "F2",
+      "x": [
+        0.05,
+        -0.062
+      ],
+      "phase": 1,
+      "comparison": "L15-04",
+      "physical_signature_v1": "7f82c9c9cbba225058741f826b966cca0d7837780b89bc4744e216afee9ef590",
+      "layout_id": "adbac65266a7a9e3f67225ae17543ea372ae6abf82814813475e4cd37c4fd4af"
+    },
+    {
+      "scene_id": "L18-03",
       "family": "F3",
       "x": [
         0.097,
         0
       ],
       "phase": 1,
-      "comparison": "L16-02"
+      "comparison": "L16-02",
+      "physical_signature_v1": "e4efc6c4a2b490fffae99d1bafc3b89a6f590d20edd2ef109a5ce3965ddc90c0",
+      "layout_id": "5f732eccb47f352f5db66a60c80425727e9c67039d71e90208beb582a0f1ab23"
     },
     {
-      "scene_id": "L18-02",
+      "scene_id": "L18-04",
       "family": "F4",
       "x": [
         -0.087,
@@ -115,27 +137,9 @@
         0
       ],
       "phase": 1,
-      "comparison": "L16-06"
-    },
-    {
-      "scene_id": "L18-03",
-      "family": "F1",
-      "x": [
-        0.092,
-        0
-      ],
-      "phase": 1,
-      "comparison": "L15-02"
-    },
-    {
-      "scene_id": "L18-04",
-      "family": "F2",
-      "x": [
-        0.05,
-        -0.062
-      ],
-      "phase": 1,
-      "comparison": "L15-04"
+      "comparison": "L16-06",
+      "physical_signature_v1": "dc06ef3baae989bdda5127aec8694c581ba4876ebb32089482afc4c1662ee442",
+      "layout_id": "883b6fd0d613d3b876a083429acd7e8edf37ccc360ab62870631c055bf6c591e"
     },
     {
       "scene_id": "L18-05",
@@ -145,7 +149,9 @@
         0
       ],
       "phase": 2,
-      "comparison": "L16-01"
+      "comparison": "L16-01",
+      "physical_signature_v1": "48cda392530a70789b64925106ec35686dbb0cb0c80bd7c7a93128d5df6995f0",
+      "layout_id": "60208d61ba164f675b9800706005e9b1abad585cde9c04398bdcb8933ccbd8be"
     },
     {
       "scene_id": "L18-06",
@@ -156,29 +162,47 @@
         -0.102
       ],
       "phase": 2,
-      "comparison": "L16-08"
+      "comparison": "L16-08",
+      "physical_signature_v1": "91f71071fd1e19df0c8bc88a9c1733af7d768ee3ec71cc3a3dc50f13eaf33169",
+      "layout_id": "8dfe91ad7d475a6ddd119c56bbbedc940742a744e27aad1b39c3953dc0a8765a"
     },
     {
       "scene_id": "L18-07",
       "family": "F5",
       "x": [
-        -0.039,
-        0
+        0.109,
+        0.08
       ],
       "phase": 2,
-      "comparison": null
+      "comparison": null,
+      "physical_signature_v1": "e9f071df463b093f071f935e34b5f83815b7f7396e9791c779f59b3a5e23831c",
+      "layout_id": "e8ba668093425a15633e68a3ad48214cd30aab4c7ef6c4c9a9056f9e6fc3b2fa"
     },
     {
       "scene_id": "L18-08",
       "family": "F6",
       "x": [
-        0.08,
-        0.08,
-        0.08,
+        -0.047,
+        -0.047,
         0
       ],
       "phase": 2,
-      "comparison": null
+      "comparison": null,
+      "physical_signature_v1": "feb4bba9d2a789ea1dd034fa2eb0b94a8dcb0005351cdb6918d5e15dec8a54bc",
+      "layout_id": "282347ce4df946d168e788b17bba34a02ce7bbc82ac45ae026ffcee6f0e34ee5"
     }
-  ]
+  ],
+  "pilot_order": [
+    "L18-03",
+    "L18-04",
+    "L18-01",
+    "L18-02"
+  ],
+  "expansion_order": [
+    "L18-05",
+    "L18-06",
+    "L18-07",
+    "L18-08"
+  ],
+  "spec_name": "SMARTDISH_A18_PHYSICAL_LAYOUT_DEVELOPMENT_SPEC_KO.md"
 }

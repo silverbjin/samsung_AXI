@@ -5,7 +5,8 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
 import a18_pilot_world as w
 from a18_pilot_contract import check_initial,grid,check_trigger,metrics,entity_names,load_poses
 from a18_archive import bundle,batch
-EXPECTED_LAYOUTS=("fe088abaa8abadaf770189f44f1c2fd629791f2f8f3f891e7b6eba07d7df7d2d","30fa2f9e739a29893b9701c99e5e0f0b3428d98a073c6b606ec471db0ae4d582","e41f3f4c12fe41334aef97445aa70c29198f5c1070df54e026f673dda8d9307a","6b8105246a583869b62454e4fe8eeb7740eb6e47e03052289cdaf93062eb66a8","7bd49fa3635f355340519aee8cbc1ef1ab346e4e5d523adc26447ae9de1749d9","153c67b38689017909b4b2e5743bb5d988402610c6369928b24ba7ba6fcedd79")
+EXPECTED_LAYOUTS=["ced9fa734c8c9110db91e77a3d73db955112c6d2d15222875341da0fd7941f63","adbac65266a7a9e3f67225ae17543ea372ae6abf82814813475e4cd37c4fd4af","5f732eccb47f352f5db66a60c80425727e9c67039d71e90208beb582a0f1ab23","883b6fd0d613d3b876a083429acd7e8edf37ccc360ab62870631c055bf6c591e","60208d61ba164f675b9800706005e9b1abad585cde9c04398bdcb8933ccbd8be","8dfe91ad7d475a6ddd119c56bbbedc940742a744e27aad1b39c3953dc0a8765a","e8ba668093425a15633e68a3ad48214cd30aab4c7ef6c4c9a9056f9e6fc3b2fa","282347ce4df946d168e788b17bba34a02ce7bbc82ac45ae026ffcee6f0e34ee5"]
+EXPECTED_SIGNATURES=["29aa55a4cd1f7dac2c08b107616e6c68fd448cb5715924501c17414f0c3464ce","7f82c9c9cbba225058741f826b966cca0d7837780b89bc4744e216afee9ef590","e4efc6c4a2b490fffae99d1bafc3b89a6f590d20edd2ef109a5ce3965ddc90c0","dc06ef3baae989bdda5127aec8694c581ba4876ebb32089482afc4c1662ee442","48cda392530a70789b64925106ec35686dbb0cb0c80bd7c7a93128d5df6995f0","91f71071fd1e19df0c8bc88a9c1733af7d768ee3ec71cc3a3dc50f13eaf33169","e9f071df463b093f071f935e34b5f83815b7f7396e9791c779f59b3a5e23831c","feb4bba9d2a789ea1dd034fa2eb0b94a8dcb0005351cdb6918d5e15dec8a54bc"]
 def p(x=0,y=0,z=0,q=(0,0,0,1)):return dict(x=x,y=y,z=z,qx=q[0],qy=q[1],qz=q[2],qw=q[3])
 def fixture(scene):
     meta=w.design(scene);t0=2_000_000_000;tracks={n:{} for n in entity_names(meta)}
@@ -24,23 +25,24 @@ def fixture(scene):
 class A18(unittest.TestCase):
     def test_registry_identity(self):
         ds=[w.design(s) for s in w.SCENES];old=w.old_designs()
-        self.assertEqual(tuple(d["physical_layout_id"] for d in ds[:6]),EXPECTED_LAYOUTS)
-        self.assertEqual(len({d["comparison_fingerprint"] for d in ds+[]}),8)
+        self.assertEqual([d["physical_layout_id"] for d in ds],EXPECTED_LAYOUTS)
+        self.assertEqual([d["comparison_fingerprint"] for d in ds],EXPECTED_SIGNATURES)
+        self.assertEqual(len({d["comparison_fingerprint"] for d in ds}),8)
         self.assertFalse({d["comparison_fingerprint"] for d in ds}&{w.fingerprint(d["initial_dishes"]) for d in old})
         self.assertEqual(len({d["geometry_family_id"] for d in ds+old}),6)
-        self.assertEqual(w.phase_scenes(1),w.SCENES[:4]);self.assertEqual(w.phase_scenes(2),w.SCENES[4:])
+        self.assertEqual(w.phase_scenes(1),("L18-03","L18-04","L18-01","L18-02"));self.assertEqual(w.phase_scenes(2),w.SCENES[4:])
         for d in ds:
             self.assertFalse(d["human_approved"]);self.assertFalse(d["training_eligible"])
             self.assertGreater(d["nominal_min_tray_clearance_m"],0)
             self.assertEqual(d["trigger"]["target"],d["initial_dishes"][-1]["name"]+"/body")
             self.assertAlmostEqual(d["nominal_center_support_margin_m"]-d["initial_dishes"][-1]["radius_m"],d["nominal_full_containment_margin_m"])
     def test_registry_invalid_family_and_duplicate(self):
-        r=w.read_registry();r["families"]["F3"]["id"]="0"*64
+        r=w.read_registry();r["families"]["F1"]["id"]="0"*64
         with patch.object(w,"read_registry",return_value=r):
             with self.assertRaisesRegex(ValueError,"FAMILY_MISMATCH"):w.design("L18-01")
-        r=w.read_registry();r["layouts"][0]["x"]=[-.097,0.]
+        r=w.read_registry();r["layouts"][2]["x"]=[-.097,0.]
         with patch.object(w,"read_registry",return_value=r):
-            with self.assertRaisesRegex(ValueError,"HISTORICAL_LAYOUT_DUPLICATE"):w.design("L18-01")
+            with self.assertRaisesRegex(ValueError,"HISTORICAL_LAYOUT_DUPLICATE"):w.design("L18-03")
     def test_identity_ignores_observation_seed(self):
         d=w.design("L18-01");ds=d["initial_dishes"]
         fp=w.fingerprint(ds);d.update(seed=99,source_class="OWNER_WSL2",observation_id="another")
@@ -62,7 +64,7 @@ class A18(unittest.TestCase):
                     self.assertEqual(float(m.findtext("link/inertial/mass")),dish["mass_kg"])
                     self.assertEqual(float(m.findtext("link/collision/surface/friction/ode/mu")),dish["friction_mu"])
                 self.assertEqual(root.findtext("./world/plugin[@name='smartdish::A16Pilot']/target_model"),d["initial_dishes"][-1]["name"])
-    def test_2_3_4_dish_support(self):
+    def test_2_3_dish_support(self):
         for s in w.SCENES:
             t,m,t0,i,e=fixture(s);v=check_initial(t,m,t0,i,e)
             self.assertEqual(len(v["support"]),len(m["initial_dishes"]))
@@ -75,15 +77,15 @@ class A18(unittest.TestCase):
         for r in e:r["pairs"]=[]
         with self.assertRaisesRegex(ValueError,"SUPPORT_UNOBSERVED"):check_initial(t,m,t0,i,e)
     def test_failure_pose_gap_fov_and_drift(self):
-        t,m,t0,i,e=fixture("L18-08");del t["dish_04"][t0]
+        t,m,t0,i,e=fixture("L18-08");del t["dish_03"][t0]
         with self.assertRaisesRegex(ValueError,"POSE_WINDOW_GAP"):check_initial(t,m,t0,i,e)
         t,m,t0,i,e=fixture("L18-08");i["k"][2]=10000
         with self.assertRaisesRegex(ValueError,"CAMERA_FOV"):check_initial(t,m,t0,i,e)
         t,m,t0,i,e=fixture("L18-08")
-        for _,v in t["dish_04"].values():v["x"]+=.003
+        for _,v in t["dish_03"].values():v["x"]+=.003
         with self.assertRaisesRegex(ValueError,"NOMINAL_POSITION_DRIFT"):check_initial(t,m,t0,i,e)
-    def test_pose_limit_with_4_dishes(self):
-        t,m,t0,i,e=fixture("L18-08");self.assertEqual(len(t),6);self.assertLess(6*12301,100000)
+    def test_pose_limit_with_3_dishes(self):
+        t,m,t0,i,e=fixture("L18-08");self.assertEqual(len(t),5);self.assertLess(5*12301,100000)
         self.assertEqual(len(grid(t,t0-200_000_000,t0)),201)
         with tempfile.TemporaryDirectory() as td:
             pth=Path(td)/"poses.tsv";pth.write_text("sim_ns\titeration\tentity\tentity_id\tx\ty\tz\tqx\tqy\tqz\tqw\nOVERFLOW\n")

@@ -19,7 +19,7 @@ def mic(v):return round(float(v)*1_000_000)
 def geometry(ds):return [[mic(d[k]) for k in ("radius_m","thickness_m","mass_kg","friction_mu")] for d in ds]
 def poses(ds):return [[mic(d.get(k,0)) for k in ("x","y","z","roll","pitch","yaw")] for d in ds]
 def fingerprint(ds):
-    return hash_json({"version":"A18_CANONICAL_PHYSICAL_V1","shape":"uniform_solid_cylinder_stack","geometry_um_mg_micro_mu":geometry(ds),"pose_um_urad":poses(ds)})
+    return hash_json({"version":"A18_CANONICAL_PHYSICAL_V1","shape":"cylinder_stack","rows":[a+b for a,b in zip(geometry(ds),poses(ds))]})
 def old_designs():return [design15(s) for s in S15]+[design16(s) for s in S16]
 def read_registry():
     r=json.loads(REGISTRY.read_text())
@@ -28,11 +28,11 @@ def read_registry():
     return r
 def phase_scenes(phase):
     need(phase in (1,2),"A18_PHASE")
-    return tuple(x["scene_id"] for x in read_registry()["layouts"] if x["phase"]==phase)
+    r=read_registry();order=r["pilot_order" if phase==1 else "expansion_order"];need(set(order)=={x["scene_id"] for x in r["layouts"] if x["phase"]==phase} and len(order)==4,"A18_ORDER");return tuple(order)
 def design(scene):
     r=read_registry();need(scene in SCENES,"A18_SCENE_UNKNOWN")
     spec=r["layouts"][SCENES.index(scene)];fam=r["families"][spec["family"]];dims=fam["dims"];xs=spec["x"]
-    need(2<=len(dims)<=4 and len(xs)==len(dims),"A18_DISH_COUNT")
+    need(2<=len(dims)<=3 and len(xs)==len(dims),"A18_DISH_COUNT")
     z=w.TRAY_TOP;ds=[];boxes=[];clearances=[]
     for i,((radius,height),x) in enumerate(zip(dims,xs)):
         need(all(math.isfinite(v) for v in (radius,height,x)) and radius>0 and height>0,"A18_NONFINITE_GEOMETRY")
@@ -51,12 +51,13 @@ def design(scene):
         y=sum(a["y"]*a["mass_kg"] for a in above)/total
         m=d["radius_m"]-math.hypot(x-d["x"],y-d["y"]);need(m>0,"A18_NOMINAL_SUBSTACK_UNSUPPORTED");sub.append(round(m,6))
     g=geometry(ds);p=poses(ds);old=old_designs();matching={x["geometry_family_id"] for x in old if geometry(x["initial_dishes"])==g}
-    family=next(iter(matching)) if len(matching)==1 else hash_json({"version":"A18_FAMILY_V1","shape":"uniform_solid_cylinder_stack","geometry_um_mg_micro_mu":g})
+    family=next(iter(matching)) if len(matching)==1 else hash_json({"version":"A16_FAMILY_V1","geometry":{"shape":"cylinder_stack","dimensions_m":dims,"mass_kg_per_dish":w.MASS_KG,"friction_mu":w.MU,"inertia":"UNIFORM_SOLID_CYLINDER"}})
     need(len(matching)<=1 and family==fam["id"],"A18_FAMILY_MISMATCH")
     fp=fingerprint(ds);need(fp not in {fingerprint(x["initial_dishes"]) for x in old},"A18_HISTORICAL_LAYOUT_DUPLICATE")
-    layout=hash_json({"version":"A18_LAYOUT_V1","family_id":family,"pose_um_urad":p})
+    layout=hash_json({"version":"A18_LAYOUT_V1","family":family,"physical_signature":fp})
+    need(fp==spec["physical_signature_v1"] and layout==spec["layout_id"],"A18_APPROVED_IDENTITY_DRIFT")
     dx=round(ds[-1]["x"]-ds[-2]["x"],6);margin=round(ds[-2]["radius_m"]-abs(dx),6)
-    return dict(schema=3,producer_version=VERSION,scene_id=scene,phase=spec["phase"],geometry_family_id=family,physical_layout_id=layout,comparison_fingerprint=fp,physical_fingerprint=fp,hash_version="A18_CANONICAL_PHYSICAL_V1",family_basis={"shape":"uniform_solid_cylinder_stack","geometry_um_mg_micro_mu":g},layout_basis=p,initial_dishes=ds,platform=dict(width_m=w.TRAY_WIDTH,depth_m=w.TRAY_DEPTH,top_z_m=w.TRAY_TOP),platform_sha=PLATFORM_SHA,physics_profile="STATIC_TRAY_FIXED_WORLD_Y_TORQUE",prediction_contract="FIXED_WORLD_Y_TORQUE_CONDITIONAL",trigger_profile="A16_UPPERMOST_WORLD_Y_012NM_500MS_V1",trigger=dict(target=ds[-1]["name"]+"/body",frame="world",torque_nm=[0,TORQUE_NM,0],start_ns=TRIGGER_NS,duration_ns=DURATION_NS),end_ns=END_NS,step_ns=STEP_NS,t0_ns=2_000_000_000,environment_profile_id="A15_STATIC_TRAY_OVERHEAD_V1",ground_truth="UNKNOWN_HOLD",human_approved=False,training_eligible=False,rule_candidate="UNKNOWN",nominal_center_support_margin_m=margin,nominal_full_containment_margin_m=round(margin-ds[-1]["radius_m"],6),nominal_substack_center_margins_m=sub,nominal_bboxes_px=boxes,nominal_min_tray_clearance_m=min(clearances),upper_tray_center_group="CENTER" if ds[-1]["x"]==0 else "ECCENTRIC",upper_support_offset_x_m=dx,expected_entities=["tray_platform","camera"]+[d["name"] for d in ds],comparison_scene=spec["comparison"],qa05_evidence_sha256=r["qa05_evidence_sha256"],exclusion_reason=None)
+    return dict(schema=3,producer_version=VERSION,scene_id=scene,phase=spec["phase"],geometry_family_id=family,physical_layout_id=layout,comparison_fingerprint=fp,physical_fingerprint=fp,hash_version="A18_CANONICAL_PHYSICAL_V1",family_basis={"shape":"uniform_solid_cylinder_stack","geometry_um_mg_micro_mu":g},layout_basis=p,initial_dishes=ds,platform=dict(width_m=w.TRAY_WIDTH,depth_m=w.TRAY_DEPTH,top_z_m=w.TRAY_TOP),platform_sha=PLATFORM_SHA,physics_profile="STATIC_TRAY_FIXED_WORLD_Y_TORQUE",prediction_contract="FIXED_WORLD_Y_TORQUE_CONDITIONAL",trigger_profile="A16_UPPERMOST_WORLD_Y_012NM_500MS_V1",trigger=dict(target=ds[-1]["name"]+"/body",frame="world",torque_nm=[0,TORQUE_NM,0],start_ns=TRIGGER_NS,duration_ns=DURATION_NS),end_ns=END_NS,step_ns=STEP_NS,t0_ns=2_000_000_000,environment_profile_id="A15_STATIC_TRAY_OVERHEAD_V1",ground_truth="UNKNOWN_HOLD",human_approved=False,training_eligible=False,rule_candidate="UNKNOWN",nominal_center_support_margin_m=margin,nominal_full_containment_margin_m=round(margin-ds[-1]["radius_m"],6),nominal_substack_center_margins_m=sub,nominal_bboxes_px=boxes,nominal_min_tray_clearance_m=min(clearances),upper_tray_center_group="CENTER" if ds[-1]["x"]==0 else "ECCENTRIC",upper_support_offset_x_m=dx,expected_entities=["tray_platform","camera"]+[d["name"] for d in ds],comparison_scene=spec["comparison"],qa05_evidence_sha256=r["qa05_evidence_sha256"],registry_sha256=hashlib.sha256(REGISTRY.read_bytes()).hexdigest(),exclusion_reason=None)
 
 def generate(scene,out,pose_plugin,health_plugin):
     out=Path(out);meta=design(scene)

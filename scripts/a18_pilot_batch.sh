@@ -46,10 +46,10 @@ timeout 120s cmake -S scripts/a16_pilot -B "$OUT/build_pose" > "$OUT/build_pose.
 timeout 180s cmake --build "$OUT/build_pose" -j2 >> "$OUT/build_pose.log" 2>&1 || { tail -80 "$OUT/build_pose.log"; exit 2; }
 timeout 120s cmake -S scripts/a14_physics_freshness -B "$OUT/build_health" > "$OUT/build_health.log" 2>&1
 timeout 180s cmake --build "$OUT/build_health" -j2 >> "$OUT/build_health.log" 2>&1 || { tail -80 "$OUT/build_health.log"; exit 2; }
-for scene in L18-01 L18-02 L18-03 L18-04; do
+for scene in L18-03 L18-04 L18-01 L18-02; do
  args=(); cls=OWNER_WSL2; profile=wsl_d3d12_retention_v1
  if [[ "$MODE" == --ci ]];then cls=CLOUD_CI;profile=inherit;fi
- if [[ "$MODE" == --headless || ( "$MODE" == --ci && "$scene" != L18-01 ) ]];then args=(--headless);fi
+ if [[ "$MODE" == --headless || ( "$MODE" == --ci && "$scene" != L18-03 ) ]];then args=(--headless);fi
  timeout --signal=INT --kill-after=35s 420s python3 -u scripts/a18_pilot_collect.py --sha "$PIN" --scene "$scene" \
    --out "$OUT/$scene" --pose-plugin "$OUT/build_pose/liba16_pilot.so" --health-plugin "$OUT/build_health/liba14_physics_freshness.so" \
    --native-tap "$OUT/build_pose/a16_native_contact" --source-class "$cls" --server-profile "$profile" "${args[@]}" 2>&1 | tee "$OUT/$scene.log"

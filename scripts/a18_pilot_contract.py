@@ -7,7 +7,7 @@ from a18_pilot_world import STEP_NS,TRIGGER_NS,DURATION_NS,END_NS,TORQUE_NM
 
 def entity_names(meta):
     names={d["name"] for d in meta["initial_dishes"]}
-    need(len(names)==len(meta["initial_dishes"]) and names=={f"dish_{i+1:02}" for i in range(len(names))} and 2<=len(names)<=4,"A18_DISH_names")
+    need(len(names)==len(meta["initial_dishes"]) and names=={f"dish_{i+1:02}" for i in range(len(names))} and 2<=len(names)<=3,"A18_DISH_names")
     return names|{"tray_platform","camera"}
 def need(ok,reason):
     if not ok:raise ValueError(reason)
@@ -38,7 +38,7 @@ def angle(a,b):
     return 2*math.acos(min(1.,abs(sum(x*y for x,y in zip(a,b)))))
 def grid(tracks,start,end):
     names=set(tracks)
-    need({'tray_platform','camera'}<=names and 4<=len(names)<=6,'A18_ENTITY_SET')
+    need({'tray_platform','camera'}<=names and 4<=len(names)<=5,'A18_ENTITY_SET')
     times=range(start,end+1,STEP_NS)
     for t in times:
         need(all(t in tracks[n] for n in names),"A18_POSE_WINDOW_GAP")
