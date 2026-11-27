@@ -114,7 +114,7 @@ def run(a):
         robot,bridge=phys.prepare(static,static/"overlay/robot.sdf",yaml.safe_load((static/"overlay/bridge.yaml").read_text()))
         sources=None
         if a.motion:
-            from smartdish_a04_motion import instrument,moving_params
+            from smartdish_a04_motion import instrument,moving_params,localization_map
             require(a.mode=="candidate","MOTION_REQUIRES_CANDIDATE")
             sources=instrument(static/"world.sdf",robot,bridge,scene)
         bridgefile=static/"live_bridge.yaml";bridgefile.write_text(yaml.safe_dump(bridge,sort_keys=False))
@@ -123,15 +123,19 @@ def run(a):
             config=moving_params(config);params.write_text(yaml.safe_dump(config,sort_keys=False))
         map_path=a.map.resolve() if a.mode=="original" else static/"candidate.yaml"
         cfg,grid=read_map(map_path)
+        amcl_map=localization_map(g,static) if a.motion else map_path
+        loc_cfg,loc_grid=read_map(amcl_map)
+        evidence["localization_map_sha256"]=sha(amcl_map.parent/loc_cfg["image"])
+        evidence["separate_localization_map"]=bool(a.motion)
         evidence.update(world_sha256=sha(static/"world.sdf"),robot_sha256=sha(robot),bridge_sha256=sha(bridgefile),
                         map_sha256=sha(map_path.parent/cfg["image"]),params_sha256=sha(params),
                         map_static_screen=audit["original" if a.mode=="original" else "candidate"])
         log=(out/"launch.log").open("w")
-        launch_file,launch_manifest=prepare_launch_overlay(static/"launch_overlay")
+        launch_file,launch_manifest=prepare_launch_overlay(static/"launch_overlay",map_path if a.motion else None)
         evidence["launch_overlay"]=launch_manifest
         cmd=["ros2","launch",str(launch_file),"gui:=false",
              "robot_sdf:="+str(robot),"world_file:="+str(static/"world.sdf"),"bridge_config:="+str(bridgefile),
-             "map:="+str(map_path),"params_file:="+str(params),"s6_stagger_nav_start:=true"]
+             "map:="+str(amcl_map),"params_file:="+str(params),"s6_stagger_nav_start:=true"]
         evidence["launch_argv"]=cmd
         proc=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
         rclpy.init(domain_id=int(os.environ["ROS_DOMAIN_ID"]));initialized=True
@@ -162,6 +166,8 @@ def run(a):
               node.create_subscription(PoseWithCovarianceStamped,"/amcl_pose",amcl,qos),
               node.create_subscription(OccupancyGrid,"/map",lambda m:state.update(map=m),latched),
               node.create_subscription(Twist,"/cmd_vel",cmdvel,qos)]
+        if a.motion:
+            subs.append(node.create_subscription(OccupancyGrid,"/a04/clearance_map",lambda m:state.update(clearance_map=m),latched))
         for n in ("global_costmap","local_costmap"):
             subs.append(node.create_subscription(PolygonStamped,"/"+n+"/published_footprint",lambda m,n=n:footprint(m,n),qos_profile_sensor_data))
         buffer=Buffer();listener=TransformListener(buffer,node,spin_thread=False)
@@ -183,7 +189,7 @@ def run(a):
             return all(buffer.can_transform("map",n,Time()) for n in ("odom","base_footprint","base_link"))
         def ready():
             return (len(clock)>=3 and state["scan"]>=3 and state["odom"]>=3 and state["amcl"] is not None and
-                    state["map"] is not None and len(state["footprints"])==2 and tf_ready() and
+                    state["map"] is not None and (not a.motion or state.get("clearance_map") is not None) and len(state["footprints"])==2 and tf_ready() and
                     phys.fresh_pose(ROBOT) and phys.stop.verified(time.monotonic()) and
                     phys.cache.select(0,time.monotonic()) is not None and action.server_is_ready())
         wait(ready,200,"CLOCK_SCAN_ODOM_AMCL_TF_FOOTPRINT_RGB")
@@ -191,6 +197,7 @@ def run(a):
         # before lifecycle_manager activates CM (observed RED 45955271845).
         names=("collision_monitor","planner_server","controller_server","velocity_smoother","amcl",
                "local_costmap/local_costmap","global_costmap/global_costmap")
+        if a.motion:names=names+("a04_clearance_map_server",)
         clients={n:node.create_client(GetState,"/"+n+"/get_state") for n in names}
         evidence["lifecycle_history"]=[]
         deadline=time.monotonic()+45
@@ -246,9 +253,18 @@ def run(a):
         (out/"tray.rgb").write_bytes(frame.rgb)
         Image.frombytes("RGB",(640,480),frame.rgb).save(out/"tray.png")
         evidence["rgb"]={"stamp_ns":frame.stamp_ns,"frame_id":frame.frame_id,"rgb_sha256":sha(out/"tray.rgb"),"png_sha256":sha(out/"tray.png")}
-        m=state["map"]
-        require(m.header.frame_id=="map" and (m.info.height,m.info.width)==grid.shape,"LIVE_MAP_SHAPE")
-        actual=np.array(m.data).reshape(grid.shape);require(np.array_equal(actual,grid),"LIVE_MAP_PIXEL_DRIFT")
+        for topic,m,expected in (("/map",state["map"],loc_grid),("/a04/clearance_map" if a.motion else "/map",state.get("clearance_map",state["map"]),grid)):
+            require(m.header.frame_id=="map" and (m.info.height,m.info.width)==expected.shape,"LIVE_MAP_SHAPE_"+topic)
+            actual=np.array(m.data).reshape(expected.shape);require(np.array_equal(actual,expected),"LIVE_MAP_PIXEL_DRIFT_"+topic)
+            pubs=endpoints(node,topic)
+            require(len(pubs)==1,"MAP_PUBLISHER_COUNT_"+topic)
+            evidence.setdefault("actual_map_topics",{})[topic]={"publishers":pubs,"shape":list(expected.shape),"content_matches":True}
+        if a.motion:
+            pc=AsyncParameterClient(node,"/global_costmap/global_costmap")
+            wait(pc.services_are_ready,10,"GLOBAL_STATIC_MAP_PARAM")
+            value=future(pc.get_parameters(["static_layer.map_topic"]),8,"GLOBAL_STATIC_MAP_PARAM").values[0].string_value
+            require(value=="/a04/clearance_map","GLOBAL_STATIC_MAP_TOPIC_MISMATCH")
+            evidence["live_global_static_map_topic"]=value
         tf={}
         for name in ("odom","base_footprint","base_link"):
             t=buffer.lookup_transform("map",name,Time())

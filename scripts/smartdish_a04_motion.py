@@ -5,6 +5,8 @@ import json,math,time
 from pathlib import Path
 from xml.etree import ElementTree as ET
 import numpy as np
+import yaml
+from PIL import Image
 from scipy.spatial.transform import Rotation
 from smartdish_a04_clearance import HALF,PADDING,REGISTRATION_MARGIN,NOMINAL,save,sha,require
 from smartdish_robot.product_contract import PROFILE
@@ -24,6 +26,37 @@ CENTER_LIMIT=.015
 TILT_LIMIT=.035
 LEGS=(("TO_TABLE","T03"),("TO_RETURN","DISH_RETURN"),("TO_HOME","HOME"))
 
+def localization_map(g,out):
+    """Separate exact scan-plane SDF map for AMCL, not inflated safety map.
+    The S7 collision world is unchanged. Cell centers approximate scan surfaces
+    within half a cell, not a 100mm buffer or elevated projection.
+    """
+    out=Path(out);res=.05;ox,oy=-2.55,-2.45;w,h=206,186
+    x,y=np.meshgrid(ox+(np.arange(w)+.5)*res+NOMINAL[0],
+                    oy+(np.arange(h)+.5)*res+NOMINAL[1])
+    f=g["floor"];lo,hi=f["lo"],f["hi"]
+    a=np.full((h,w),205,dtype=np.uint8)
+    a[(x>=lo[0])&(x<=hi[0])&(y>=lo[1])&(y<=hi[1])]=254
+    z=g["lidar_model_z_m"]+.01
+    for c in g["obstacles"]:
+        lo,hi=c["lo"],c["hi"]
+        if not lo[2]<=z<=hi[2]:continue
+        if c["shape"]=="cylinder":
+            cx,cy=(lo[0]+hi[0])/2,(lo[1]+hi[1])/2
+            radius=(hi[0]-lo[0])/2
+            mask=np.hypot(np.maximum(abs(x-cx)-res/2,0),np.maximum(abs(y-cy)-res/2,0))<=radius
+        else:mask=(x>=lo[0]-res/2)&(x<=hi[0]+res/2)&(y>=lo[1]-res/2)&(y<=hi[1]+res/2)
+        a[mask]=0
+    pgm=out/"localization.pgm";path=out/"localization.yaml"
+    Image.fromarray(a[::-1]).save(pgm)
+    path.write_text(yaml.safe_dump(dict(image=pgm.name,mode="trinary",resolution=res,origin=[ox,oy,0],
+                                        negate=0,occupied_thresh=.65,free_thresh=.196),sort_keys=False))
+    save(out/"localization_manifest.json",dict(scope="SDF_SCAN_PLANE_AMCL_ONLY",scan_z_m=z,
+        world_sha256=g["world_sha256"],pgm_sha256=sha(pgm),yaml_sha256=sha(path),
+        resolution=res,origin=[ox,oy,0],dimensions=[w,h],registration_buffer_m=0,
+        classes={str(k):int(np.sum(a==k)) for k in (0,205,254)},planning_map_separate=True))
+    return path
+
 def moving_params(p):
     cp=p["controller_server"]["ros__parameters"]
     fp=cp["FollowPath"]
@@ -31,6 +64,7 @@ def moving_params(p):
     fp.update(vx_max=SPEED,vx_min=-.08,wz_max=ANGULAR,ax_max=ACCEL,ax_min=-ACCEL,az_max=ANGULAR_ACCEL,
               visualize=False,vx_std=.10,wz_std=.20)
     fp["CostCritic"]["consider_footprint"]=True
+    p["global_costmap"]["global_costmap"]["ros__parameters"]["static_layer"]["map_topic"]="/a04/clearance_map"
     # Preserve position/yaw tolerance; enforce controller and smoother limits.
     sm=p["velocity_smoother"]["ros__parameters"]
     sm.update(max_velocity=[SPEED,0.,ANGULAR],min_velocity=[-.08,0.,-ANGULAR],
@@ -225,7 +259,9 @@ class Witness:
             for k,v in (("max_center_m",m["center_m"]),("max_z_error_m",m["z_error_m"]),("max_tilt_rad",m["tilt_rad"])):
                 s[k]=max(s[k],v)
         self.last=robot;self.last_dishes=dishes
-        require(clear>MIN_CLEARANCE and reg<=REGISTRATION_MARGIN and rt<=.05,"ACTUAL_MOVING_CLEARANCE_OR_REGISTRATION")
+        require(clear>MIN_CLEARANCE,"ACTUAL_MOVING_CLEARANCE")
+        require(reg<=REGISTRATION_MARGIN,"ACTUAL_MOVING_REGISTRATION")
+        require(rt<=.05,"ACTUAL_ROBOT_TILT")
         require(linear<=SPEED+.05 and angular<=ANGULAR+.10,"ACTUAL_VELOCITY_LIMIT")
         require(all(m["center_m"]<=CENTER_LIMIT and m["z_error_m"]<=.02 and m["tilt_rad"]<=TILT_LIMIT and
                     m["edge_bound_m"]<=.27 for m in measures),"DISH_RELATIVE_POSE_LIMIT")
@@ -273,7 +309,7 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         wait(lambda:witness.raw.get(ROBOT) and time.monotonic()-witness.raw[ROBOT]["steady_s"]<=.5 and
              (not ids or all(witness.raw.get(n) and time.monotonic()-witness.raw[n]["steady_s"]<=.5 for n in DISH_NAMES)),10,"RAW_POSE_READY")
         start_xy=current_xy();start_scan=state["scan"];start_odom=state["odom"];result.clear()
-        row={"mission":mission,"leg":label,"destination_id":dest,"loaded_entity_ids":ids,"status":"STARTED"}
+        row={"mission":mission,"leg":label,"destination_id":dest,"loaded_entity_ids":ids,"status":"STARTED","start_sim_ns":clock[-1]}
         e["moving"]["legs"].append(row);witness.begin(mission+"_"+label,ids)
         guard();nav.start(request);e["navigate_to_pose_goals_sent"]+=1
         deadline=time.monotonic()+260;maxmove=0.
@@ -284,7 +320,7 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         witness.end()
         require(len(result)==1 and result[0]["result"]=="SUCCEEDED" and result[0]["terminal_status"]=="SUCCEEDED" and result[0]["stop_verified"],"NAV_TERMINAL_STOP:"+str(result))
         p=state["amcl"].pose.pose.position;d=target[dest]
-        row.update(result[0],status="SUCCEEDED",odom_displacement_m=maxmove,odom_samples=state["odom"]-start_odom,
+        row.update(result[0],status="SUCCEEDED",end_sim_ns=clock[-1],odom_displacement_m=maxmove,odom_samples=state["odom"]-start_odom,
                    scan_samples=state["scan"]-start_scan,amcl_error_m=math.dist((p.x,p.y),(d["x"],d["y"])))
         require(maxmove>.25 and row["amcl_error_m"]<=.8 and row["scan_samples"]>=3 and row["odom_samples"]>=3,"ARRIVAL_EVIDENCE")
         save(out/"moving_progress.json",e["moving"])

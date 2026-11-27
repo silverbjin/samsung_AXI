@@ -26,7 +26,7 @@ def patch_docking(source):
     patched="".join(lines);ast.parse(patched)
     return patched
 
-def prepare_launch_overlay(out):
+def prepare_launch_overlay(out,clearance_map=None):
     from ament_index_python.packages import get_package_share_directory
     out=Path(out);out.mkdir(parents=True,exist_ok=False)
     nav=Path(get_package_share_directory("nav2_bringup"))/"launch"
@@ -41,6 +41,19 @@ def prepare_launch_overlay(out):
     old="os.path.join(nav,'launch','bringup_launch.py')"
     if sources["restaurant"].count(old)!=2:raise RuntimeError("RESTAURANT_LAUNCH_SOURCE_DRIFT")
     patched["restaurant"]=sources["restaurant"].replace(old,repr(str(generated["nav_bringup"])))
+    if clearance_map is not None:
+        # AMCL stays on /map. A dedicated lifecycle-managed static map supplies
+        # global costmap only; never publish two maps to the same ROS topic.
+        anchor="return LaunchDescription(["
+        if patched["restaurant"].count(anchor)!=1:raise RuntimeError("RESTAURANT_LAUNCH_LIST_DRIFT")
+        extra=(
+            anchor+"\n"
+            "        Node(package='nav2_map_server',executable='map_server',name='a04_clearance_map_server',\n"
+            "             parameters=[{'yaml_filename':"+repr(str(Path(clearance_map).resolve()))+
+            ", 'topic_name':'/a04/clearance_map','frame_id':'map','use_sim_time':True}],output='screen'),\n"
+            "        Node(package='nav2_lifecycle_manager',executable='lifecycle_manager',name='a04_clearance_lifecycle',\n"
+            "             parameters=[{'use_sim_time':True,'autostart':True,'node_names':['a04_clearance_map_server']}],output='screen'),\n")
+        patched["restaurant"]="from launch_ros.actions import Node\n"+patched["restaurant"].replace(anchor,extra)
     manifest={}
     for k in originals:
         ast.parse(patched[k])

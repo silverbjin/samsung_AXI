@@ -27,3 +27,17 @@ def test_actual_support_pair_symmetric(wheel):
     assert contact_category({"model":"table_3"},a,"table_3::body::table_3_collision")=="UNEXPECTED"
 def test_base_floor_is_not_allowed_support():
     assert contact_category({"model":"floor"},"waffle_pi::base_link::base_collision","floor::body::floor_collision")=="UNEXPECTED"
+
+def test_localization_map_does_not_project_high_only_obstacle(tmp_path):
+    from smartdish_a04_motion import localization_map
+    from smartdish_a04_clearance import read_map
+    g={"floor":{"lo":[-5,-4.5,-.2],"hi":[5,4.5,0]},"lidar_model_z_m":.121,
+       "world_sha256":"a"*64,
+       "obstacles":[{"model":"high","shape":"box","lo":[-2.8,-2.4,.5],"hi":[-2.4,-2.,.8]},
+                    {"model":"low","shape":"box","lo":[-.2,-.2,0],"hi":[.2,.2,.8]}]}
+    cfg,a=read_map(localization_map(g,tmp_path))
+    def cell(x,y):
+        j=int((x-cfg["origin"][0])/.05);i=int((y-cfg["origin"][1])/.05)
+        return a[i,j]
+    assert cell(0,0)==0 # high-only obstacle absent from scan-plane AMCL map
+    assert cell(2.6,2.2)==100
