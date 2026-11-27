@@ -9,4 +9,5 @@ setup(name=package_name, version='0.1.0', packages=[package_name],
       install_requires=['setuptools'], zip_safe=True,
       maintainer='SmartDish C', maintainer_email='noreply@example.invalid',
       description='Fail-closed optional SmartDish tray stability inference', license='Apache-2.0',
-      entry_points={'console_scripts': ['stability_inference_node = smartdish_ai.stability_inference_node:main']})
+      entry_points={'console_scripts': ['stability_inference_node = smartdish_ai.stability_inference_node:main',
+                                       'product_stability_inference_node = smartdish_ai.product_stability_inference_node:main']})
