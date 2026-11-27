@@ -1,14 +1,14 @@
 """A04 exact incremental CI scope: do not repeat immutable PASS on docs commits."""
 import argparse,subprocess
-from pathlib import PurePosixPath
 
 def classify(paths):
     static=False;motion=False
     for p in paths:
-        if p in ("scripts/smartdish_a04_clearance.py","tests/test_smartdish_a04_clearance.py","scripts/smartdish_product_scene.py","scripts/smartdish_product_robot.py") or p.startswith(("maps/","src/restaurant_world/")):
+        if p in ("scripts/smartdish_a04_clearance.py","tests/test_smartdish_a04_clearance.py","scripts/smartdish_product_scene.py","scripts/smartdish_product_robot.py","scripts/s6_scene.py","scripts/s7_scene.py","scripts/smartdish_tray_camera.py") or p.startswith(("maps/","src/restaurant_world/")):
             static=True
         if p.startswith(("scripts/smartdish_a04_","tests/test_smartdish_a04_","src/restaurant_bringup/","src/smartdish_robot/")) and p!="scripts/smartdish_a04_ci_scope.py" and p!="tests/test_smartdish_a04_ci_scope.py":
             motion=True
+        if p in ("scripts/prepare_nav2_params.py","scripts/smartdish_product_startup_probe.py"):motion=True
     # Motion always executes its own exact same-session actual NO_GOAL gate.
     # The original-map negative and previous candidate planning proof stay immutable.
     return {"geometry":static,"no-goal":False,"motion":static or motion}
