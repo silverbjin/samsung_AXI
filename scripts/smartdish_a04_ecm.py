@@ -42,7 +42,7 @@ def dish_mast_bound(g,xyz,angle):
         minimum=d if minimum is None else min(minimum,d)
     return minimum
 
-def verify_ticks(tick_path,pair_path,legs,geom,categorize):
+def verify_ticks(tick_path,pair_path,legs,geom,categorize,mission_mode="both"):
     pair_map={}
     with open(pair_path) as f:
         for r in csv.DictReader(f,delimiter='\t'):
@@ -107,7 +107,15 @@ def verify_ticks(tick_path,pair_path,legs,geom,categorize):
         if not p['positive_support_steps']:err(p,'GROUND_SUPPORT_NOT_OBSERVED')
         if p['ids'] and not p['positive_tray_steps']:err(p,'TRAY_SUPPORT_NOT_OBSERVED')
         p['pass']=not p['errors']
-    return {'scope':'READ_ONLY_ECM_EVERY_PHYSICS_STEP_GEOMETRIC_SEPARATION_AND_POSITIVE_CONTACTS','completed_leg_count':len(phases),'phases':phases,'pass':len(phases)==6 and all(p['pass'] for p in phases),'negative_contact_inferred_from_silence':False}
+    expected_count=6 if mission_mode=="both" else 3
+    if mission_mode not in ("both","loaded"):raise ValueError("INVALID_MISSION_MODE")
+    expected_names=["a04-loaded_"+leg for leg in ("TO_TABLE","TO_RETURN","TO_HOME")]
+    if mission_mode=="both":expected_names=["a04-empty_"+leg for leg in ("TO_TABLE","TO_RETURN","TO_HOME")]+expected_names
+    phase_names=[p["phase"] for p in phases]
+    return {'scope':'READ_ONLY_ECM_EVERY_PHYSICS_STEP_GEOMETRIC_SEPARATION_AND_POSITIVE_CONTACTS',
+        'mission_mode':mission_mode,'completed_leg_count':len(phases),'phases':phases,
+        'pass':len(phases)==expected_count and phase_names==expected_names and all(p['pass'] for p in phases),
+        'negative_contact_inferred_from_silence':False}
 
 def dynamics(path):
     phases={}

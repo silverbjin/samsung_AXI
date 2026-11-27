@@ -79,7 +79,7 @@ jobs:
           sha256sum /tmp/a04-observer/libsmartdish_a04_observer.so > generated/a04_live/ecm_binary.sha256
           dpkg-query -W ros-jazzy-gz-sim-vendor >> generated/a04_live/ecm_binary.sha256
           colcon build --packages-up-to restaurant_world restaurant_bringup smartdish_robot
-      - name: Actual no-goal gate then six real Nav2 legs and physical transfer
+      - name: Actual no-goal gate then focused loaded mission and physical transfer
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -89,7 +89,7 @@ jobs:
           set -u
           ROBOT="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
           PARAMS="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
-          xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=40s 1800s python3 -u scripts/smartdish_a04_no_goal.py --mode candidate --motion --observer-plugin /tmp/a04-observer/libsmartdish_a04_observer.so --out generated/a04_live/session --robot-source "$ROBOT" --bridge-source src/restaurant_bringup/config/bridge.yaml --world-source src/restaurant_world/worlds/restaurant.sdf --map maps/restaurant_map.yaml --poses src/smartdish_robot/config/table_poses.yaml --params "$PARAMS"
+          xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=40s 1800s python3 -u scripts/smartdish_a04_no_goal.py --mode candidate --motion --mission loaded --observer-plugin /tmp/a04-observer/libsmartdish_a04_observer.so --out generated/a04_live/session --robot-source "$ROBOT" --bridge-source src/restaurant_bringup/config/bridge.yaml --world-source src/restaurant_world/worlds/restaurant.sdf --map maps/restaurant_map.yaml --poses src/smartdish_robot/config/table_poses.yaml --params "$PARAMS"
       - name: Archive normal or first failure evidence
         if: always()
         shell: bash

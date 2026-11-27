@@ -354,7 +354,7 @@ def run(a):
         evidence["clearance_gate"]="HOLD" # product approval remains E-owned
         if a.motion:
             from smartdish_a04_motion import run_missions
-            run_missions(node,out,phys,g,sources,buffer,state,clock,evidence,scene,static,target,spin,wait)
+            run_missions(node,out,phys,g,sources,buffer,state,clock,evidence,scene,static,target,spin,wait,a.mission)
             evidence["scope"]="ACTUAL_CI_MOTION_ONLY_NOT_PRODUCT_INTEGRATION"
             evidence["verdict"]="ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE"
     except BaseException as exc:
@@ -370,7 +370,7 @@ def run(a):
         if proc:
             if a.motion and node and (not evidence.get("navigate_to_pose_goals_sent") or
                     evidence.get("moving",{}).get("cancel_drained") is True or
-                    evidence.get("moving",{}).get("verdict")=="ACTUAL_SIX_LEGS_AND_TRANSFER_COMPLETE_PENDING_ECM_REVIEW"):
+                    evidence.get("moving",{}).get("nav_quiescent") is True):
                 try:evidence["lifecycle_shutdown"]=shutdown_managers(node,proc,rclpy,
                     ("lifecycle_manager_navigation","lifecycle_manager_localization","a04_clearance_lifecycle"))
                 except Exception as exc:evidence["lifecycle_shutdown"]={"error":repr(exc)}
@@ -388,7 +388,7 @@ def run(a):
             from smartdish_a04_ecm import verify_ticks,dynamics
             from smartdish_a04_motion import contact_category
             try:
-                ecm=verify_ticks(out/"ecm_ticks.tsv",out/"ecm_pairs.tsv",evidence["moving"]["legs"],g,contact_category)
+                ecm=verify_ticks(out/"ecm_ticks.tsv",out/"ecm_pairs.tsv",evidence["moving"]["legs"],g,contact_category,a.mission)
                 save(out/"ecm_review.json",ecm)
                 evidence["moving"]["ecm_review"]=ecm
                 save(out/"motion_dynamics.json",dynamics(out/"motion_pose.jsonl"))
@@ -399,7 +399,7 @@ def run(a):
                     launchlog=(out/"launch.log").read_text()
                     require("SIGKILL" not in launchlog and "exit code -9" not in launchlog,"FORCED_CHILD_CLEANUP")
                     require(evidence.get("quiescence",{}).get("paused") and evidence["quiescence"].get("clock_quiescent"),"WORLD_NOT_QUIESCENT")
-                    evidence["moving"]["verdict"]="A_LOADED_NAV_L2_PASS"
+                    evidence["moving"]["verdict"]="A_LOADED_NAV_L2_PASS" if a.mission=="both" else "A_LOADED_MISSION_L2_PASS_WITH_REUSED_EMPTY_EVIDENCE"
                     evidence["clearance_gate"]="A_INTERNAL_L2_PASS_E_FINAL_REVIEW_REQUIRED"
             except Exception as exc:
                 evidence["ecm_review_error"]=repr(exc)
@@ -414,5 +414,6 @@ def main():
     p.add_argument("--mode",choices=("original","candidate"),required=True)
     p.add_argument("--motion",action="store_true",help="explicit isolated CI only, real same-session preflight required")
     p.add_argument("--observer-plugin",type=Path)
+    p.add_argument("--mission",choices=("both","loaded"),default="both")
     run(p.parse_args())
 if __name__=="__main__":main()

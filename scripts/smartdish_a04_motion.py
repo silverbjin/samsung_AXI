@@ -301,12 +301,18 @@ class Witness:
                 "contact_last_header_ns":self.contact_health,
                 "contact_absence_proven":False,"contact_silence_policy":"EVENT_ONLY_NOT_NEGATIVE_EVIDENCE"}
 
-def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spin,wait):
+def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spin,wait,mission_mode="both"):
     """First empty then actual load/unload. Both use actual accepted Nav2 UUID."""
     from smartdish_a04_no_goal import endpoints
     gate_paths(e)
     e["motion_authorized"]="CI_ISOLATED_DIAGNOSTIC_ONLY"
-    e["moving"]={"legs":[],"transfers":[],"accepted":[],"cancel_results":[]}
+    require(mission_mode in ("both","loaded"),"A04_MISSION_MODE")
+    e["moving"]={"legs":[],"transfers":[],"accepted":[],"cancel_results":[],"mission_mode":mission_mode}
+    if mission_mode=="loaded":
+        e["moving"]["reused_empty_reference"]={"source_sha":"e48778e6825a022c8fd249a5c501095b7daa83e3",
+            "run_id":45967974937,"artifact_id":15184188608,
+            "tar_sha256":"50dd17ad17061ababe1624bb7f92441e8eff1855ff6810721ccbdbf4fd179b89",
+            "scope":"THREE_EMPTY_LEGS_ACTUAL_ECM_PASS_NOT_SAME_SESSION"}
     result=[];accepted=e["moving"]["accepted"];cancel=e["moving"]["cancel_results"]
     witness=Witness(node,out,phys,g,sources,buffer,state,clock)
     nav=None;start_xy=None
@@ -344,8 +350,9 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
              sensor_ages()["scan"]<=.8 and sensor_ages()["odom"]<=.3 and
              phys.stop.verified(time.monotonic()) and phys.stop.last_at-epoch>=1.0,
              10,"POST_SERVICE_FRESH_SENSOR_AND_STOP")
-        e["moving"].setdefault("pre_goal_freshness",[]).append({"epoch":epoch,"ages_s":sensor_ages(),
-             "stop_last_at":phys.stop.last_at,"sim_ns":clock[-1]})
+        e["moving"].setdefault("freshness_reacquisitions",[]).append({"epoch":epoch,"ages_s":sensor_ages(),
+             "stop_last_at":phys.stop.last_at,"sim_ns":clock[-1],"phase":witness.phase})
+        return time.monotonic()
     def leg(mission,label,dest,ids):
         nonlocal start_xy
         request={"schema_version":2,"profile":PROFILE,"request_id":mission,"leg":label,"destination_id":dest}
@@ -376,8 +383,15 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         save(out/"moving_progress.json",e["moving"])
     def transfer(mission,op,dest,seconds):
         receipt=ctl.note_arrival()
-        while time.monotonic()-receipt["stop_steady_s"]<seconds:
+        # Actual scene/info after arrival can block the executor. The previous
+        # gate proved a terminal stop; now require NEW callbacks/stop dwell
+        # before a continuous wait window and physical mutation.
+        fresh_at=reacquire()
+        start=max(receipt["stop_steady_s"],fresh_at)
+        while time.monotonic()-start<seconds:
             pulse();guard();require(phys.stop.verified(time.monotonic()),"WAIT_NOT_STOPPED")
+        e["moving"].setdefault("transfer_waits",[]).append({"operation":op,"goal_uuid":receipt["goal_uuid"],
+            "continuous_wait_s":time.monotonic()-start,"terminal_stop_steady_s":receipt["stop_steady_s"]})
         witness.phase=op
         req={"schema_version":2,"profile":PROFILE,"request_id":mission,"stack_id":scene["stack_id"],
              "transfer_id":mission+"-"+op,"operation":op,"destination_id":dest}
@@ -387,7 +401,8 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         save(out/"moving_progress.json",e["moving"]);return ack
     try:
         ctl.arm_verified()
-        for label,dest in LEGS:leg("a04-empty",label,dest,None)
+        if mission_mode=="both":
+            for label,dest in LEGS:leg("a04-empty",label,dest,None)
         # New request_id, same actual world/fixture and empty tray.
         mission="a04-loaded"
         leg(mission,"TO_TABLE","T03",None)
@@ -408,7 +423,8 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         unload=transfer(mission,"UNLOAD","DISH_RETURN",5.)
         require(unload["entity_ids"]==load["entity_ids"],"UNLOAD_IDS")
         leg(mission,"TO_HOME","HOME",None)
-        e["moving"]["verdict"]="ACTUAL_SIX_LEGS_AND_TRANSFER_COMPLETE_PENDING_ECM_REVIEW"
+        e["moving"]["verdict"]="ACTUAL_MISSION_AND_TRANSFER_COMPLETE_PENDING_ECM_REVIEW"
+        e["moving"]["nav_quiescent"]=nav.active is None and phys.stop.verified(time.monotonic())
     except BaseException:
         witness.active=False
         if nav and nav.active:
@@ -418,6 +434,12 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
                 try:pulse()
                 except Exception:break
             e["moving"]["cancel_drained"]=nav.active is None
+        if nav and nav.active is None:
+            try:
+                reacquire()
+                e["moving"]["nav_quiescent"]=phys.stop.verified(time.monotonic())
+            except Exception as exc:
+                e["moving"]["quiescent_recheck_error"]=repr(exc)
         raise
     finally:
         e["moving"]["witness"]=witness.close()

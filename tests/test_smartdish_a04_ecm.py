@@ -9,7 +9,7 @@ def fixture(tmp_path):
     rows=[];legs=[]
     for i in range(6):
         start=(i*4+1)*1000000;end=start+2000000;ids=[301,302,303] if i==4 else []
-        legs.append(dict(mission='fixture',leg=str(i),status='SUCCEEDED',start_sim_ns=start,end_sim_ns=end,loaded_entity_ids=ids))
+        legs.append(dict(mission='a04-empty' if i<3 else 'a04-loaded',leg=('TO_TABLE','TO_RETURN','TO_HOME')[i%3],status='SUCCEEDED',start_sim_ns=start,end_sim_ns=end,loaded_entity_ids=ids))
         for n in range(3):
             stamp=start+n*1000000;robot=[89,-2.6,-2.2,.01,0,0,0,1];ds=[]
             for j in range(3):ds+=([ids[j],-2.6,-2.2,.01+.445+.037*(j+.5),0,0,0,1] if ids else [0,0,0,0,0,0,0,1])
