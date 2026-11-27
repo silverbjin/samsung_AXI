@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""CI-only real Nav2 3-leg + separate live Gazebo tray station + C/D DDS.
-No robot-mounted tray claim, private checkpoint, actual model performance or UI click.
+"""Shared witness: actual Nav2 + independent live Gazebo tray station.
+CI uses an isolated model double; WSL Owner uses real private C and manual UI/TTY.
+Neither mode claims a robot-mounted tray or model quality acceptance.
 """
 import argparse
 import errno
@@ -29,25 +30,36 @@ RID="E-CI-STATION-NAV-01"
 TOPIC="/smartdish/tray/image_raw"
 
 def main():
+    if not __debug__:raise RuntimeError("E_OWNER_WITNESS_ASSERTIONS_REQUIRED")
     ap=argparse.ArgumentParser(description=__doc__)
     for k in ("robot_sdf","params","out"):
         ap.add_argument("--"+k.replace("_","-"),type=Path,required=True)
     ap.add_argument("--pin",required=True)
+    ap.add_argument("--owner-checkpoint",type=Path,default=None)
     args=ap.parse_args()
-    if (os.environ.get("GITHUB_ACTIONS")!="true" or os.environ.get("ROS_DOMAIN_ID")!="191"
+    owner=args.owner_checkpoint is not None
+    if owner:
+        if (os.environ.get("GITHUB_ACTIONS") or not os.environ.get("WSL_DISTRO_NAME")
+                or not sys.stdin.isatty() or "microsoft" not in Path("/proc/sys/kernel/osrelease").read_text().lower()
+                or not os.environ.get("DISPLAY") or not os.environ.get("GZ_PARTITION","").startswith("smartdish_e_owner_nav_")
+                or not os.environ.get("SMARTDISH_E_C_SITE_PACKAGES")):
+            raise RuntimeError("E_OWNER_STATION_WSL_TTY_RUNTIME_REQUIRED_NO_GOAL")
+    elif (os.environ.get("GITHUB_ACTIONS")!="true" or os.environ.get("ROS_DOMAIN_ID")!="191"
         or os.environ.get("WSL_DISTRO_NAME") or not os.environ.get("GZ_PARTITION","").startswith("smartdish_e_nav_")):
         raise RuntimeError("E_R4_CI_ONLY_NO_OWNER_AUTO_APPROVAL")
     root=Path(__file__).resolve().parents[1]
-    assert args.pin==os.environ["GITHUB_SHA"]==subprocess.check_output(
+    assert args.pin==os.environ["SMARTDISH_E_SOURCE_SHA" if owner else "GITHUB_SHA"]==subprocess.check_output(
         ["git","-c","safe.directory="+str(root),"-C",str(root),"rev-parse","HEAD"],text=True).strip()
     out=args.out.resolve()
     out.mkdir(parents=True,exist_ok=False)
-    result={"source_sha":args.pin,"scope":"ACTUAL_NAV2_SEPARATE_LIVE_GAZEBO_STATION_CI_TEST_DOUBLE",
+    result={"source_sha":args.pin,"scope":("OWNER_WSL2_ACTUAL_V1_SEPARATE_STATION" if owner else "ACTUAL_NAV2_SEPARATE_LIVE_GAZEBO_STATION_CI_TEST_DOUBLE"),
         "private_model_loaded":False,"robot_mounted_tray_verified":False,"ui_click_verified":False,
         "test4_opened":False,"fixture_model_version":FIXTURE_VERSION,"verdict":"FAIL",
         "events":[],"legs":[],"action_status":{},"cleanup":{}}
     procs={}
-    child=fd=node=None
+    child=fd=node=owner_adapter=None
+    rid=None if owner else RID
+    expected_version=FIXTURE_VERSION
     handles=[]
     import rclpy
     from rclpy.node import Node
@@ -67,7 +79,29 @@ def main():
     from smartdish_robot.contract import load_pose_config, resolve_pose
     from smartdish_ai.stability_inference_node import unpack_ros_rgb
     from smartdish_service.product_admission import product_ai_on_authorized
+    from smartdish_ai.model_runtime import OWNER_GAZEBO_INTEGRATION_CHECKPOINT_SHA256
+    from ament_index_python.packages import get_package_prefix
     assert not product_ai_on_authorized(True)
+    if owner:
+        expected_version="resnet18-"+OWNER_GAZEBO_INTEGRATION_CHECKPOINT_SHA256[:12]
+        result["fixture_model_version"]=None
+        result["expected_owner_model_version"]=expected_version
+        subprocess.run([sys.executable,str(root/"scripts/smartdish_e_owner_model_preflight.py"),
+            "--checkpoint",str(args.owner_checkpoint),"--report",str(out/"checkpoint_receipt.json")],check=True)
+    def executable(pkg,name):
+        p=Path(get_package_prefix(pkg))/"lib"/pkg/name
+        assert p.is_file()
+        return str(p)
+    def log_text(name):
+        path=out/(name+".log")
+        return path.read_text(errors="replace") if path.exists() else ""
+    def marker_rows(name,marker):
+        out_rows=[]
+        for line in log_text(name).splitlines():
+            if marker in line:
+                try:out_rows.append(json.loads(line.split(marker,1)[1]))
+                except ValueError:pass
+        return out_rows
     state={"clock":False,"odom":None,"scan":0,"odom_n":0,"map":None,"amcl":None,"map_tf":False,"odom_tf":False}
     frames={}
     active=None
@@ -115,11 +149,26 @@ def main():
             if len(frames)>600:frames.pop(next(iter(frames)))
     def recv(topic):
         def cb(m):
-            nonlocal active
+            nonlocal active,rid
             body=json.loads(m.data)
-            if body.get("request_id")!=RID:
+            identity=body.get("request_id")
+            if owner and rid is None:
+                assert isinstance(identity,str) and identity.startswith("REQ-")
+                rid=identity
+            if identity!=rid:
                 raise RuntimeError("E_R4_FOREIGN_REQUEST_"+topic)
             item=record(topic,body)
+            if topic=="request":
+                assert owner and len(rows("request"))==1
+                assert body.get("table_id")=="T03" and body.get("ai_enabled") is True
+                assert body.get("table_wait_s")==10 and body.get("dropoff_wait_s")==5
+                result["request_id"]=rid
+            elif topic=="staff_confirm":
+                assert owner and body.get("action") in ("APPROVE_CONTINUE","ABORT")
+                assert len(rows("staff_confirm"))==1
+                if body["action"]=="ABORT":raise RuntimeError("E_OWNER_STAFF_ABORT_NO_PASS")
+            elif topic=="status" and body.get("state") in ("ERROR","CANCELED"):
+                raise RuntimeError("E_R4_MISSION_"+body["state"]+":"+str(body.get("reason")))
             if topic=="nav_goal":
                 if active is not None or len(result["legs"])>=3:raise RuntimeError("E_R4_EXTRA_OR_OVERLAPPING_GOAL")
                 i=len(result["legs"])
@@ -153,6 +202,8 @@ def main():
     def spin():
         for n,p in procs.items():
             if p.poll() is not None:raise RuntimeError("E_R4_"+n+"_EXIT_"+str(p.returncode))
+        if owner_adapter is not None and owner_adapter.poll() is not None:
+            raise RuntimeError("E_OWNER_ADAPTER_EXIT_"+str(owner_adapter.returncode))
         if child is not None:
             pid,code=os.waitpid(child,os.WNOHANG)
             if pid:raise RuntimeError("E_R4_ADAPTER_EXIT_"+str(code))
@@ -191,8 +242,12 @@ def main():
         node.create_subscription(Image,TOPIC,on_image,QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE))
         for topic in ("nav_goal","nav_result","status","ai_check_request","stability"):
             node.create_subscription(String,"/collection/"+topic,recv(topic),10)
-        request=node.create_publisher(String,"/collection/request",10)
-        staff=node.create_publisher(String,"/collection/staff_confirm",10)
+        if owner:
+            node.create_subscription(String,"/collection/request",recv("request"),10)
+            node.create_subscription(String,"/collection/staff_confirm",recv("staff_confirm"),10)
+        else:
+            request=node.create_publisher(String,"/collection/request",10)
+            staff=node.create_publisher(String,"/collection/staff_confirm",10)
         nav_action=ActionClient(node,NavigateToPose,"/navigate_to_pose")
         cm=node.create_client(GetState,"/collision_monitor/get_state")
         bt=node.create_client(GetState,"/bt_navigator/get_state")
@@ -200,7 +255,7 @@ def main():
         nav_share=Path(get_package_share_directory("nav2_bringup"))
         restaurant_launch=Path(get_package_share_directory("restaurant_bringup"))/"launch"/"navigation.launch.py"
         generated_launch=prepare_overlay(nav_share,restaurant_launch,out)
-        launch("nav2",["ros2","launch",str(generated_launch),"gui:=false",
+        launch("nav2",["ros2","launch",str(generated_launch),"gui:="+("true" if owner else "false"),
             "s6_stagger_nav_start:=true","robot_sdf:="+str(args.robot_sdf.resolve()),
             "map:="+str(map_file),"params_file:="+str(args.params.resolve())])
         wait(lambda:state["clock"] and state["scan"]>=3 and state["odom"] is not None and state["map"] is not None,220,"CLOCK_SCAN_ODOM_MAP")
@@ -260,19 +315,31 @@ def main():
         wait(cm_sole,15,"CM_SOLE_CMD_VEL")
         result["cm_sole_cmd_vel_start"]=True
         assert not rows("nav_goal") and not result["action_status"]
-        # Existing A adapter, exact TTY gate. CI-only explicit synthetic operator action.
-        child,fd=pty.fork()
-        if child==0:
-            os.execvpe("ros2",["ros2","run","smartdish_robot","navigation_adapter","--ros-args",
+        # Owner uses actual controlling tty; only CI uses a synthetic PTY.
+        if owner:
+            h=(out/"adapter.log").open("w"); handles.append(h)
+            print("E_OWNER_CHECK_GAZEBO_AND_ENTER_A_TTY_APPROVAL_NO_GOAL",flush=True)
+            owner_adapter=subprocess.Popen([executable("smartdish_robot","navigation_adapter"),"--ros-args",
                 "-p","goals_enabled:=true","-p","set_initial_home:=false",
-                "-p","poses_file:="+str(pose_file)],os.environ.copy())
-        os.set_blocking(fd,False)
-        wait(lambda:"YES-SMARTDISH-A-GOALS 입력:" in transcript,180,"TTY_PROMPT")
-        assert not rows("nav_goal") and not result["action_status"]
-        hold(10)
-        os.write(fd,b"YES-SMARTDISH-A-GOALS\n")
-        wait(lambda:"SMARTDISH_A_READY" in transcript,180,"ADAPTER_READY")
-        result["tty_approval"]="CI_ONLY_AFTER_10S_PROMPT"
+                "-p","poses_file:="+str(pose_file)],stdin=subprocess.DEVNULL,
+                stdout=h,stderr=subprocess.STDOUT,start_new_session=False)
+            wait(lambda:"SMARTDISH_A_READY" in log_text("adapter"),180,"HUMAN_ADAPTER_READY")
+            assert "SMARTDISH_A_OPERATOR_APPROVED" in log_text("adapter")
+            result["tty_approval"]="ACTUAL_OWNER_CONTROLLING_TTY"
+        else:
+            # Existing A adapter, exact TTY gate. CI-only explicit synthetic operator action.
+            child,fd=pty.fork()
+            if child==0:
+                os.execvpe("ros2",["ros2","run","smartdish_robot","navigation_adapter","--ros-args",
+                    "-p","goals_enabled:=true","-p","set_initial_home:=false",
+                    "-p","poses_file:="+str(pose_file)],os.environ.copy())
+            os.set_blocking(fd,False)
+            wait(lambda:"YES-SMARTDISH-A-GOALS 입력:" in transcript,180,"TTY_PROMPT")
+            assert not rows("nav_goal") and not result["action_status"]
+            hold(10)
+            os.write(fd,b"YES-SMARTDISH-A-GOALS\n")
+            wait(lambda:"SMARTDISH_A_READY" in transcript,180,"ADAPTER_READY")
+            result["tty_approval"]="CI_ONLY_AFTER_10S_PROMPT"
         # Separate station physics, SAME ROS domain, DIFFERENT Gazebo transport
         # partition; bridge only RGB, never /clock, poses or cmd_vel.
         world=out/"station.sdf"
@@ -281,7 +348,7 @@ def main():
         selected=[x for x in cfg if x["ros_topic_name"]==TOPIC]
         assert len(selected)==1 and selected[0]["direction"]=="GZ_TO_ROS"
         bridge=out/"station_bridge.yaml";bridge.write_text(yaml.safe_dump(selected))
-        station_env={**os.environ,"GZ_PARTITION":"smartdish_e_station_"+os.environ["GITHUB_RUN_ID"]}
+        station_env={**os.environ,"GZ_PARTITION":"smartdish_e_station_"+(str(os.getpid()) if owner else os.environ["GITHUB_RUN_ID"])}
         assert station_env["GZ_PARTITION"]!=os.environ["GZ_PARTITION"]
         result["station_partition"]=station_env["GZ_PARTITION"]
         result["nav_partition"]=os.environ["GZ_PARTITION"]
@@ -290,25 +357,36 @@ def main():
         launch("station_bridge",["ros2","run","ros_gz_bridge","parameter_bridge",
             "--ros-args","-r","__node:=smartdish_e_station_bridge","-p","config_file:="+str(bridge)],station_env)
         event_log=out/"c_events.jsonl"
-        c_code=LIVE_CHILD.replace("return predict, 'CI_ONLY_TEST_DOUBLE'","return predict, os.environ['E_CI_FIXTURE_VERSION']")
-        d_code=STAFF_CHILD.replace("=='190'","=='191'")
-        assert c_code!=LIVE_CHILD and d_code!=STAFF_CHILD
-        launch("c_node",[sys.executable,"-u","-c",c_code,"--ros-args",
-            "-p","owner_gazebo_integration:=true","-p","model_path:=CI_ONLY_NO_CHECKPOINT"],
-            {**os.environ,"E_CI_EVENT_LOG":str(event_log),"E_CI_FIXTURE_VERSION":FIXTURE_VERSION})
-        launch("d_node",[sys.executable,"-u","-c",d_code,"--ai-available","true","--owner-gazebo-integration"],
-            {**os.environ,"E_CI_FIXTURE_SHA":FIXTURE_SHA})
+        if owner:
+            c_env={**os.environ,"PYTHONPATH":os.environ["SMARTDISH_E_C_SITE_PACKAGES"]+
+                (":"+os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else ""),"PYTHONNOUSERSITE":"1"}
+            launch("c_node",[executable("smartdish_ai","stability_inference_node"),"--ros-args",
+                "-p","owner_gazebo_integration:=true","-p","model_path:="+str(args.owner_checkpoint)],c_env)
+            wait(lambda:"C_MODEL_LOADED version="+expected_version+" scope=OWNER_GAZEBO_INTEGRATION_ONLY" in log_text("c_node"),90,"OWNER_REAL_MODEL_LOAD")
+            result["private_model_loaded"]=True
+            launch("d_node",[executable("smartdish_service","smartdish_manager"),"--ai-available","true","--owner-gazebo-integration","--owner-station-acceptance"])
+        else:
+            c_code=LIVE_CHILD.replace("return predict, 'CI_ONLY_TEST_DOUBLE'","return predict, os.environ['E_CI_FIXTURE_VERSION']")
+            d_code=STAFF_CHILD.replace("=='190'","=='191'")
+            assert c_code!=LIVE_CHILD and d_code!=STAFF_CHILD
+            launch("c_node",[sys.executable,"-u","-c",c_code,"--ros-args",
+                "-p","owner_gazebo_integration:=true","-p","model_path:=CI_ONLY_NO_CHECKPOINT"],
+                {**os.environ,"E_CI_EVENT_LOG":str(event_log),"E_CI_FIXTURE_VERSION":FIXTURE_VERSION})
+            launch("d_node",[sys.executable,"-u","-c",d_code,"--ai-available","true","--owner-gazebo-integration"],
+                {**os.environ,"E_CI_FIXTURE_SHA":FIXTURE_SHA})
         params=AsyncParameterClient(node,"/smartdish_stability_inference")
-        wait(lambda:request.get_subscription_count()==1 and staff.get_subscription_count()==1 and
+        wait(lambda:(owner or (request.get_subscription_count()==1 and staff.get_subscription_count()==1)) and
              node.count_publishers("/collection/nav_goal")==1 and node.count_publishers("/collection/nav_result")==1 and
              node.count_publishers("/collection/stability")==1 and params.wait_for_services(timeout_sec=0),30,"DDS")
-        f=params.set_parameters_atomically([Parameter("stable_confidence_min",value=.65),
-                                           Parameter("unstable_confidence_min",value=.90)])
-        wait(f.done,5,"PARAMETER_ACK"); assert f.result().result.successful
+        if not owner:
+            f=params.set_parameters_atomically([Parameter("stable_confidence_min",value=.65),
+                                               Parameter("unstable_confidence_min",value=.90)])
+            wait(f.done,5,"PARAMETER_ACK"); assert f.result().result.successful
         def live_cache():
-            for row in reversed(read_rows(event_log)):
+            candidates=marker_rows("c_node","C_OWNER_FRAME_ACCEPTED=") if owner else read_rows(event_log)
+            for row in reversed(candidates):
                 stamp=row.get("stamp_ns")
-                if (row["event"]=="cache" and stamp in frames and row["rgb_sha256"]==frames[stamp]["sha256"]
+                if ((owner or row["event"]=="cache") and stamp in frames and row["rgb_sha256"]==frames[stamp]["sha256"]
                     and 0<=time.monotonic()-row["received_at"]<1.5):return row
             return None
         result["station_live_cache"]=wait(live_cache,75,"STATION_CAMERA")
@@ -318,38 +396,78 @@ def main():
         assert node.count_publishers("/clock")==1,"E_R4_CLOCK_SOURCE_COLLISION"
         assert not rows("nav_goal") and not result["action_status"]
         result["clock_publishers"]=1
-        request.publish(String(data=json.dumps({"request_id":RID,"table_id":"T03","table_wait_s":10,
-                                                "dropoff_wait_s":5,"ai_enabled":True})))
-        record("ci_request",{"request_id":RID,"ai_enabled":True})
+        if owner:
+            launch("ui",[executable("smartdish_service","smartdish_ui"),"--ai-available","true","--owner-gazebo-integration","--owner-station-acceptance"])
+            wait(lambda:"SMARTDISH_D_UI_READY" in log_text("ui"),60,"OWNER_UI_READY")
+            print("E_OWNER_UI_READY_CLICK_T03_ENABLE_AI_10S_5S_THEN_STAFF_CONFIRM",flush=True)
+            wait(lambda:rows("request"),180,"OWNER_UI_REQUEST")
+            assert "SMARTDISH_D_UI_CLICK request_id="+rid+" table_id=T03" in log_text("ui")
+            assert [ep.node_name for ep in node.get_publishers_info_by_topic("/collection/request")]==["smartdish_ui"]
+        else:
+            request.publish(String(data=json.dumps({"request_id":RID,"table_id":"T03","table_wait_s":10,
+                                                    "dropoff_wait_s":5,"ai_enabled":True})))
+            record("ci_request",{"request_id":RID,"ai_enabled":True})
         wait(lambda:len(result["legs"])==1,465,"TO_TABLE")
-        confirmation=wait(lambda:status("NEEDS_CONFIRMATION","AI_STABLE_STAFF_CONFIRM_REQUIRED"),25,"AI_STABLE_CONFIRM")
-        # DDS callbacks on different topics do not guarantee causal receipt order.
-        # D has entered NEEDS_CONFIRMATION; independently wait for both evidence messages.
+        confirmation=wait(lambda:status("NEEDS_CONFIRMATION",None if owner else "AI_STABLE_STAFF_CONFIRM_REQUIRED"),25,"AI_CONFIRM")
+        # Wait independently for both DDS topics; confirmation can arrive first.
         wait(lambda:len(rows("ai_check_request"))>=1 and len(rows("stability"))>=1,5,"AI_DDS_CORRELATION")
         ai=rows("ai_check_request"); stability=rows("stability")
         assert len(ai)==len(stability)==1 and stability[0]["data"]["capture_id"]==ai[0]["data"]["capture_id"]
-        assert stability[0]["data"]["status"]=="STABLE" and stability[0]["data"]["model_version"]==FIXTURE_VERSION
-        assert stability[0]["data"]["confidence"]==.75
+        assert stability[0]["data"]["model_version"]==expected_version
+        if owner:
+            observed=stability[0]["data"]["status"]
+            expected_reason={"STABLE":"AI_STABLE_STAFF_CONFIRM_REQUIRED","UNSTABLE":"AI_UNSTABLE","UNKNOWN":"AI_UNKNOWN"}[observed]
+            assert confirmation["data"]["reason"]==expected_reason
+        else:
+            assert stability[0]["data"]["status"]=="STABLE" and stability[0]["data"]["confidence"]==.75
         assert ai[0]["t"]-result["legs"][0]["t_result"]>=9.7
         def matched_predict():
-            for x in read_rows(event_log):
+            candidates=marker_rows("c_node","C_OWNER_INFERENCE_INPUT=") if owner else read_rows(event_log)
+            for x in candidates:
                 st=x.get("stamp_ns")
-                if x["event"]=="predict" and st in frames and frames[st]["sha256"]==x["predictor_sha256"]:
+                if owner and (x.get("request_id")!=rid or x.get("capture_id")!=ai[0]["data"]["capture_id"]
+                              or x.get("model_version")!=expected_version or x.get("result_status")!=stability[0]["data"]["status"]):
+                    continue
+                if (owner or x["event"]=="predict") and st in frames and frames[st]["sha256"]==x["predictor_sha256"]:
                     return x
             return None
         result["actual_predictor_input"]=wait(matched_predict,5,"LIVE_PREDICTOR")
-        assert len(rows("nav_goal"))==1 and active is None
-        hold(1.0)
-        assert len(rows("nav_goal"))==1 and active is None
-        record("ci_staff_confirm",{"request_id":RID,"action":"APPROVE_CONTINUE"})
-        staff.publish(String(data=json.dumps({"request_id":RID,"action":"APPROVE_CONTINUE"})))
+        if not owner:
+            def logged_predict():
+                return next((x for x in marker_rows("c_node","C_OWNER_INFERENCE_INPUT=")
+                    if x.get("request_id")==RID and x.get("capture_id")==ai[0]["data"]["capture_id"]
+                    and x.get("model_version")==FIXTURE_VERSION and x.get("result_status")=="STABLE"
+                    and x.get("predictor_sha256")==result["actual_predictor_input"]["predictor_sha256"]),None)
+            result["c_prediction_provenance"]=wait(logged_predict,5,"C_PROVENANCE_LOG")
+        if owner:
+            print("E_OWNER_REAL_INFERENCE_WITNESSED_WAIT_EXPLICIT_UI_APPROVAL",flush=True)
+            wait(lambda:rows("staff_confirm"),180,"HUMAN_STAFF_APPROVAL")
+            assert rows("staff_confirm")[0]["data"]["action"]=="APPROVE_CONTINUE"
+            wait(lambda:"SMARTDISH_D_UI_STAFF_CLICK request_id="+rid+" action=APPROVE_CONTINUE" in log_text("ui"),5,"UI_STAFF_CLICK")
+        else:
+            assert len(rows("nav_goal"))==1 and active is None
+            hold(1.0)
+            assert len(rows("nav_goal"))==1 and active is None
+            record("ci_staff_confirm",{"request_id":RID,"action":"APPROVE_CONTINUE"})
+            staff.publish(String(data=json.dumps({"request_id":RID,"action":"APPROVE_CONTINUE"})))
         wait(lambda:len(result["legs"])==2,465,"TO_RETURN")
         wait(lambda:len(result["legs"])==3,465,"TO_HOME")
         wait(lambda:status("COMPLETED"),15,"COMPLETED")
         wait(lambda:len(result["action_status"])==3 and all(x["statuses"][-1]["status"]==4
              for x in result["action_status"].values()),10,"THREE_UUID_SUCCEEDED")
         assert len(rows("nav_goal"))==3 and len(rows("nav_result"))==3
-        assert result["legs"][1]["t_goal"]>=rows("ci_staff_confirm")[0]["t"]
+        # Cross-topic DDS observation order can vary. Verify D causal order
+        # using the single process log, not a receipt time heuristic.
+        lines=log_text("d_node").splitlines()
+        staff_idx=[i for i,l in enumerate(lines) if "SMARTDISH_D_STAFF_CONFIRM_ACCEPTED=" in l and rid in l and "APPROVE_CONTINUE" in l]
+        return_idx=[i for i,l in enumerate(lines) if "SMARTDISH_D_EVENT topic=/collection/nav_goal json=" in l and rid in l and "TO_RETURN" in l]
+        assert len(staff_idx)==len(return_idx)==1 and staff_idx[0]<return_idx[0]
+        result["staff_acceptance_order_verified"]=True
+        if owner:
+            wait(lambda:"SMARTDISH_D_UI_APPLIED request_id="+rid+" state=COMPLETED" in log_text("ui"),15,"UI_COMPLETED")
+            result["ui_click_verified"]=True
+        else:
+            assert result["legs"][1]["t_goal"]>=rows("ci_staff_confirm")[0]["t"]
         assert result["legs"][2]["t_goal"]-result["legs"][1]["t_result"]>=4.7
         assert all(status(s) for s in ("TO_TABLE","WAIT_LOADING","AI_CHECK","NEEDS_CONFIRMATION",
                                       "TO_RETURN","WAIT_UNLOADING","TO_HOME","COMPLETED"))
@@ -358,7 +476,7 @@ def main():
         assert cm_sole(),"E_R4_VELOCITY_CHAIN_DRIFT_END"
         result["cm_cmd_vel_publishers"]=[ep.node_name for ep in node.get_publishers_info_by_topic("/cmd_vel")]
         assert result["cm_cmd_vel_publishers"]==["collision_monitor"],result["cm_cmd_vel_publishers"]
-        result["verdict"]="E_R4_REAL_NAV2_STATION_CI_TEST_DOUBLE_PASS"
+        result["verdict"]=("E_OWNER_WSL2_AI_ON_STATION_L3_PASS" if owner else "E_R4_REAL_NAV2_STATION_CI_TEST_DOUBLE_PASS")
     except BaseException as exc:
         result["first_error"]=repr(exc)
         for name in ("adapter","nav2","station","station_bridge","c_node","d_node"):
@@ -366,8 +484,14 @@ def main():
             if f.exists():print("E_R4_LOG_TAIL "+name+"\n"+f.read_text(errors="replace")[-3500:],flush=True)
         raise
     finally:
-        for n in ("d_node","c_node"):
+        for n in ("ui","d_node","c_node"):
             if n in procs:result["cleanup"][n]=stop(procs.pop(n))
+        if owner_adapter is not None:
+            if owner_adapter.poll() is None:
+                owner_adapter.send_signal(signal.SIGINT)
+                try:owner_adapter.wait(timeout=15)
+                except subprocess.TimeoutExpired:owner_adapter.kill();owner_adapter.wait()
+            result["cleanup"]["adapter"]=owner_adapter.returncode
         if child is not None:
             try:os.killpg(child,signal.SIGINT)
             except ProcessLookupError:pass

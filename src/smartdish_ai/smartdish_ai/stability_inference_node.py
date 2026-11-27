@@ -5,7 +5,9 @@ Optional AI ON only. Missing camera/model => UNKNOWN, never navigates or sends c
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import time
 from pathlib import Path
 
@@ -71,6 +73,23 @@ def main():
                         raise RuntimeError("E_OWNER_C_MODEL_LOAD_FAILED") from exc
             else:
                 self.get_logger().warn("C_MODEL_UNAVAILABLE path not configured; safe UNKNOWN mode")
+            self.owner_mode = self.get_parameter("owner_gazebo_integration").value is True
+            self._frame_meta = None
+            self._frame_log_at = -100.0
+            self._successful_input = None
+            if predictor is not None and self.owner_mode:
+                actual_predictor = predictor
+                def witnessed_predictor(rgb, width, height):
+                    answer = actual_predictor(rgb, width, height)
+                    label, confidence = answer
+                    if (self._frame_meta is not None and label in ("STABLE","UNSTABLE")
+                            and type(confidence) in (float,int) and math.isfinite(confidence)
+                            and 0 <= confidence <= 1):
+                        self._successful_input = dict(self._frame_meta,
+                            predictor_sha256=hashlib.sha256(rgb).hexdigest(),
+                            width=width,height=height,raw_status=label,raw_confidence=confidence)
+                    return answer
+                predictor = witnessed_predictor
             self.core = InferenceCore(
                 predictor, version,
                 float(self.get_parameter("confidence_min").value),
@@ -116,19 +135,33 @@ def main():
                 rgb, width, height = unpack_ros_rgb(msg)
                 stamp = int(msg.header.stamp.sec) * 1_000_000_000 + int(msg.header.stamp.nanosec)
                 # No ROS timestamp: use receipt-age TTL; nonzero stamp rejects replay.
+                received_at=time.monotonic()
                 accepted = self.core.cache_rgb(rgb, width, height,
-                                               received_at=time.monotonic(),
+                                               received_at=received_at,
                                                stamp_ns=stamp if stamp else None)
                 if not accepted:
                     self.get_logger().warn("C_FRAME_REJECTED_DUPLICATE_OR_INVALID")
+                elif self.owner_mode:
+                    # Log only metadata/hash, never raw pixels or private weights.
+                    self._frame_meta={"stamp_ns":stamp,"received_at":received_at,
+                                      "width":width,"height":height}
+                    if received_at-self._frame_log_at>=1.0:
+                        self._frame_log_at=received_at
+                        self.get_logger().info("C_OWNER_FRAME_ACCEPTED="+json.dumps(
+                            dict(self._frame_meta,rgb_sha256=hashlib.sha256(rgb).hexdigest())))
             except Exception as exc:
                 self.get_logger().warn(f"C_FRAME_REJECTED {type(exc).__name__}: {exc}")
 
         def request_callback(self, msg):
+            self._successful_input = None
             result = self.core.handle_request(msg.data)
             if result is None:
                 self.get_logger().warn("C_REQUEST_INVALID_OR_DUPLICATE")
                 return
+            if self._successful_input is not None:
+                self.get_logger().info("C_OWNER_INFERENCE_INPUT="+json.dumps(dict(
+                    self._successful_input,request_id=result["request_id"],capture_id=result["capture_id"],
+                    model_version=result["model_version"],result_status=result["status"])))
             out = String()
             out.data = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
             self.publisher.publish(out)

@@ -25,7 +25,10 @@ def main(argv=None):
                         help="Explicit enable only after C inference and camera verified")
     parser.add_argument("--owner-gazebo-integration", action="store_true",
                         help="Owner v1 Gazebo-only model, always requires staff confirmation")
+    parser.add_argument("--owner-station-acceptance", action="store_true", help="Internal final acceptance, AI ON T03 10/5 only")
     args, ros_args = parser.parse_known_args(argv)
+    if args.owner_station_acceptance and (not args.owner_gazebo_integration or args.ai_available!="true"):
+        parser.error("Owner station acceptance requires explicit AI ON")
 
     import rclpy
     from rclpy.node import Node
@@ -121,7 +124,10 @@ def main(argv=None):
             body = _decode(msg.data)
             # Prevent silent loss under VOLATILE QoS if the A adapter has not
             # discovered this topic. No synthetic ACK / Nav2 result.
-            if (isinstance(body, dict) and MissionManager._valid_request(body)
+            if (args.owner_station_acceptance and isinstance(body,dict) and MissionManager._valid_request(body)
+                    and (body.get("ai_enabled") is not True or body.get("table_wait_s")!=10 or body.get("dropoff_wait_s")!=5)):
+                self.logic._error_for_request(body.get("request_id"),"OWNER_STATION_AI_ON_10_5_REQUIRED_NO_GOAL")
+            elif (isinstance(body, dict) and MissionManager._valid_request(body)
                     and body.get("ai_enabled") is True
                     and not self.logic.ai_available):
                 # Reject unapproved AI before checking the A Adapter. No Goal.
@@ -143,7 +149,9 @@ def main(argv=None):
             self.flush()
 
         def on_staff(self, msg):
-            self.logic.on_staff_confirm(_decode(msg.data))
+            body=_decode(msg.data)
+            if self.logic.on_staff_confirm(body):
+                self.get_logger().info("SMARTDISH_D_STAFF_CONFIRM_ACCEPTED="+json.dumps(body))
             self.flush()
 
         def on_timer(self):

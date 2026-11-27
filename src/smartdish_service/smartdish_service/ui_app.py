@@ -58,7 +58,10 @@ def main(argv=None):
     parser.add_argument("--layout", default=None)
     parser.add_argument("--owner-gazebo-integration", action="store_true",
                         help="internal Owner-authorized Gazebo demo only")
+    parser.add_argument("--owner-station-acceptance", action="store_true", help="Internal final acceptance, AI ON T03 10/5 only")
     args, ros_args = parser.parse_known_args(argv)
+    if args.owner_station_acceptance and (not args.owner_gazebo_integration or args.ai_available!="true"):
+        parser.error("Owner station acceptance requires explicit AI ON")
 
     import tkinter as tk
     from tkinter import messagebox
@@ -425,6 +428,9 @@ def main(argv=None):
             except ValueError as exc:
                 messagebox.showerror("입력 오류", str(exc))
                 return
+            if args.owner_station_acceptance and (not self.ai_available or not self.ai_var.get() or wait!=10 or dropoff!=5):
+                messagebox.showwarning("AI ON 인수", "AI 검사를 체크하고 적재 10초, 반납 5초를 선택하십시오.")
+                return
             if self.node.request_pub.get_subscription_count() == 0:
                 self.reason_var.set("Mission Manager 연결 안 됨 · 요청 미발행")
                 return
@@ -462,6 +468,7 @@ def main(argv=None):
         def confirm(self, action):
             if self.active_state != "NEEDS_CONFIRMATION" or not self.active_request:
                 return
+            print("SMARTDISH_D_UI_STAFF_CLICK request_id="+self.active_request+" action="+action,flush=True)
             self.node.send(self.node.staff_pub, {
                 "request_id": self.active_request, "action": action})
             self.confirm_frame.pack_forget()

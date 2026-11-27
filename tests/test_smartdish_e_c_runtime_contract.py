@@ -122,3 +122,14 @@ def test_owner_runner_self_check_and_per_pin_build():
     assert "RUNNER_BYTES_MISMATCH" in script
     assert 'STATE="$HOME/.local/state/smartdish-e-owner-aion/$PIN"' in script
     assert script.index("smartdish_e_installed_origin.py")<script.index("E_OWNER_AION_LAUNCHING_C_D_ONLY")
+
+
+def test_owner_station_mode_rejects_ci_before_any_ros_setup(tmp_path):
+    import os,sys
+    p=ROOT/"scripts/smartdish_e_ci_station_nav_probe.py"
+    result=subprocess.run([sys.executable,str(p),"--pin","a"*40,"--owner-checkpoint",
+        str(tmp_path/"missing.pt"),"--robot-sdf",str(tmp_path/"fake.sdf"),"--params",str(tmp_path/"fake.yaml"),
+        "--out",str(tmp_path/"out")],env={**os.environ,"GITHUB_ACTIONS":"true"},
+        capture_output=True,text=True,timeout=10)
+    assert result.returncode!=0 and "E_OWNER_STATION_WSL_TTY_RUNTIME_REQUIRED_NO_GOAL" in result.stderr
+    assert not (tmp_path/"out").exists()

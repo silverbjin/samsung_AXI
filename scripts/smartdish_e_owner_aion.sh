@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Owner-only C v1 AI integration: no A/Nav2 auto-launch.
+# Owner-only C v1 AI integration: station mode requires explicit actual TTY and UI approvals.
 set -Eeuo pipefail
 MODE="${1:---preflight}"
-[[ "$#" -le 1 && "$MODE" =~ ^--(preflight|run-ui)$ ]] ||
+[[ "$#" -le 1 && "$MODE" =~ ^--(preflight|run-ui|run-station)$ ]] ||
   { echo E_OWNER_AION_BLOCKED=INVALID_MODE >&2; exit 2; }
 PIN="${SMARTDISH_E_SOURCE_SHA:-}"
 [[ "$PIN" =~ ^[0-9a-f]{40}$ ]] ||
@@ -82,6 +82,78 @@ echo E_OWNER_AION_PREFLIGHT_PASS_OWNER_SCOPE_NO_GOAL
 if [[ "$MODE" == --preflight ]]; then exit 0; fi
 [[ -n "${DISPLAY:-}" ]] ||
   { echo E_OWNER_AION_BLOCKED=WSLG_DISPLAY_UNAVAILABLE >&2; exit 2; }
+# Full station acceptance stays separate from the earlier C+D-only R2 mode.
+if [[ "$MODE" == --run-station ]]; then
+  [[ -n "${WSL_DISTRO_NAME:-}" && -t 0 && -r /dev/tty && -w /dev/tty && -z "${GITHUB_ACTIONS:-}" ]] ||
+    { echo E_OWNER_STATION_BLOCKED=WSL_TTY_REQUIRED >&2; exit 2; }
+  grep -qi microsoft /proc/sys/kernel/osrelease || { echo E_OWNER_STATION_BLOCKED=WSL_KERNEL_REQUIRED; exit 2; }
+  case "$WORKDIR" in /mnt/*) echo E_OWNER_STATION_BLOCKED=EXT4_REQUIRED; exit 2;; esac
+  RUN="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  EVD="$WORKDIR/generated/smartdish_e_owner_station/$RUN"
+  mkdir -p "$EVD"
+  finish_station() {
+    rc=$?
+    trap - EXIT INT TERM
+    set +e
+    printf 'source_sha=%s\nexit_code=%s\n' "$PIN" "$rc" > "$EVD/runner_receipt.txt"
+    if ! tar -czf "$EVD.tar.gz" -C "$EVD" . || ! sha256sum "$EVD.tar.gz" > "$EVD.tar.gz.sha256"; then
+      echo E_OWNER_STATION_EVIDENCE_ARCHIVE_FAILED >&2
+      exit 2
+    fi
+    echo "E_OWNER_STATION_EVIDENCE=$EVD.tar.gz"
+    cat "$EVD.tar.gz.sha256"
+    exit "$rc"
+  }
+  trap finish_station EXIT
+  trap 'exit 130' INT TERM
+  echo "E_OWNER_STATION_RUN=$RUN" | tee "$EVD/console.log"
+  unset PYTHONOPTIMIZE
+  export PYTHONNOUSERSITE=1
+  export RESTAURANT_ROOT="$WORKDIR" TURTLEBOT3_MODEL=waffle_pi
+  export ROS_DOMAIN_ID="$((60 + $$ % 35))"
+  export GZ_PARTITION="smartdish_e_owner_nav_$RUN"
+  echo "E_OWNER_STATION_ISOLATION=$ROS_DOMAIN_ID/$GZ_PARTITION"
+  # Existing Ubuntu/ROS dependencies only. No install or new C venv here.
+  for pkg in ros_gz_sim ros_gz_bridge ros_gz_image nav2_bringup nav2_simple_commander slam_toolbox; do
+    ros2 pkg prefix "$pkg" >/dev/null || { echo E_OWNER_STATION_MISSING_ROS_PACKAGE="$pkg"; exit 2; }
+  done
+  UPSTREAM="$WORKDIR/src/upstream/turtlebot3_simulations"
+  UP_PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+  if [[ ! -d "$UPSTREAM/.git" ]]; then
+    mkdir -p "$WORKDIR/src/upstream"
+    git clone --quiet --no-checkout --filter=blob:none https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git "$UPSTREAM"
+    git -C "$UPSTREAM" fetch --quiet --depth 1 origin "$UP_PIN"
+    git -C "$UPSTREAM" checkout --quiet --detach "$UP_PIN"
+  fi
+  [[ "$(git -C "$UPSTREAM" remote get-url origin)" == https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git ]]
+  [[ -z "$(git -C "$UPSTREAM" status --porcelain --untracked-files=normal)" ]]
+  [[ "$(git -C "$UPSTREAM" rev-parse HEAD)" == "$UP_PIN" ]] || { echo E_OWNER_STATION_BLOCKED=UPSTREAM_PIN_DRIFT; exit 2; }
+  STATE="$HOME/.local/state/smartdish-e-owner-aion/$PIN"
+  mkdir -p "$STATE"
+  colcon --log-base "$STATE/colcon_log" build --base-paths "$WORKDIR/src" \
+    --packages-up-to restaurant_world restaurant_bringup restaurant_delivery smartdish_robot smartdish_ai smartdish_service \
+    --build-base "$STATE/build" --install-base "$STATE/install" --symlink-install 2>&1 | tee "$EVD/build.log"
+  set +u
+  source "$STATE/install/local_setup.bash"
+  set -u
+  /usr/bin/python3 scripts/smartdish_e_installed_origin.py --root "$WORKDIR" --pin "$PIN" --install-base "$STATE/install" --packages smartdish_ai smartdish_service smartdish_robot --out "$EVD/installed_origin.json"
+  /usr/bin/python3 scripts/smartdish_e_owner_model_preflight.py --checkpoint "$CHECKPOINT" --report "$EVD/model_preflight.json"
+  SDF="$EVD/waffle.sdf"
+  PARAMS="$EVD/nav2.yaml"
+  /usr/bin/python3 scripts/prepare_waffle_rgbd.py --source "$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf" --out "$SDF" --rgbd-rate-hz 2
+  /usr/bin/python3 scripts/prepare_nav2_params.py --source "$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml" --out "$PARAMS" --auto-initial-pose --s6-bt-ack-ms 200
+  echo E_OWNER_STATION_BUILD_VERIFIED_NO_GOAL
+  /usr/bin/python3 -u scripts/smartdish_e_ci_station_nav_probe.py --pin "$PIN" --owner-checkpoint "$CHECKPOINT" --robot-sdf "$SDF" --params "$PARAMS" --out "$EVD/trace" 2>&1 | tee -a "$EVD/console.log"
+  /usr/bin/python3 - "$EVD/trace/result.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["verdict"]=="E_OWNER_WSL2_AI_ON_STATION_L3_PASS" and d["private_model_loaded"] and d["ui_click_verified"]
+assert not d["robot_mounted_tray_verified"] and not d["test4_opened"]
+assert len(d["legs"])==len(d["action_status"])==3
+print("E_OWNER_STATION_EVIDENCE_VERIFIED_SCOPE_ONLY")
+PY
+  exit 0
+fi
 STATE="$HOME/.local/state/smartdish-e-owner-aion/$PIN"
 mkdir -p "$STATE"
 colcon --log-base "$STATE/colcon_log" build --base-paths "$WORKDIR/src" \
