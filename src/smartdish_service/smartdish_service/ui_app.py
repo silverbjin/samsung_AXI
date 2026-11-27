@@ -8,6 +8,8 @@ import json
 import uuid
 from pathlib import Path
 
+from .product_admission import product_ai_on_authorized
+
 
 def floorplan_scale(width, height, design_width=806, design_height=460):
     """Scale UI-only canvas coordinates; never change Nav2 map poses."""
@@ -114,7 +116,8 @@ def main(argv=None):
             self.selected = None
             self.active_request = None
             self.active_state = "IDLE"
-            self.ai_available = args.ai_available == "true"
+            self.ai_available = product_ai_on_authorized(
+                args.ai_available == "true")
             self.ai_var = tk.BooleanVar(value=False)
             self.table_wait = tk.StringVar(value="10")
             self.dropoff_wait = tk.StringVar(value="5")
@@ -304,7 +307,8 @@ def main(argv=None):
             self.node.send(self.node.request_pub, {
                 "request_id": self.active_request,
                 "table_id": "T03", "table_wait_s": wait,
-                "dropoff_wait_s": dropoff, "ai_enabled": bool(self.ai_var.get())
+                "dropoff_wait_s": dropoff,
+                "ai_enabled": bool(self.ai_available and self.ai_var.get())
             })
 
         def on_status(self, data):

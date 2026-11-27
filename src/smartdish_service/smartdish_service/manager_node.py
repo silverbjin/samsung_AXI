@@ -8,6 +8,7 @@ import json
 import logging
 
 from .mission_manager import ACTIVE_STATES, MissionManager
+from .product_admission import approved_model_sha256, product_ai_on_authorized
 
 
 def _decode(data):
@@ -39,7 +40,14 @@ def main(argv=None):
     class CollectionNode(Node):
         def __init__(self):
             super().__init__("smartdish_mission_manager")
-            self.logic = MissionManager(ai_available=args.ai_available == "true")
+            requested_ai = args.ai_available == "true"
+            allowed_ai = product_ai_on_authorized(requested_ai)
+            self.logic = MissionManager(
+                ai_available=allowed_ai,
+                approved_model_sha256=approved_model_sha256() if allowed_ai else None)
+            if requested_ai and not allowed_ai:
+                self.get_logger().warning(
+                    "AI_ON_PRODUCT_NOT_AUTHORIZED C17_MODEL_PIN_OR_E_RELEASE_MISSING")
             self.pubs = {
                 topic: self.create_publisher(String, topic, qos)
                 for topic in ("/collection/nav_goal", "/collection/status",
@@ -70,6 +78,11 @@ def main(argv=None):
             # Prevent silent loss under VOLATILE QoS if the A adapter has not
             # discovered this topic. No synthetic ACK / Nav2 result.
             if (isinstance(body, dict) and MissionManager._valid_request(body)
+                    and body.get("ai_enabled") is True
+                    and not self.logic.ai_available):
+                # Reject unapproved AI before checking the A Adapter. No Goal.
+                self.logic.handle_request(body)
+            elif (isinstance(body, dict) and MissionManager._valid_request(body)
                     and self.logic.state not in ACTIVE_STATES
                     and self.pubs["/collection/nav_goal"].get_subscription_count() < 1):
                 self.logic._error_for_request(body.get("request_id"), "ADAPTER_NOT_READY_NO_GOAL")
