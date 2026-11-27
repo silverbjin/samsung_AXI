@@ -25,6 +25,13 @@ jobs:
           mkdir -p evidence
           git rev-parse HEAD | tee evidence/source_sha.txt
           PYTHONPATH=src/smartdish_service python3 -m unittest discover -s src/smartdish_service/test -p test_product_recovery_fsm.py -v 2>&1 | tee evidence/d-l0.log
+      - name: Install Tk / Xvfb
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb xauth scrot
+      - name: Xvfb functional UI and exact frame fixture
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONPATH=src/smartdish_service D_UI_SCREENSHOT="$PWD/evidence/d-ui-fixture.png" xvfb-run -a python3 src/smartdish_service/test/product_recovery_ui_check.py 2>&1 | tee evidence/d-ui.log
       - name: Archive test evidence
         if: always()
         uses: actions/upload-artifact@v4
