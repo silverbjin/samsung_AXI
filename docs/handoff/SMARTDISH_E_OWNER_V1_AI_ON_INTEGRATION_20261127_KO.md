@@ -11,7 +11,7 @@
 - 완료된 CI의 SHA와 private checkpoint 절대 경로를 지정해 아래 명령 사용. 실제 C 체크포인트 파일은 공개 GitHub에 업로드하지 않습니다.
 
 ```bash
-export SMARTDISH_E_SOURCE_SHA=<최종-검증된-40자리-GitHub-HEAD>
+export SMARTDISH_E_SOURCE_SHA=4dbdeca6a0a8f8120cb42a44bd589d356726eb5d
 export SMARTDISH_C_V1_CHECKPOINT=/absolute/private/path/to/c_v1_frozen_head.pt
 curl -fsSLo "$HOME/smartdish_e_owner_aion.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$SMARTDISH_E_SOURCE_SHA/scripts/smartdish_e_owner_aion.sh"
 bash -n "$HOME/smartdish_e_owner_aion.sh"
@@ -32,3 +32,9 @@ bash "$HOME/smartdish_e_owner_aion.sh" --run-ui
 - 공개 GitHub CI: synthetic predictor/모델 없는 실제 DDS dynamic ROS parameters, D manual confirmation, C17 기본 차단, 기존 D/E AI OFF 회귀. Nav2 실주행 없음.
 - private WSL2 인수: exact model bytes SHA, torch.load 후 C 실제 이미지 추론, A+D/E 3 leg 및 Owner UI 시각 QA.
 - 제3자 라이선스 및 실물 로봇 적용은 별도 권리·안전 평가 필요.
+
+## 검증된 PIN 및 CI
+
+- E Owner 통합 검증 코드 PIN: `4dbdeca6a0a8f8120cb42a44bd589d356726eb5d` (문서 후속 커밋과 별개로 기능 코드는 이 SHA에서 L0/L1 확인됨).
+- [최종 Actions #45929414512](https://github.com/silverbjin/samsung_AXI/actions/runs/45929414512): L0 131 PASS, L1 실제 DDS·C/D/A 3패키지·런치 인자 PASS.
+- 필요한 비공개 모델 경로는 `SMARTDISH_C_V1_CHECKPOINT`로 사용자가 WSL2에서 직접 설정. **해당 파일 바이트 및 WSLg GUI, Nav2 3-leg AI ON L3는 이번 코드 CI에서 확인하지 않았으므로 미인수**.

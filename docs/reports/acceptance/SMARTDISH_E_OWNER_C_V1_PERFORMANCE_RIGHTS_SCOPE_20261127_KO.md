@@ -45,3 +45,12 @@
 3. 모델 없는 모드에서는 `UNKNOWN`/Goal 없음, 모델 잘못된 SHA는 torch.load 이전 차단.
 4. 사용자 WSL2 private checkpoint가 존재하면 exact SHA를 계산하고 실제 추론·ROS 캡처 1회, 직원 확인 후 동일 request_id 3-leg E 인수 수행. **이번 GitHub CI가 대신할 수 없음**.
 5. 출력 `E_OWNER_INTEGRATION_CODE_READY`는 향후 현장 `E_AI_ON_OWNER_L3_PASS`와 구분.
+
+## 6. E 제한 통합 코드 인수 — 최종 실제 CI 증거
+
+- **검증된 소스 HEAD:** `4dbdeca6a0a8f8120cb42a44bd589d356726eb5d`.
+- [GitHub Actions #45929414512](https://github.com/silverbjin/samsung_AXI/actions/runs/45929414512) **SUCCESS**: Python L0 **131 PASS**, ROS Jazzy L1 **smartdish_ai/smartdish_service/smartdish_robot 3 packages PASS**, DDS Threshold ACK/invalid atomic reject/A Adapter 미준비 Goal0 PASS, E 새 launch `--show-args` PASS.
+- C 정확도 33.3% 미달은 통합 CI의 실패 기준에서 제외되었지만 이 모델이 실제로 STABLE/UNSTABLE을 올바르게 판단하는지 실모델 추론을 수행한 것은 **아님**.
+- 사용자 소유 권한으로 비공개 v1 모델 **내부 Gazebo 통합 사용**을 승인한 범위는 확정. 외부/상용 배포 및 ImageNet pretrained weights·타인 Gazebo 자산에 관한 제3자 권리는 이 승인으로 확정되지 않음.
+- **최종 상태:** `E_OWNER_GAZEBO_INTEGRATION_APPROVED`, `E_OWNER_INTEGRATION_CODE_L0_L1_PASS`, `C_MODEL_PERFORMANCE_WAIVED_FOR_INTEGRATION`, `E_OWNER_CHECKPOINT_BYTES_NOT_VERIFIED_HERE`, `E_OWNER_AI_ON_WSL2_L3_NOT_RUN`.
+- 모델 체크포인트 파일 사용 전 현장 `scripts/smartdish_e_owner_model_preflight.py`에서 직접 SHA 검증 필요. CI/원격에서 `.pt` 파일 미접근. Test4 봉인/학습 0회.
