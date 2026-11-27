@@ -1,5 +1,6 @@
 name: SmartDish A04 geometry and clearance
 on:
+  workflow_dispatch:
   pull_request:
     branches: [integration/smartdish-product-recovery]
     paths:
@@ -15,8 +16,31 @@ on:
 permissions:
   contents: read
 jobs:
+  scope:
+    if: github.head_ref == 'feat/smartdish-a-product-collection' || github.ref_name == 'feat/smartdish-a-product-collection'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    outputs:
+      run: ${{ steps.scope.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - id: scope
+        env:
+          BEFORE: ${{ github.event.before || github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -Eeuo pipefail
+          python3 -m pytest -q tests/test_smartdish_a04_ci_scope.py
+          args=()
+          if [[ "$EVENT" == workflow_dispatch ]]; then args+=(--force); fi
+          python3 scripts/smartdish_a04_ci_scope.py --before "$BEFORE" --head "$HEAD_SHA" --kind geometry "${args[@]}" | tee -a "$GITHUB_OUTPUT"
   geometry:
-    if: github.event_name == 'pull_request' && github.head_ref == 'feat/smartdish-a-product-collection'
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
