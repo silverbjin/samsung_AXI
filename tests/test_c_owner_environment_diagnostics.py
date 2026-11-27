@@ -73,3 +73,11 @@ def test_bad_pin_fails_without_filesystem_writes(tmp_path):
     assert result.returncode==2
     assert "C_V1_DOCTOR_PIN_REQUIRED" in result.stderr
     assert list(tmp_path.iterdir())==[]
+
+def test_future_owner_acceptance_bundles_doctor_automatically():
+    # Owner already accepted 2026-11-27 P3 pretest: do NOT request another run.
+    script=(ROOT/"scripts/smartdish_c_v1_p3_pretest_once.sh").read_text()
+    assert 'python -m ai.train.owner_environment_diagnostics' in script
+    assert 'python -m ai.train.p3_pretest_seal' in script
+    assert script.index('python -m ai.train.owner_environment_diagnostics') < script.index('python -m ai.train.p3_pretest_seal')
+    assert '--report "$OUT/environment_report.json"' in script
