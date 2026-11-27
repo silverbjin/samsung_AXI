@@ -194,6 +194,7 @@ def main():
         staff=node.create_publisher(String,"/collection/staff_confirm",10)
         nav_action=ActionClient(node,NavigateToPose,"/navigate_to_pose")
         cm=node.create_client(GetState,"/collision_monitor/get_state")
+        bt=node.create_client(GetState,"/bt_navigator/get_state")
         launch("nav2",["ros2","launch","restaurant_bringup","navigation.launch.py","gui:=false",
             "s6_stagger_nav_start:=true","robot_sdf:="+str(args.robot_sdf.resolve()),
             "map:="+str(map_file),"params_file:="+str(args.params.resolve())])
@@ -201,14 +202,36 @@ def main():
         m=state["map"]
         assert m.info.width==map_contract["width"] and m.info.height==map_contract["height"] and m.header.frame_id=="map"
         wait(lambda:state["amcl"] is not None and state["map_tf"] and state["odom_tf"]
-             and nav_action.wait_for_server(timeout_sec=.05) and cm.wait_for_service(timeout_sec=0),170,"AMCL_TF_ACTION_CM")
+             and nav_action.wait_for_server(timeout_sec=.05) and cm.wait_for_service(timeout_sec=0) and bt.wait_for_service(timeout_sec=0),170,"AMCL_TF_ACTION_CM")
         assert math.dist(state["amcl"],(0.,0.))<.9
+        lifecycle={}
+        result["lifecycle_transitions"]=[]
+        def lifecycle_state(client,name):
+            f=client.call_async(GetState.Request())
+            wait(f.done,10,name+"_STATE")
+            reply=f.result().current_state
+            value={"id":reply.id,"label":reply.label}
+            if lifecycle.get(name)!=value:
+                lifecycle[name]=value
+                item={"node":name,**value,"t":time.monotonic()}
+                result["lifecycle_transitions"].append(item)
+                print("E_R4_LIFECYCLE="+json.dumps(item),flush=True)
+            return reply.id
         def cm_active():
-            f=cm.call_async(GetState.Request())
-            wait(f.done,10,"CM_STATE")
-            return f.result().current_state.id==3
-        assert cm_active(),"E_R4_CM_NOT_ACTIVE"
+            return lifecycle_state(cm,"collision_monitor")==3
+        def all_active():
+            a=cm_active()
+            b=lifecycle_state(bt,"bt_navigator")==3
+            if not (a and b):hold(.25)
+            return a and b
+        wait(all_active,90,"NAV2_LIFECYCLE_ACTIVE")
         result["cm_active_start"]=True
+        result["bt_active_start"]=True
+        def cm_sole():
+            return [ep.node_name for ep in node.get_publishers_info_by_topic("/cmd_vel")]==["collision_monitor"]
+        wait(cm_sole,15,"CM_SOLE_CMD_VEL")
+        result["cm_sole_cmd_vel_start"]=True
+        assert not rows("nav_goal") and not result["action_status"]
         # Existing A adapter, exact TTY gate. CI-only explicit synthetic operator action.
         child,fd=pty.fork()
         if child==0:
@@ -305,7 +328,6 @@ def main():
         result["cm_cmd_vel_publishers"]=[ep.node_name for ep in node.get_publishers_info_by_topic("/cmd_vel")]
         assert result["cm_cmd_vel_publishers"]==["collision_monitor"],result["cm_cmd_vel_publishers"]
         result["verdict"]="E_R4_REAL_NAV2_STATION_CI_TEST_DOUBLE_PASS"
-        print(result["verdict"],flush=True)
     except BaseException as exc:
         result["first_error"]=repr(exc)
         for name in ("adapter","nav2","station","station_bridge","c_node","d_node"):
@@ -335,10 +357,14 @@ def main():
         if node is not None:node.destroy_node()
         if rclpy.ok():rclpy.shutdown()
         for h in handles:h.close()
+        cleanup_failed=result["verdict"].endswith("_PASS") and any(result["cleanup"].get(n)!=0 for n in ("c_node","d_node"))
+        if cleanup_failed:
+            result["verdict"]="FAIL"
+            result["first_error"]="E_R4_C_D_CLEANUP_FAILED"
         (out/"result.json").write_text(json.dumps(result,indent=2)+"\n")
         (out/"witness_frames.json").write_text(json.dumps(frames,indent=2)+"\n")
-        if result["verdict"].endswith("_PASS") and any(result["cleanup"].get(n)!=0 for n in ("c_node","d_node")):
-            raise RuntimeError("E_R4_C_D_CLEANUP_FAILED")
+        if cleanup_failed:raise RuntimeError("E_R4_C_D_CLEANUP_FAILED")
+        print(result["verdict"],flush=True)
 
 if __name__=="__main__":
     main()
