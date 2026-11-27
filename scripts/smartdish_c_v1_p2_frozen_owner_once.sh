@@ -107,6 +107,13 @@ PY
   cd "$WORK/repo"
 
   # Previously accepted P0/P1 reports are SHA-pinned and used read-only.
+  # Reject duplicate runs before writing a second approval artifact or model.
+  if [[ -e "$PRIVATE/c_v1_research_train_approval.json" ||
+        -e "$PRIVATE/c_v1_p2_single_attempt_reserved.json" ||
+        -e "$PRIVATE/c_v1_frozen_head.pt" ]]; then
+    echo C_V1_P2_PREVIOUS_ATTEMPT_EXISTS_NO_AUTO_RETRY >&2
+    exit 2
+  fi
   python -m ai.train.prepare_v1_research_approval \
       --p0-report "$P0" --p1-report "$P1" \
       --experiment-lock ai/docs/C_V1_EXPERIMENT_LOCK.json \

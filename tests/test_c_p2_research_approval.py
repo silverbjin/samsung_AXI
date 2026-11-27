@@ -128,3 +128,10 @@ def test_owner_runner_never_evaluates_test_or_uploads_model():
     assert 'with p.open("x"' in s
     assert 'tar -C "$OUT"' in s and 'checkpoint' not in s.split('tar -C "$OUT"')[1].split("sha256sum")[0]
     assert "P3_EVALUATION_EXECUTED" in s and "False" in s
+
+
+def test_duplicate_p2_attempt_fails_before_private_train():
+    s=(ROOT/"scripts/smartdish_c_v1_p2_frozen_owner_once.sh").read_text()
+    assert "C_V1_P2_PREVIOUS_ATTEMPT_EXISTS_NO_AUTO_RETRY" in s
+    assert s.index("C_V1_P2_PREVIOUS_ATTEMPT_EXISTS_NO_AUTO_RETRY") < s.index("python -m ai.train.prepare_v1_research_approval")
+    assert "c_v1_p2_single_attempt_reserved.json" in s
