@@ -23,7 +23,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p evidence
-          git rev-parse HEAD | tee evidence/source_sha.txt
+          git -c safe.directory="$PWD" rev-parse HEAD | tee evidence/source_sha.txt
           PYTHONPATH=src/smartdish_ai python3 -m unittest discover -s src/smartdish_ai/test -p test_product_inference.py -v 2>&1 | tee evidence/l0.log
       - uses: actions/upload-artifact@v4
         if: always()
@@ -51,7 +51,7 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p evidence
-          git rev-parse HEAD | tee evidence/source_sha.txt
+          git -c safe.directory="$PWD" rev-parse HEAD | tee evidence/source_sha.txt
           source /opt/ros/jazzy/setup.bash
           colcon build --base-paths src/smartdish_ai --packages-select smartdish_ai 2>&1 | tee evidence/build.log
           source install/setup.bash
