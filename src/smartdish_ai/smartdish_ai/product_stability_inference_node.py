@@ -46,7 +46,7 @@ class ProductStabilityInferenceNode(Node):
             predictor, version,
             stable=self.get_parameter(THRESHOLDS[0]).value,
             unstable=self.get_parameter(THRESHOLDS[1]).value)
-        self.add_on_set_parameters_callback(self._parameters)
+        self.add_on_set_parameters_callback(self._on_threshold_parameters)
         qos = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10,
                          reliability=ReliabilityPolicy.RELIABLE,
                          durability=DurabilityPolicy.VOLATILE)
@@ -60,7 +60,7 @@ class ProductStabilityInferenceNode(Node):
         self.get_logger().info("C_PRODUCT_RECOVERY_READY model_available=" +
                                str(predictor is not None) + " RELIABLE VOLATILE KEEP_LAST_10")
 
-    def _parameters(self, params):
+    def _on_threshold_parameters(self, params):
         incoming = {p.name: p.value for p in params}
         if not incoming or not set(incoming).issubset(THRESHOLDS):
             return SetParametersResult(successful=False, reason="C_UNSUPPORTED_DYNAMIC_PARAMETER")
