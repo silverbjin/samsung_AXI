@@ -87,7 +87,7 @@ jobs:
           set +u
           source install/setup.bash
           set -u
-          /usr/bin/python3 scripts/smartdish_e_installed_origin.py --root "$PWD" --pin "$(git rev-parse HEAD)" --install-base "$PWD/install" --packages smartdish_ai smartdish_service smartdish_robot
+          /usr/bin/python3 scripts/smartdish_e_installed_origin.py --root "$PWD" --pin "$(git -c safe.directory="$PWD" rev-parse HEAD)" --install-base "$PWD/install" --packages smartdish_ai smartdish_service smartdish_robot
           ros2 pkg executables smartdish_service | grep -F "smartdish_service smartdish_manager"
           ros2 pkg executables smartdish_service | grep -F "smartdish_service smartdish_ui"
           ros2 pkg executables smartdish_ai | grep -F "smartdish_ai stability_inference_node"
