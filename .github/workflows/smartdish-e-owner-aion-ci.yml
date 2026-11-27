@@ -9,6 +9,7 @@ on:
       - "tests/test_smartdish_e_*"
       - ".github/workflows/smartdish-e-owner-aion-ci.yml"
       - "scripts/smartdish_e_owner_aion_ros_probe.py"
+      - "scripts/smartdish_e_owner_model_preflight.py"
   pull_request:
     paths:
       - "src/smartdish_ai/**"
@@ -16,6 +17,7 @@ on:
       - "tests/test_smartdish_e_*"
       - ".github/workflows/smartdish-e-owner-aion-ci.yml"
       - "scripts/smartdish_e_owner_aion_ros_probe.py"
+      - "scripts/smartdish_e_owner_model_preflight.py"
 permissions:
   contents: read
 jobs:
@@ -36,6 +38,7 @@ jobs:
             tests/test_smartdish_e_aion_owner_loader.py \
             tests/test_smartdish_e_owner_fsm.py \
             tests/test_smartdish_e_aion_ui_control.py \
+            tests/test_smartdish_e_owner_preflight.py \
             tests/test_smartdish_d_aion.py \
             tests/test_smartdish_d_service.py \
             tests/test_smartdish_d_ui.py \

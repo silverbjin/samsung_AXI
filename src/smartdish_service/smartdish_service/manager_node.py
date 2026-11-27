@@ -46,6 +46,7 @@ def main(argv=None):
             allowed_ai = product_ai_on_authorized(
                 requested_ai,
                 owner_gazebo_integration=args.owner_gazebo_integration)
+            self.owner_mode = (args.owner_gazebo_integration and allowed_ai)
             self.logic = MissionManager(
                 ai_available=allowed_ai,
                 approved_model_sha256=(
@@ -79,8 +80,38 @@ def main(argv=None):
                 " NAV_SUBSCRIBERS=" + str(self.pubs["/collection/nav_goal"].get_subscription_count())
             )
 
+        def _adapter_is_ready(self):
+            """Owner L1: graph subscriber NAME, not arbitrary subscriber count.
+
+            This is a graph-level readiness heuristic, NOT cryptographic
+            DDS participant authentication or a Nav2 safety certificate.
+            """
+            if not self.owner_mode:
+                return self.pubs["/collection/nav_goal"].get_subscription_count() >= 1
+            try:
+                endpoints = self.get_subscriptions_info_by_topic(
+                    "/collection/nav_goal")
+                return any(ep.node_name == "smartdish_navigation_adapter"
+                           for ep in endpoints)
+            except Exception:
+                return False
+
         def flush(self):
             for topic, body in self.logic.drain():
+                if topic == "/collection/nav_goal" and self.owner_mode:
+                    if not self._adapter_is_ready():
+                        self.logic.state = "ERROR"
+                        self.logic.reason = "ADAPTER_DISCONNECTED_NO_GOAL"
+                        self.logic.current_leg = None
+                        self.logic._status()
+                        # Publish the ERROR status but not a phantom Nav Goal.
+                        for status_topic, status_body in self.logic.drain():
+                            msg = String()
+                            msg.data = json.dumps(status_body, ensure_ascii=False,
+                                                  separators=(",", ":"))
+                            self.pubs[status_topic].publish(msg)
+                        self.get_logger().error("E_OWNER_ADAPTER_DISCONNECTED_NO_GOAL")
+                        continue
                 msg = String()
                 msg.data = json.dumps(body, ensure_ascii=False, separators=(",", ":"))
                 self.pubs[topic].publish(msg)
@@ -97,7 +128,7 @@ def main(argv=None):
                 self.logic.handle_request(body)
             elif (isinstance(body, dict) and MissionManager._valid_request(body)
                     and self.logic.state not in ACTIVE_STATES
-                    and self.pubs["/collection/nav_goal"].get_subscription_count() < 1):
+                    and not self._adapter_is_ready()):
                 self.logic._error_for_request(body.get("request_id"), "ADAPTER_NOT_READY_NO_GOAL")
             else:
                 self.logic.handle_request(body)
