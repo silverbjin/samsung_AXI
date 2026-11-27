@@ -23,6 +23,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="SmartDish ROS 2 Mission Manager")
     parser.add_argument("--ai-available", choices=("true", "false"), default="false",
                         help="Explicit enable only after C inference and camera verified")
+    parser.add_argument("--owner-gazebo-integration", action="store_true",
+                        help="Owner v1 Gazebo-only model, always requires staff confirmation")
     args, ros_args = parser.parse_known_args(argv)
 
     import rclpy
@@ -41,10 +43,21 @@ def main(argv=None):
         def __init__(self):
             super().__init__("smartdish_mission_manager")
             requested_ai = args.ai_available == "true"
-            allowed_ai = product_ai_on_authorized(requested_ai)
+            allowed_ai = product_ai_on_authorized(
+                requested_ai,
+                owner_gazebo_integration=args.owner_gazebo_integration)
             self.logic = MissionManager(
                 ai_available=allowed_ai,
-                approved_model_sha256=approved_model_sha256() if allowed_ai else None)
+                approved_model_sha256=(
+                    approved_model_sha256(
+                        owner_gazebo_integration=args.owner_gazebo_integration)
+                    if allowed_ai else None),
+                owner_manual_confirm_ai=(
+                    args.owner_gazebo_integration and allowed_ai))
+            if allowed_ai and args.owner_gazebo_integration:
+                self.get_logger().warning(
+                    "E_OWNER_GAZEBO_INTEGRATION_ONLY PERFORMANCE_WAIVED "
+                    "NO_AUTO_GOAL_AFTER_AI_STABLE")
             if requested_ai and not allowed_ai:
                 self.get_logger().warning(
                     "AI_ON_PRODUCT_NOT_AUTHORIZED C17_MODEL_PIN_OR_E_RELEASE_MISSING")
