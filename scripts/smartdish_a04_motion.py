@@ -285,6 +285,10 @@ class Witness:
         self.active=False
         require(self.summary[self.phase]["samples"]>=5,"MOVING_POSE_COVERAGE")
     def close(self):
+        # Single-threaded executor: detach the writer callbacks before files close.
+        self.active=False
+        for sub in self.subs:self.node.destroy_subscription(sub)
+        self.subs.clear()
         self.trace.close();self.contacts.close()
         return {"phase_summary":self.summary,"contact_callback_counts":self.counts,"contact_categories":self.categories,
                 "contact_last_header_ns":self.contact_health,

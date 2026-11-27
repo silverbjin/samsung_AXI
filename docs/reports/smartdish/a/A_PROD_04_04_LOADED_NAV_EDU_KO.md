@@ -1,5 +1,13 @@
-# A-PROD-04-04 — 무부하 및 적재 주행 검수 상태
+# A-PROD-04-04 — A 내부 실제 무부하/적재 주행 개발 원장
 
-판정: A_CLEARANCE_HOLD / OWNER_L3_NOT_RUN. 실제 NavigateToPose 검수 0건. 무부하/적재 주행과 접촉/최소 clearance/속도 최적화는 NOT_RUN. 기존 A-PROD-00~03 정지 적재/하역 실제 L2 (45949123061, SHA 218ce2bf70cdd21cc4ed47cf4bb70715b6e36684, Artifact 15175289984)만 재사용한다. A-PROD-04에서 재검증하거나 이동 PASS로 확대하지 않는다. 
-선행 gate: 실제 CM graph GREEN, 원본 또는 E 승인 후보 지도 실제 ComputePathToPose 성공과 보수적 swept clearance 양수, live TF/world 등록 근거 및 여유, 초기 entity/RGB/clock/odom/scan/AMCL, 실제 이동 중 전 구간 위치/접촉 증거 계획. 동적 접시 고정 금지.
-후속 순서: CI 격리 환경의 빈 tray 3구간, 이어 실제 LOAD→이동→UNLOAD. A 기존 physical/Action UUID handle/stop routines 및 wait 10/5s, deadline 20/20s 유지. 각 leg UUID terminal, displacement >.25m, AMCL error ≤.8m, terminal 뒤 1s linear≤.01/angular≤.02; 실제 world pose, relative pose 및 tilt, entity IDs와 unload, 속도/가감속, swept minimum, contact pair/시각/coverage. Contact 센서가 접촉 때만 발행한다면 silence는 0건 증거가 아니다. 실제 환경 장애물 접촉과 접시/트레이 및 바닥/바퀴 의도된 접촉을 구분하고 미관측은 HOLD. A14 연구 코드·branch 변경 없음. D/C 제품 기능 증거 아님.
+A04 자체 개발 진행 중 (E 미인계 / OWNER_L3_NOT_RUN). A03 정지 LOAD/UNLOAD 성공 증거는 재사용하지만 이동 성공으로 승격하지 않는다. 현재 구현: 같은 실제 월드에서 NO_GOAL→empty 3 legs→loaded mission 3 legs+LOAD/UNLOAD, A 기존 exact UUID 및 stop/transfer controller, 10/5s 및 20/20s 유지. 실제 pose/relative/tilt/ID/contact, 1ms read-only Gazebo ECM, 속도/가감속 증거와 lifecycle shutdown gate 포함. A 전용 CI이며 제품 배포 아님.
+
+| 실제 Run | 결과 |
+|---|---|
+| 45958030964 | 바닥 지지 접촉 양방향 분류 RED, 수정 DBG04 |
+| 45958451276 | 실제 2.888m 이동 후 등록 오차 .100302m, exact cancel+stop |
+| 45958928009 | dual map 실제 적용 GREEN, 등록 오차 .107083m, exact cancel+stop |
+| 45959501785 | ECM 28900 ticks/1ms gap 0 GREEN, 등록 오차 .107328m, exact cancel+stop. 종료 콜백 결함 DBG08 |
+| 45959741594 | 9394f1e AMCL 후보 및 exact TF decomposition 실제 CI, 결과 미확정 |
+
+각 상세 Artifact/해시는 DBG04~08 참조. 완료된 무부하 leg 0, A04 실제 LOAD/UNLOAD 미도달. E handoff 보류는 A 내부 개발 상태이며 E에 수정/중간 검수 요청하지 않는다. 다음 gate: 새 PIN 실제 six legs+transfer+ECM+terminal stop+shutdown 모두 통과. 원본 및 E/main 미변경.

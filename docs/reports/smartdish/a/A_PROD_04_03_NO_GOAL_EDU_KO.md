@@ -15,3 +15,6 @@ TAR SHA256: 원본 c6d32dcde998a6b17f34b4189d86551cd8d68c39645340e707abc8d467d6b
 Graph 증거 15178264825 ZIP af5c73d0e784ec574d460c9c7d765e52abb66cd4b5d4fa46ee9d949a18e3b382 / TAR 28158428d5e01d2f087ada8e7938c09231237e159ecabb5868724bc6bcf33f5f / 내부 17개 해시 일치.
 
 수정 후 검수 항목: installed launch 원본/복사본/hash/diff, 3초 연속 CM 단일 /cmd_vel, smoother 단일 /cmd_vel_smoothed, docking→cmd_vel_nav 및 실제 subscriber, TF/AMCL/Gazebo pose 등록, 원본 vs 후보 actual map, 실제 ComputePathToPose 3구간 UUID/result와 all-yaw swept footprint, global costmap raw, actual RGB/initial entity, stationary, clean shutdown. 실패 시 원인과 TAR 보존. 단일 위치 등록은 이동 전역 정확도를 보장하지 않으므로 motion_authorized=false 유지.
+
+## 확정 결과 (사용자 지시 후 A 내부 연속 개발)
+870262c8c8fc2c509a25d74d6f8ff28c0133db8e / Run 45956739176 / 후보 Artifact 15178773153 실제 3/3 ComputePathToPose SUCCEEDED/error0. CM graph 단일 및 실제 remap GREEN. 계획 길이 5.326/6.605/2.634m, map clearance .157/.203/.107m, physical all-yaw .302/.402/.301m, HOME 실제 registration .001206m. ZIP d1ef0f5b8086cea1c13e21395e0cc47ded136e237590621552b57ccaafb1cdc3; TAR 3e4089a08f85f301cd2fe083029e75354bc8e576b63d4b90e28a14becf9d35e3; 내부 40개 일치. 원본 15178694730 외부 timeout 137, raw path/costmap 음수 bound, HOLD 유지. 이 실제 NO_GOAL 성공은 A 격리 moving preflight 근거이며 제품 E approval 아님. A04 정책에 따라 E 중간 승인 요청 없이 실제 motion 진단 진행. 이전 원장 미확인 표기는 이 항목으로 갱신한다.

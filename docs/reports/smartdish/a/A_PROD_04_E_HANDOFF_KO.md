@@ -1,4 +1,6 @@
-# A-PROD-04 E 인계서 — 검토용 HOLD (merge/이동 금지)
+# A-PROD-04 E 인계서 — 과거 중간 기록 (신규 인계 아님)
+
+2026-11-27 사용자 지시에 따라 이 문서는 과거 원장으로 보존한다. 현재 A 내부 개발 및 검수는 A_PROD_04_INTERNAL_DEVELOPMENT_POLICY_KO.md와 A_PROD_04_04_LOADED_NAV_EDU_KO.md가 우선한다. A 개발 완료 전 E 신규 인계 또는 중간 승인 요청 없음.
 
 기준: A ce26a41d0f5f9519b2983e78c7bd4e65d4ffa5cd, Seed 57c5f57b471a92ae11adf1d2432d44aa8640d2ad, E 검수 2dc70622d8dc8b718366e5533cbbc320fd5dbc51, 수정 기능 PIN 870262c8c8fc2c509a25d74d6f8ff28c0133db8e, Waffle upstream 45633014a14e8f438495b532a723e4ad45cbbd31. PR #67 A 전용. E/main/원본 지도/기존 launch/다른 담당 코드 변경 없음. E 승인 20s LOAD/UNLOAD 유지.
 

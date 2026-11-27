@@ -46,3 +46,22 @@ def test_dish_platform_vs_mast():
     dish="smartdish_product_dish_00::body::envelope"
     assert contact_category({},dish,"waffle_pi::smartdish_product_tray::platform_collision")=="TRAY_DISH"
     assert contact_category({},dish,"waffle_pi::smartdish_product_tray::mast_collision")=="UNEXPECTED"
+
+
+def test_witness_close_detaches_subscriptions_before_files():
+    from smartdish_a04_motion import Witness
+    from types import SimpleNamespace
+    import io
+    w=Witness.__new__(Witness)
+    w.trace=io.StringIO();w.contacts=io.StringIO();w.subs=["pose","contact"];w.active=True
+    destroyed=[]
+    def destroy(sub):
+        assert not w.trace.closed and not w.contacts.closed
+        destroyed.append(sub)
+        return True
+    w.node=SimpleNamespace(destroy_subscription=destroy)
+    w.summary={};w.counts={};w.categories={};w.contact_health={}
+    assert w.close()["contact_absence_proven"] is False
+    assert destroyed==["pose","contact"] and w.subs==[]
+    assert not w.active and w.trace.closed and w.contacts.closed
+    w.close() # idempotent after resources have been released
