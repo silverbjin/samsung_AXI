@@ -1,3 +1,5 @@
+> **최신 D AI ON 인계(2026-11-27):** [C→D AI ON 서비스 연결·B-QA06 이후 정책 변경](SMARTDISH_C_TO_D_AI_ON_SERVICE_HANDOFF_20261127_KO.md)을 우선 참조하십시오. 아래 2026-11-23 AI OFF E 통합 대기/실제 데이터 0건 설명은 당시 개발 이력입니다. 현재 E AI OFF 사용자 L3는 main PASS이고, C 모델 Validation1/3로 성능 HOLD, C17 제품 승인 모델 SHA None, C20 신규 연구 미승인, 실제 AI ON 불허입니다.
+
 # SmartDish — D 담당 UI·서비스 개발 인계서
 
 - 작성일: 2026-11-23
