@@ -34,31 +34,48 @@ def screen_map(map_path, pose_path):
     extent=math.ceil(radius/res)
     offsets=[(dx,dy) for dx in range(-extent,extent+1)
              for dy in range(-extent,extent+1) if math.hypot(dx*res,dy*res)<=radius]
-    free=lambda x,y: (0<=x<w and 0<=y<h and (255-pixels[y*w+x])/255<float(cfg["free_thresh"]))
-    valid={(x,y) for y in range(extent,h-extent) for x in range(extent,w-extent)
-           if all(free(x+dx,y+dy) for dx,dy in offsets)}
+    free_thresh=float(cfg["free_thresh"])
+    occupied_thresh=float(cfg["occupied_thresh"])
+    if not 0<free_thresh<occupied_thresh<1:
+        raise RuntimeError("MAP_THRESHOLD_INVALID")
+    def classify(pixel):
+        probability=(255-pixel)/255
+        return "free" if probability<free_thresh else ("occupied" if probability>occupied_thresh else "unknown")
+    classes=[classify(pixel) for pixel in pixels]
+    def valid_cells(allowed):
+        return {(x,y) for y in range(extent,h-extent) for x in range(extent,w-extent)
+                if all(classes[(y+dy)*w+x+dx] in allowed for dx,dy in offsets)}
     poses=yaml.safe_load(Path(pose_path).read_text())
     if poses["frame"]!="map" or set(poses["poses"])!=set(TARGETS):
         raise RuntimeError("MAP_POSE_CONTRACT_DRIFT")
     def cell(name):
         p=poses["poses"][name]
         return math.floor((p["x"]-origin[0])/res),h-1-math.floor((p["y"]-origin[1])/res)
-    results=[]
-    for start,end in zip(TARGETS,(*TARGETS[1:],TARGETS[0])):
-        a,b=cell(start),cell(end)
-        queue=deque([a]);dist={a:0} if a in valid else {}
-        while queue and a in dist and b not in dist:
-            x,y=queue.popleft()
-            for n in ((x+1,y),(x-1,y),(x,y+1),(x,y-1)):
-                if n in valid and n not in dist:
-                    dist[n]=dist[(x,y)]+1
-                    queue.append(n)
-        results.append({"from":start,"to":end,"start_free":a in valid,"end_free":b in valid,
-                        "path_exists":b in dist,"grid_path_m":None if b not in dist else dist[b]*res})
+    def connectivity(valid):
+        results=[]
+        for start,end in zip(TARGETS,(*TARGETS[1:],TARGETS[0])):
+            a,b=cell(start),cell(end)
+            queue=deque([a]);dist={a:0} if a in valid else {}
+            while queue and a in dist and b not in dist:
+                x,y=queue.popleft()
+                for n in ((x+1,y),(x-1,y),(x,y+1),(x,y-1)):
+                    if n in valid and n not in dist:
+                        dist[n]=dist[(x,y)]+1
+                        queue.append(n)
+            results.append({"from":start,"to":end,"start_free":a in valid,"end_free":b in valid,
+                            "path_exists":b in dist,"grid_path_m":None if b not in dist else dist[b]*res})
+        return results
+    results=connectivity(valid_cells({"free"}))
+    diagnostic=connectivity(valid_cells({"free","unknown"}))
+    connected=all(x["path_exists"] for x in results)
     return {"scope":"STATIC_CONSERVATIVE_GRID_CONNECTIVITY_NOT_NAV2",
             "map_sha256":hashlib.sha256(image_path.read_bytes()).hexdigest(),"width":w,"height":h,
             "resolution_m":res,"screening_radius_m":radius,"legs":results,
-            "motion_authorized":False,"all_connected":all(x["path_exists"] for x in results)}
+            "map_classes":{k:classes.count(k) for k in ("free","unknown","occupied")},
+            "occupied_only_diagnostic":{"scope":"UNKNOWN_NOT_VERIFIED_FREE_NEVER_AUTHORIZES_MOTION",
+                                        "legs":diagnostic},
+            "static_gate":"STATIC_CONNECTED_NOT_MOTION_APPROVAL" if connected else "HOLD_UNKNOWN_OR_CLEARANCE",
+            "motion_authorized":False,"all_connected":connected}
 
 def apply_product_footprint(params):
     for name in ("local_costmap","global_costmap"):
@@ -85,6 +102,7 @@ def prepare(source,output,map_path,pose_path,receipt):
     original=source.read_bytes()
     screen=screen_map(map_path,pose_path)
     if not screen["all_connected"]:
+        receipt.write_text(json.dumps(screen,indent=2)+"\n")
         raise RuntimeError("PRODUCT_STATIC_CLEARANCE_FAILED")
     base=output.with_suffix(".s7.yaml")
     if base.exists():

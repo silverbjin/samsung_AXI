@@ -9,12 +9,18 @@ import pytest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
 from smartdish_e_product_boundary import OwnerMailbox, accepted_hook, verify_ready
-from smartdish_e_product_nav2 import screen_map, apply_product_footprint
+from smartdish_e_product_nav2 import screen_map, apply_product_footprint, prepare
+from PIL import Image
+import yaml
 
 def test_actual_map_static_screen_not_motion():
     data=screen_map(ROOT/"maps/restaurant_map.yaml",ROOT/"src/smartdish_robot/config/table_poses.yaml")
     assert data["width"]==201 and data["height"]==180
-    assert data["all_connected"] and not data["motion_authorized"]
+    assert not data["all_connected"] and not data["motion_authorized"]
+    assert data["static_gate"]=="HOLD_UNKNOWN_OR_CLEARANCE"
+    assert data["map_classes"]=={"free":24811,"unknown":9781,"occupied":1588}
+    assert all(x["path_exists"] for x in data["occupied_only_diagnostic"]["legs"])
+    assert not any(x["path_exists"] for x in data["legs"])
     assert data["screening_radius_m"]>.44
 
 def test_footprint_preserve_cm_chain_and_expand():
@@ -53,3 +59,31 @@ def test_mailbox_serialized_hook_and_late_timeout():
     assert not effects
     mailbox.close()
     with pytest.raises(RuntimeError,match="CLOSED"):mailbox.call(effects.append,2)
+
+
+def test_unknown_class_blocks_and_free_fixture_connects(tmp_path):
+    pgm=tmp_path/"map.pgm"
+    config=tmp_path/"map.yaml"
+    poses=tmp_path/"poses.yaml"
+    config.write_text(yaml.safe_dump(dict(image="map.pgm",mode="trinary",negate=0,
+        origin=[0,0,0],resolution=.05,free_thresh=.196,occupied_thresh=.65)))
+    poses.write_text(yaml.safe_dump(dict(frame="map",poses={
+        "HOME":{"x":1,"y":1},"T03":{"x":2,"y":1},"DISH_RETURN":{"x":2,"y":2}})))
+    Image.new("L",(80,80),254).save(pgm)
+    assert screen_map(config,poses)["all_connected"]
+    Image.new("L",(80,80),205).save(pgm)
+    result=screen_map(config,poses)
+    assert result["map_classes"]["unknown"]==6400
+    assert not result["all_connected"] and not result["motion_authorized"]
+
+def test_actual_map_hold_refuses_overlay_and_preserves_receipt(tmp_path):
+    source=tmp_path/"source.yaml"
+    source.write_text("untouched\n")
+    output=tmp_path/"out.yaml"
+    receipt=tmp_path/"screen.json"
+    with pytest.raises(RuntimeError,match="PRODUCT_STATIC_CLEARANCE_FAILED"):
+        prepare(source,output,ROOT/"maps/restaurant_map.yaml",
+                ROOT/"src/smartdish_robot/config/table_poses.yaml",receipt)
+    assert not output.exists()
+    assert source.read_text()=="untouched\n"
+    assert json.loads(receipt.read_text())["static_gate"]=="HOLD_UNKNOWN_OR_CLEARANCE"
