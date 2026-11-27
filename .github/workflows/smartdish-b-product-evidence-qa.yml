@@ -32,11 +32,31 @@ jobs:
           git merge-base --is-ancestor 57c5f57b471a92ae11adf1d2432d44aa8640d2ad HEAD
           git diff --name-only 57c5f57b471a92ae11adf1d2432d44aa8640d2ad HEAD | tee /tmp/b-product-qa/changed_paths.txt
           python -m unittest discover -s tests -p test_smartdish_b_product_evidence.py -v 2>&1 | tee /tmp/b-product-qa/tests.log
+          export PYTHONPATH=tests:.
+          python - <<'PY'
+          import tempfile, subprocess, sys
+          from pathlib import Path
+          from test_smartdish_b_product_evidence import fixture, pack
+          sha = subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
+          with tempfile.TemporaryDirectory() as d:
+              m, blobs = fixture()
+              m["source_sha"] = sha
+              a, s = pack(Path(d),m,blobs)
+              args = [sys.executable, "ai/scripts/verify_product_collection_evidence.py", "--archive", str(a), "--sidecar", str(s), "--source-sha", sha]
+              with open("/tmp/b-product-qa/fixture_qa.json","w") as f:
+                  subprocess.run(args,stdout=f,check=True)
+              m["scope"] = "ACTUAL_PRODUCT_CANDIDATE"
+              a,s=pack(Path(d),m,blobs)
+              with open("/tmp/b-product-qa/actual_candidate_hold.json","w") as f:
+                  assert subprocess.run(args,stdout=f).returncode == 2
+          PY
+          echo "${{ github.event_name }}" > /tmp/b-product-qa/event.txt
+          cat /tmp/b-product-qa/fixture_qa.json /tmp/b-product-qa/actual_candidate_hold.json
       - name: Evidence checksum
         if: always()
         run: |
           cd /tmp/b-product-qa
-          sha256sum *.txt *.log > SHA256SUMS
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
       - uses: actions/upload-artifact@v4
         if: always()
         with:
