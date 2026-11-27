@@ -58,6 +58,7 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p evidence-l1
+          git config --global --add safe.directory "$PWD"
           git rev-parse HEAD | tee evidence-l1/source_sha.txt
           source /opt/ros/jazzy/setup.bash
           colcon build --base-paths src/smartdish_service --packages-select smartdish_service 2>&1 | tee evidence-l1/build.log
