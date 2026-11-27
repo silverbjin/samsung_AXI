@@ -231,7 +231,11 @@ class MissionManager:
             # A correlated ROS message is NOT an authorized model signature.
             # Product admission must inject a reviewed SHA, and the C response
             # must match its published model version and confidence floor.
-            if (confidence is None or confidence < 0.80
+            # Owner integration can lower C's per-class minimum to 0.50.
+            # D still verifies model identity, while EVERY accepted STABLE
+            # requires staff confirmation before sending another Goal.
+            confidence_floor = 0.50 if self.owner_manual_confirm_ai else 0.80
+            if (confidence is None or confidence < confidence_floor
                     or self.approved_model_sha256 is None
                     or model != "resnet18-" + self.approved_model_sha256[:12]):
                 return False

@@ -79,3 +79,21 @@ def test_owner_abort_no_nav_goal():
     assert m.on_staff_confirm(dict(request_id="R",action="ABORT"))
     assert m.state=="CANCELED"
     assert not [e for e in m.drain() if e[0]=="/collection/nav_goal"]
+
+
+def test_owner_threshold_065_stable_070_reaches_staff_not_goal():
+    # C configured STABLE minimum 0.65, model returned STABLE at confidence 0.70.
+    # The original D 0.80 fixed threshold would incorrectly ignore the event.
+    m,clock,cap=prep()
+    assert m.on_stability(dict(request_id="R",capture_id=cap,status="STABLE",
+        confidence=.70,model_version="resnet18-"+auth.E_OWNER_GAZEBO_MODEL_SHA256[:12]))
+    assert m.state=="NEEDS_CONFIRMATION"
+    assert m.reason=="AI_STABLE_STAFF_CONFIRM_REQUIRED"
+    assert not [e for e in m.drain() if e[0]=="/collection/nav_goal"]
+
+def test_owner_below_the_minimum_possible_confidence_is_not_valid():
+    m,clock,cap=prep()
+    assert not m.on_stability(dict(request_id="R",capture_id=cap,status="STABLE",
+        confidence=.49,model_version="resnet18-"+auth.E_OWNER_GAZEBO_MODEL_SHA256[:12]))
+    assert m.state=="AI_CHECK"
+    assert not m.drain()
