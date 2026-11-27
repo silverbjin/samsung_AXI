@@ -138,7 +138,8 @@ class RecoveryFSM:
     def expired(self):
         if self.deadline is not None and self.clock()>=self.deadline:
             if self.state in {"WAIT_LOADING","WAIT_UNLOADING"}:
-                self.tick()
+                # Minimum dwell expiry is a timer transition, never a side effect of an incoming ABORT.
+                return False
             else:
                 reason={"AI_CHECK":"AI_TIMEOUT","NEEDS_CONFIRMATION":"STAFF_CONFIRM_TIMEOUT",
                         "CAPTURING":"CAMERA_TIMEOUT","CANCELING":"CANCEL_TIMEOUT",
@@ -266,7 +267,7 @@ class RecoveryFSM:
     def on_staff(self,d):
         if self.expired() or self.state in TERMINAL or self.state=="IDLE" or not self.stack_matches(d):
             return False
-        if "capture_id" not in d or d.get("capture_id")!=self.capture_id:
+        if not identifier(d.get("capture_id")) or d.get("capture_id")!=self.capture_id:
             return False
         if d.get("action")=="ABORT":
             self.fail("STAFF_ABORT")
