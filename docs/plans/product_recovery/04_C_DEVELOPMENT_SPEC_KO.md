@@ -1,0 +1,9 @@
+# C 담당 — 실제 장착 영상 1회 추론 및 임계값 명세
+[공통 계약](00_COMMON_CONTRACT_KO.md) 필수. 브랜치 feat/smartdish-c-product-inference: E seed. C20 연구 및 기존 모델/데이터는 그대로 보존.
+## C-PROD-00 감사
+src/smartdish_ai/smartdish_ai/{inference_core.py,stability_inference_node.py,model_runtime.py}, config/model.yaml, E R3a/b QoS/normal shutdown/provenance 재사용. C17 product-approved SHA None, private v1 authorized Owner scope만. 기존 venv ~/.venvs/smartdish-c-v1-py312-cpu, torch 2.5.1+cpu 및 torchvision 0.20.1+cpu 재사용. 실제 checkpoint 44,786,668 bytes / SHA 6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c. CI private checkpoint 금지.
+## C-PROD-01 exact capture & threshold
+기존 legacy request 그대로, Owner product profile에서는 A capture_result + D ai_check_request의 request/stack/transfer/capture/stamp/frame/hash가 모두 일치하는 실제 로봇 RGB만. bounded cache (2초 freshness 및 capacity 상한), capture ACK가 먼저/나중 도착해도 제한 내 join; 이미지 없는 경우 UNKNOWN/inference_ok=false reason; 대체 최신 frame 금지. 중복 ID predictor 호출 0 추가, 최초 최대 1회. finite raw prediction label/confidence, thresholds snapshot, inference_ok, final status 및 reason. 실제 추론 성공 후 threshold 미달 UNKNOWN은 raw 값 보존; 모델 없음/예외/invalid frame은 승인 불가. 원래 C17 모델 승인/권리 변경 금지.
+Owner profile threshold 0.00~1.00 inclusive, 기본 0/0 권장, 일반 모드 기존 제한 유지. bool/NaN/Inf/-0.1/1.1 거부, atomic set/get ACK 및 임무 snapshot/lock 계약을 D와 검증. 실제 raw 0.506081 UNSTABLE 값은 이번 실패 run의 예시이며 모델 성능 근거 아님. confidence 낮음과 inference failure 구분. RELIABLE ROS Image 계약, no cmd_vel/nav_goal.
+## 검수 및 인계
+L0 exact once/stale/mismatch/sim rewind/invalid/threshold 0,0.5,1; L1 real DDS image→C adapter fixture predictor, parameter ACK & rejection; L2 actual A robot camera same RGB hash, no independent station; actual private model inference는 final Owner L3만. CI model double 식별자 및 marker 분리, 연구 성능 평가/재학습/Test4 금지. model card 성능/권리 원문 보존, inference contract + evidence format + PR/run IDs + 교육 MD를 D/E에 인계.
