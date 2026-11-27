@@ -5,6 +5,11 @@ umask 077
 PIN="$SMARTDISH_C_PIN"
 [[ "$PIN" =~ ^[0-9a-f]{40}$ ]] || { echo C_V1_P1_PIN_INVALID >&2; exit 2; }
 P0="$HOME/smartdish_c_dataset_v1_p0_evidence/20261126T084104Z_ea54959b66b1/p0_report.json"
+# The C-only venv and Torch cache are disjoint from ROS2 and other WSL2 projects.
+VENV="$HOME/.venvs/smartdish-c-v1-py312-cpu"
+export TORCH_HOME="$HOME/.cache/smartdish-c-v1/torch"
+export PYTHONNOUSERSITE=1
+unset PYTHONPATH PYTHONHOME PYTHONUSERBASE
 if [[ -n "$(printenv SMARTDISH_C_P0_REPORT || true)" ]]; then P0="$(printenv SMARTDISH_C_P0_REPORT)"; fi
 MIRROR="$HOME/samsung_AXI"
 if [[ -n "$(printenv SMARTDISH_C_LOCAL_REPO || true)" ]]; then MIRROR="$(printenv SMARTDISH_C_LOCAL_REPO)"; fi
@@ -60,11 +65,28 @@ git -C "$WORK/repo" checkout --quiet --detach "$PIN"
 printf 'C_V1_P1_CHECKOUT_SHA=%s\nC_V1_P1_CLEAN=1\n' "$PIN" > "$OUT/checkout.log"
 git --version > "$OUT/environment.log"
 python3 --version >> "$OUT/environment.log" 2>&1
+# Do not install packages from this immutable P1 runner: separate installer only.
+if [[ ! -f "$VENV/.smartdish_c_v1_environment.json" ||
+      ! -f "$VENV/bin/activate" || ! -x "$VENV/bin/python" ]]; then
+  echo "C_V1_P1_VENV_NOT_INSTALLED; run scripts/smartdish_c_v1_install_cpu_venv.sh first" >&2
+  exit 2
+fi
 (
+  source "$VENV/bin/activate"
+  hash -r
+  [[ "$(command -v python)" == "$VENV/bin/python" ]] ||
+    { echo C_V1_P1_VENV_ACTIVATION_FAILED >&2; exit 2; }
+  python - "$VENV" <<'PY'
+import sys
+from pathlib import Path
+assert sys.prefix != sys.base_prefix and Path(sys.prefix).resolve() == Path(sys.argv[1]).resolve(), "C_V1_WRONG_PYTHON_ENV"
+PY
+  python --version >> "$OUT/environment.log" 2>&1
+  python -m pip --version >> "$OUT/environment.log" 2>&1
   cd "$WORK/repo"
-  python3 -m ai.train.p1_pretrained_inspection \
+  python -m ai.train.p1_pretrained_inspection \
       --p0-report "$P0" \
       --experiment-lock ai/docs/C_V1_EXPERIMENT_LOCK.json \
       --report "$OUT/p1_report.json"
 ) > "$OUT/preflight_stdout.log" 2> "$OUT/preflight_stderr.log"
-echo 'C_V1_P1_WEIGHT_REVIEW_ONLY: actual training/Test not executed.'
+echo 'C_V1_P1_WEIGHT_REVIEW_ONLY: isolated venv active inside runner; training/Test not executed.'
