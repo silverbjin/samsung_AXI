@@ -28,7 +28,7 @@ class ProductRuntime:
         self.physics=PhysicalOperations();self.clock=deque(maxlen=4096)
         self.odom_xy=None;self.odom_n=0;self.odom_at=None;self.scan_n=0;self.scan_at=None
         self.amcl=None;self.amcl_at=None;self.motion=None;self.pending=None;self.armed=False
-        self.clock_fault=False
+        self.clock_fault=False;self.current_request_id=None;self.nav_fault_logged=False
         self.physics.attach(node,self.clock)
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.VOLATILE)
         self.pubs={key:node.create_publisher(String,"/collection/"+key,qos)
@@ -129,11 +129,13 @@ class ProductRuntime:
 
     def on_goal(self,d):
         d=validate_goal(d)
-        require(self.armed and self.pending is None and self.transfer.can_start_leg(d),
+        require(self.armed and self.pending is None and self.nav.active is None and self.transfer.can_start_leg(d),
                 "PRODUCT_LEG_NOT_AUTHORIZED")
         require(self.odom_xy is not None,"ODOM_MISSING")
         self.motion={"start":self.odom_xy,"odom_n":self.odom_n,"scan_n":self.scan_n,"max_m":0.}
-        try:self.nav.start(d)
+        try:
+            self.nav.start(d)
+            self.current_request_id=d['request_id']
         except Exception:
             self.motion=None;raise
 
@@ -143,21 +145,16 @@ class ProductRuntime:
     def on_transfer(self,d):
         from .product_contract import parse_transfer
         req=parse_transfer(canonical_json(d))
-        require(self.armed and not self.transfer.locked and not self.nav.locked,"PRODUCT_TRANSFER_LOCKED")
+        require(self.armed and self.nav.active is None and req['request_id']==self.current_request_id and not self.transfer.locked and not self.nav.locked,"PRODUCT_TRANSFER_LOCKED")
         if self.pending is not None or self.transfer.active:return
         self.pending=req
 
     def on_status(self,d):
         # D's existing status topic; no new UUID or READY public schema.
         if d.get("schema_version")!=2 or d.get("profile")!=PROFILE:return
-        a=self.nav.active
-        if a and d.get("request_id")==a.request["request_id"] and d.get("state") in (
-                "SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ERROR","ABORTED"):
+        if self.current_request_id is None or d.get("request_id")!=self.current_request_id:return
+        if d.get("state") in ("SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ERROR","ABORTED"):
             self.nav.abort_pending()
-            self.transfer.locked=True
-        elif self.transfer.active and self.pending is None and d.get("state") in (
-                "SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ERROR","ABORTED"):
-            # A transfer must fail closed if D enters a terminal hold.
             self.transfer.locked=True
 
     def step(self):
@@ -167,7 +164,12 @@ class ProductRuntime:
             self.transfer.locked=True
             self.nav.abort_pending()
         if self.nav.active is not None:
-            self.nav.tick()
+            try:self.nav.tick()
+            except Exception as exc:
+                self.transfer.locked=True
+                if not self.nav_fault_logged:
+                    self.event('NAV_UNVERIFIED_LOCKED',{'reason':str(exc)})
+                    self.nav_fault_logged=True
         if self.pending is not None:
             req=self.pending;self.pending=None
             try:self.publish("dish_transfer_result",self.transfer.run(req))
