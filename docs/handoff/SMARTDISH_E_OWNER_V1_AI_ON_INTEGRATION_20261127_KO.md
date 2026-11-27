@@ -1,3 +1,5 @@
+> **최신 인계:** [E 최종 Owner station 인계](SMARTDISH_E_OWNER_STATION_FINAL_HANDOFF_20261127_KO.md) — R4 실제 3-leg CI PASS, 사용자 최종 실행 PIN/명령은 최신 문서만 사용. 아래는 R1/R2 개발 이력이며 과거 상태와 명령을 보존한 기록입니다.
+
 # SmartDish E — Owner 승인 C v1 AI ON 통합 인계 (2026-11-27)
 
 ## 권한·성능 경계
