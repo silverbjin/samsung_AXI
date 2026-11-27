@@ -67,7 +67,9 @@ def fixture():
              poses=poses, nav=nav, causal_monotonic_ns=[1,2,3,4,5],
              frame_received_monotonic_ns=2, inference_received_monotonic_ns=3,
              approval_sim_ns=15_000_000_000, png_sha256=h(png))
-    return m,{"frame.png":png,"frame.rgb":raw,"c_input.rgb":raw}
+    # Original ROS row bytes retained separately; padding is not part of canonical RGB.
+    m["ros_step"]=640*3
+    return m,{"frame.png":png,"frame.rgb":raw,"c_input.rgb":raw,"ros_frame.bin":raw}
 
 def pack(root, m, blobs, *, corrupt=False, unsafe=False, duplicate=False):
     files = dict(blobs, **{"evidence.json":j(m)})
@@ -138,3 +140,33 @@ class EvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             a,s=pack(Path(d),m,b);s.write_text("0"*64+"  "+a.name+"\n")
             self.assertEqual(audit(a,s,SHA)["first_error"],"B_ARCHIVE_SHA")
+
+    def test_bgr_stride(self):
+        def change(m,b):
+            m["capture"]["encoding"]="bgr8"
+            m["ros_step"]=640*3+4
+            b["ros_frame.bin"]=(bytes([30,20,10])*640+b"PAD! "[:4])*480
+        self.check(change)
+    def test_raw_ros_mismatch(self):
+        self.check(lambda m,b:b.update({"ros_frame.bin":b"x"*len(b["frame.rgb"])}),"B_ROS_RGB_MISMATCH")
+    def test_bad_stride(self):
+        self.check(lambda m,b:m.update(ros_step=1),"B_ROS_STRIDE")
+    def test_missing_receipt(self):
+        # Unapproved member set rather than a silent missing original.
+        self.check(lambda m,b:b.pop("ros_frame.bin"),"B_FILE_SET")
+    def test_png_pixels(self):
+        def change(m,b):
+            x=io.BytesIO()
+            Image.new("RGB",(640,480),(1,2,3)).save(x,format="PNG")
+            b["frame.png"]=x.getvalue();m["png_sha256"]=h(b["frame.png"])
+        self.check(change,"B_PNG_RGB_MISMATCH")
+    def test_threshold(self):
+        self.check(lambda m,b:m["inference"].update(stable_confidence_min=1),"B_INFERENCE_THRESHOLD")
+    def test_boolean_confidence(self):
+        self.check(lambda m,b:m["inference"].update(raw_confidence=True),"B_INFERENCE_CONFIDENCE")
+    def test_mixed_pose_epoch(self):
+        self.check(lambda m,b:m["poses"][3].update(sim_ns=1),"B_POSE_TIME")
+    def test_scan_missing(self):
+        self.check(lambda m,b:m["nav"][0].update(scan_stamps_ns=[]),"B_NAV_SAMPLES")
+    def test_no_motion(self):
+        self.check(lambda m,b:m["nav"][0].update(odom=[{"sim_ns":2_000_000_000+k*500_000_000,"x":0,"y":0} for k in range(3)]),"B_NAV_ODOM")
