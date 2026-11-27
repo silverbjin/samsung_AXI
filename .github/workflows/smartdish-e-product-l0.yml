@@ -1,0 +1,39 @@
+name: SmartDish E product recovery L0
+on:
+  push:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_e_product_*.py'
+      - 'tests/test_smartdish_e_product_*.py'
+      - '.github/workflows/smartdish-e-product-l0.yml'
+  pull_request:
+    branches: [main, integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_e_product_*.py'
+      - 'tests/test_smartdish_e_product_*.py'
+      - '.github/workflows/smartdish-e-product-l0.yml'
+permissions:
+  contents: read
+jobs:
+  e-product-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Pure integration boundary and released map
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p generated/e_product_l0
+          git rev-parse HEAD | tee generated/e_product_l0/source_sha.txt
+          python3 -m pip install pytest pyyaml pillow
+          python3 -m py_compile scripts/smartdish_e_product_*.py
+          python3 -m pytest -q tests/test_smartdish_e_product_*.py --junitxml=generated/e_product_l0/l0.xml 2>&1 | tee generated/e_product_l0/l0.log
+          (cd generated/e_product_l0 && sha256sum source_sha.txt l0.xml l0.log > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-product-l0-${{ github.run_id }}
+          path: generated/e_product_l0/
