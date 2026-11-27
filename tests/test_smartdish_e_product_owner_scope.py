@@ -33,3 +33,13 @@ def test_owner_request_cannot_use_ai_off_or_change_wait_scenario():
     assert owner_request(d)
     for patch in (dict(ai_enabled=False),dict(table_id="T04"),dict(table_wait_s=9),dict(dropoff_wait_s=6),dict(table_wait_s=10.0)):
         assert not owner_request(d|patch)
+
+def test_loaded_receipt_has_exact_c_runtime_and_module_origin():
+    from smartdish_e_product_owner_scope import loaded_receipt,C_VERSIONS
+    d=dict(scope=MODEL_SCOPE,private_model_loaded=True,checkpoint_sha256=MODEL_SHA,model_version=MODEL_VERSION,
+           test4_opened=False,general_product_approved=False,versions=C_VERSIONS,bytes=44786668,
+           installed_module_hashes={x:"a"*64 for x in ("model_runtime","product_stability_inference_node","product_inference")})
+    assert loaded_receipt(d)
+    assert not loaded_receipt(d|dict(bytes=1))
+    assert not loaded_receipt(d|dict(versions={"torch":"2.5.1"}))
+    assert not loaded_receipt(d|dict(installed_module_hashes={}))

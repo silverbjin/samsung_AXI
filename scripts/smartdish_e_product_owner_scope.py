@@ -40,3 +40,10 @@ def owner_request(d):
             d.get("table_id")=="T03" and d.get("ai_enabled") is True and
             type(d.get("table_wait_s")) is int and d["table_wait_s"]==10 and
             type(d.get("dropoff_wait_s")) is int and d["dropoff_wait_s"]==5)
+
+C_VERSIONS={"torch":"2.5.1+cpu","torchvision":"0.20.1+cpu","numpy":"1.26.4","PIL":"10.2.0"}
+def loaded_receipt(d):
+    return (model_receipt(d) and d.get("versions")==C_VERSIONS and d.get("bytes")==44786668 and
+            isinstance(d.get("installed_module_hashes"),dict) and
+            set(d["installed_module_hashes"])=={"model_runtime","product_stability_inference_node","product_inference"} and
+            all(isinstance(x,str) and re.fullmatch("[0-9a-f]{64}",x) for x in d["installed_module_hashes"].values()))

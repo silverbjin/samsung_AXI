@@ -89,12 +89,14 @@ def capture_review(p,load,cap,ai,c,*,owner=False):
     need(c["invocation_count"]==1 and c["model_version"]==ai["model_version"],"C_INVOCATION_COUNT")
     # CI is explicitly an inference double; no private model claim or product model authorization.
     if owner:
-        from smartdish_e_product_owner_scope import model_receipt
-        need(model_receipt(c) and model_receipt(js(p/"owner_c_loaded.json")),"OWNER_MODEL_SCOPE")
+        from smartdish_e_product_owner_scope import model_receipt,loaded_receipt
+        need(model_receipt(c) and loaded_receipt(js(p/"owner_c_loaded.json")),"OWNER_MODEL_SCOPE")
         need(c["prediction"]=={"status":ai["raw_status"],"confidence":ai["raw_confidence"]},"OWNER_ACTUAL_PREDICTION")
     else:
         need(c["scope"]=="CI_DOUBLE_NOT_ACTUAL_MODEL" and c["private_model_loaded"] is False and c["model_version"]=="CI_DOUBLE_PRODUCT_E","CI_MODEL_SCOPE")
-    return dict(scope=c["scope"],rgb_sha256=cap["rgb_sha256"],capture_id=cap["capture_id"],model_version=c["model_version"])
+    result=dict(scope=c["scope"],rgb_sha256=cap["rgb_sha256"],capture_id=cap["capture_id"],model_version=c["model_version"])
+    if owner:result.update(checkpoint_sha256=c["checkpoint_sha256"],prediction=c["prediction"],general_product_approved=False)
+    return result
 
 def review(root,repo,out,source,run,*,owner=False):
     root=Path(root);p=root/"session";out=Path(out);out.mkdir(parents=True,exist_ok=True)
@@ -155,8 +157,16 @@ def review(root,repo,out,source,run,*,owner=False):
     ui_result=js(p/"ui_result.json")
     need(ui_result["completed"] is True,"UI_COMPLETED")
     if owner:
+        from smartdish_e_product_owner_scope import owner_request
         need(ui_result.get("staff_operator_click") is True and ui_result.get("automatic_click") is False and
              ui_result.get("threshold_set_get") is True and ui_result.get("preview") is True,"OWNER_UI_SCOPE")
+        req=one(topic("request"),"OWNER_REQUEST_COUNT")
+        sent=one([x for x in ui if x["event"]=="request"],"OWNER_UI_REQUEST_COUNT")
+        need(owner_request(req) and req==sent["body"] and req["request_id"]==load["request_id"],"OWNER_REQUEST_SCOPE")
+        origin=js(root/"installed_origin.json");loaded=js(p/"owner_c_loaded.json")
+        for name,h in loaded["installed_module_hashes"].items():
+            need(any(x.get("package")=="smartdish_ai" and x.get("module")==name and x.get("sha256")==h for x in origin["records"]),"OWNER_C_ORIGIN_RECEIPT")
+        need(origin["source_sha"]==source,"OWNER_INSTALLED_SOURCE_PIN")
     shutdown=b.shutdown(p,e)
     return dict(verdict="E_INDEPENDENT_OWNER_PRODUCT_PHYSICAL_QA_PASS" if owner else "E_INDEPENDENT_CI_DOUBLE_PHYSICAL_QA_PASS",source_sha=source,run_id=run,
         geometry=geom,map=map_review,plans=paths,phases=phases,raw_stop=stop,waits=waits,transfers=actual,
