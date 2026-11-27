@@ -8,8 +8,8 @@ PROFILE = "OWNER_PRODUCT_RECOVERY"
 FRAME = "smartdish_tray_optical"
 KEYS = ("request_id", "stack_id", "transfer_id", "capture_id",
         "image_stamp_ns", "frame_id", "rgb_sha256")
-TERMINAL = {"COMPLETED", "ABORTED", "ERROR", "CANCELED",
-            "SAFE_HOLD", "SAFE_HOLD_UNVERIFIED"}
+TERMINAL = {"COMPLETED", "ABORTED", "ERROR", "CANCELED"}
+HOLD = {"SAFE_HOLD", "SAFE_HOLD_UNVERIFIED"}
 
 def valid_id(value):
     return isinstance(value, str) and bool(value.strip()) and len(value) <= 128
@@ -65,6 +65,15 @@ class ProductInference:
         req = msg["request_id"]
         state = msg.get("state")
         if not isinstance(state, str) or not state:
+            return
+        if state in HOLD:
+            # Preserve lockout; cancel pending inference without accepting new missions.
+            if req == self.active:
+                self.finished_requests.add(req)
+                self.pending = None
+            elif self.active is None:
+                self.active = req
+                self.finished_requests.add(req)
             return
         if state in TERMINAL:
             self.finished_requests.add(req)
