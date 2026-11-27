@@ -130,3 +130,9 @@ ros2 topic echo /collection/status std_msgs/msg/String
 - **실제 남은 작업:** A Adapter의 `SMARTDISH_A_READY`/TTY·nav_goal 구독을 확보한 뒤 D Manager/UI와 **동일 request_id의 3개 실제 결과 + 10/5초 + UI COMPLETED** 통합 증거 확보. A 단독 one-shot 3-leg PASS와 구분합니다.
 - **교육용 중간 회고·7-topic JSON 계약·상세 흐름:** [D 중간 개발 보고서](../reports/smartdish/d/D_INTERIM_DEVELOPMENT_TOOLS_ROS2_INTEGRATION_20261123_KO.md).
 - D Draft PR #38 유지, `main` 병합 금지. 기존 S7/A/B/C 소스 변경 없음.
+
+## 2026-11-27 D-AION 계약 전용 인계 (최신)
+
+- **[D→E AI ON 계약 전용 인계](SMARTDISH_D_AI_ON_CONTRACT_ONLY_TO_E_20261127_KO.md)** 참조.
+- 최신 AI OFF 실제 인수 PASS 재사용. C 모델 성능 HOLD, E 제품 SHA 미승인, D AI ON Manager/UI fail-closed.
+- `D_AI_ON_CONTRACT_ONLY_READY`는 실제 AI ON PASS가 아닙니다.

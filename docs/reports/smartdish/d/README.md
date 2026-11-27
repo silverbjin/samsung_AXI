@@ -39,3 +39,14 @@ D05는 기존 `~/samsung_AXI`를 보존하며 전용 worktree로 검증합니다
 - [D 중간 개발 보고서: 도구 선정→코드→FSM/ROS→A 통합](D_INTERIM_DEVELOPMENT_TOOLS_ROS2_INTEGRATION_20261123_KO.md)
 - [D07 화면 결함·수정 근거](D07_UI_LAYOUT_CLIP_DEBUG_EDU_KO.md): **사용자 IDLE 화면 시각 QA PASS (2026-11-23)**, 실제 동적 UI와 A+D 주행은 NOT_RUN
 - 사용자 제공 `image(20261123-073249).png` (1219×769, SHA-256 `60a0cc670e1a7349cb4306c8f456cfd5dc6a75566674a58c03b22deefa933c08`) — 화면 이미지 원본은 채팅 첨부, GitHub에는 증거 해시·검수 판정만 기록
+
+## 2026-11-27 — D-AION-00~04 C+D AI ON 계약만 검증 (제품 AI ON HOLD)
+
+- [D-AION-00 제품 정책·C→D 인계 읽기 전용 감사](D_AION_00_READ_ONLY_POLICY_AUDIT_20261127_KO.md)
+- [D-AION-01 제품 모델 승인 없을 때 Manager/UI Fail-Closed](D_AION_01_PRODUCT_ADMISSION_FAIL_CLOSED_20261127_KO.md)
+- [D-AION-02 ID/capture/저신뢰·모델 SHA/5초 deadline](D_AION_02_STABILITY_CONFIDENCE_FRESHNESS_20261127_KO.md)
+- [D-AION-03 NEEDS_CONFIRMATION 직원 승인·ABORT](D_AION_03_STAFF_CONFIRMATION_20261127_KO.md)
+- [D-AION-04 실제 Jazzy DDS model-less C UNKNOWN, D/E AI OFF 회귀](D_AION_04_MODEL_LESS_DDS_E_REGRESSION_20261127_KO.md)
+- [D-DBG-AION-001 CI 최초 Pillow 수집 실패·최소 환경 수정](D_DBG_AION_001_CI_PIL_COLLECTION_20261127_KO.md)
+- [CI #45926489996](https://github.com/silverbjin/samsung_AXI/actions/runs/45926489996): L0 **92 PASS**, 실제 Jazzy L1 **3 packages/DDS PASS/NO_GOAL**. 실제 모델/AI ON/WSL2는 NOT_RUN.
+- [E 최종 승인 전 인계](../../../handoff/SMARTDISH_D_AI_ON_CONTRACT_ONLY_TO_E_20261127_KO.md) — **D_AI_ON_CONTRACT_ONLY_READY / PRODUCT_AI_ON_NOT_AUTHORIZED**.

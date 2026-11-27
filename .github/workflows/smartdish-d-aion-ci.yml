@@ -2,6 +2,12 @@ name: SmartDish D AI ON contract-only L0 L1 (NO_GOAL, no model)
 on:
   push:
     branches: [feat/smartdish-d-ai-on-contract-only]
+    paths:
+      - "src/smartdish_service/**"
+      - "tests/test_smartdish_d_aion.py"
+      - "tests/test_smartdish_d_service.py"
+      - "scripts/smartdish_d_aion_ros_probe.py"
+      - ".github/workflows/smartdish-d-aion-ci.yml"
   pull_request:
     paths:
       - "src/smartdish_service/**"
