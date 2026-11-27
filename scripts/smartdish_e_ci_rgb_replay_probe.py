@@ -32,7 +32,8 @@ def verify_input(root, pin):
 # This injection exists only inside the isolated CI child process. It cannot
 # load any checkpoint, change product admission pins or authorize a goal.
 CHILD = """
-import hashlib, os
+import hashlib, os, json
+from pathlib import Path
 from smartdish_ai import stability_inference_node as node
 def loader(path, *, owner_gazebo_integration=False):
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
@@ -46,6 +47,15 @@ def loader(path, *, owner_gazebo_integration=False):
         print('E_CI_PREDICTOR_RGB_MATCH=' + digest, flush=True)
         return 'STABLE', 0.75
     return predict, 'CI_ONLY_TEST_DOUBLE'
+original_cache = node.InferenceCore.cache_rgb
+def cache(self, rgb, width, height, **kwargs):
+    accepted = original_cache(self, rgb, width, height, **kwargs)
+    row = {"stamp_ns": kwargs.get("stamp_ns"), "accepted": accepted,
+           "rgb_sha256": hashlib.sha256(rgb).hexdigest()}
+    with Path(os.environ["E_CI_CACHE_LOG"]).open("a") as f:
+        f.write(json.dumps(row) + chr(10))
+    return accepted
+node.InferenceCore.cache_rgb = cache
 node.load_predictor = loader
 node.main()
 """
@@ -54,12 +64,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--pin", required=True)
+    parser.add_argument("--capture-pin", required=True)
+    parser.add_argument("--png-sha", required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("ROS_DOMAIN_ID") != "189":
         raise SystemExit("E_R3A_ISOLATED_CI_ONLY")
     args.out.mkdir(parents=True, exist_ok=False)
-    result = {"source_sha": args.pin, "scope": "GAZEBO_CAPTURE_REPLAY_CI_TEST_DOUBLE",
+    result = {"source_sha": args.pin, "capture_source_sha": args.capture_pin, "scope": "GAZEBO_CAPTURE_REPLAY_CI_TEST_DOUBLE",
               "private_model_loaded": False, "live_camera_inference": False,
               "test4_opened": False, "verdict": "FAIL", "responses": []}
     proc = node = None
@@ -67,12 +79,13 @@ def main():
     from rclpy.node import Node
     from rclpy.parameter import Parameter
     from rclpy.parameter_client import AsyncParameterClient
-    from rclpy.qos import qos_profile_sensor_data
+    from rclpy.qos import QoSProfile, ReliabilityPolicy
     from sensor_msgs.msg import Image
     from std_msgs.msg import String
     from PIL import Image as PILImage
     try:
-        png, trial = verify_input(args.root, args.pin)
+        png, trial = verify_input(args.root, args.capture_pin)
+        assert trial["image_sha256"] == args.png_sha, "E_R3A_ORIGINAL_PNG_PIN_MISMATCH"
         with PILImage.open(png) as im:
             rgb = im.convert("RGB")
             width, height = rgb.size
@@ -85,13 +98,15 @@ def main():
         responses = []
         node.create_subscription(String, "/collection/stability",
                                  lambda m: responses.append(json.loads(m.data)), 10)
-        image_pub = node.create_publisher(Image, "/smartdish/tray/image_raw", qos_profile_sensor_data)
+        image_pub = node.create_publisher(Image, "/smartdish/tray/image_raw",
+            QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE))
+        cache_log = args.out / "cache_ack.jsonl"
         req_pub = node.create_publisher(String, "/collection/ai_check_request", 10)
         client = AsyncParameterClient(node, "/smartdish_stability_inference")
         with (args.out / "c_node.log").open("w") as log:
             proc = subprocess.Popen([sys.executable, "-u", "-c", CHILD, "--ros-args",
                 "-p", "owner_gazebo_integration:=true", "-p", "model_path:=CI_ONLY_NO_CHECKPOINT"],
-                env={**os.environ, "E_CI_RGB_SHA": sha(data)}, stdout=log, stderr=subprocess.STDOUT)
+                env={**os.environ, "E_CI_RGB_SHA": sha(data), "E_CI_CACHE_LOG": str(cache_log.resolve())}, stdout=log, stderr=subprocess.STDOUT)
             def spin(seconds):
                 end = time.monotonic() + seconds
                 while time.monotonic() < end:
@@ -121,7 +136,25 @@ def main():
                 msg.width, msg.height, msg.encoding, msg.step = width, height, "rgb8", width*3
                 msg.data = data
                 image_pub.publish(msg)
-                spin(0.4)
+                # DDS discovery is not delivery. Gate on the actual C cache
+                # accepting this exact stamp and exact RGB bytes, not sleep.
+                def accepted():
+                    if not cache_log.exists():
+                        return False
+                    for line in cache_log.read_text().splitlines():
+                        try:
+                            row = json.loads(line)
+                        except ValueError:
+                            continue
+                        if row == {"stamp_ns": stamp * 1000000000, "accepted": True,
+                                   "rgb_sha256": sha(data)}:
+                            return True
+                    return False
+                try:
+                    until(accepted, 5)
+                except RuntimeError as exc:
+                    raise RuntimeError("E_R3A_IMAGE_CACHE_ACK_TIMEOUT stamp=" + str(stamp)) from exc
+                print("E_R3A_C_CACHE_ACK stamp=" + str(stamp), flush=True)
             def request(capture, status):
                 msg = String(data=json.dumps({"request_id": "E-CI-R3A", "capture_id": capture}))
                 req_pub.publish(msg)
@@ -129,10 +162,10 @@ def main():
                 matches = [x for x in responses if x["capture_id"] == capture]
                 assert len(matches) == 1
                 row = matches[0]
+                result["responses"].append(row)
                 assert row["request_id"] == "E-CI-R3A" and row["status"] == status, row
                 assert row["model_version"] == "CI_ONLY_TEST_DOUBLE", row
                 assert row["confidence"] == (0.75 if status == "STABLE" else None), row
-                result["responses"].append(row)
                 return msg
             thresholds(0.65)
             request("missing", "UNKNOWN")
@@ -155,6 +188,8 @@ def main():
             print(result["verdict"], flush=True)
     except BaseException as exc:
         result["first_error"] = repr(exc)
+        if (args.out / "c_node.log").exists():
+            print((args.out / "c_node.log").read_text()[-6000:], flush=True)
         raise
     finally:
         if proc is not None:
