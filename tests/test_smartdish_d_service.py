@@ -160,7 +160,8 @@ def test_ai_timeout_and_abort_never_publish_next_goal():
 
 def test_stale_ai_and_new_mission_after_completion():
     clk = Clock()
-    m = MissionManager(clock=clk, ai_available=True)
+    m = MissionManager(clock=clk, ai_available=True,
+                       approved_model_sha256="a"*64)
     assert not m.handle_request(request(ai=True)) is False
     m.drain()
     assert not m.on_stability({"request_id":"REQ-1", "capture_id":"x", "status":"STABLE", "confidence":0.9, "model_version":"fixture-v1"})
@@ -168,7 +169,7 @@ def test_stale_ai_and_new_mission_after_completion():
     clk.add(10);m.tick()
     capture = m.capture_id
     m.drain()
-    assert m.on_stability({"request_id":"REQ-1", "capture_id":capture, "status":"STABLE", "confidence":0.9, "model_version":"fixture-v1"})
+    assert m.on_stability({"request_id":"REQ-1", "capture_id":capture, "status":"STABLE", "confidence":0.9, "model_version":"resnet18-aaaaaaaaaaaa"})
     m.drain()
     m.on_nav_result(result("REQ-1","TO_RETURN"))
     clk.add(5);m.tick()

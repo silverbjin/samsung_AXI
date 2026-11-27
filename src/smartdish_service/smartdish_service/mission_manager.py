@@ -6,6 +6,7 @@ clock and simulated results; such tests are MOCK_ONLY, never real navigation.
 import math
 import time
 import uuid
+import re
 
 ACTIVE_STATES = frozenset({
     "TO_TABLE", "WAIT_LOADING", "AI_CHECK", "NEEDS_CONFIRMATION",
@@ -28,9 +29,18 @@ class MissionManager:
     module must publish events without inventing navigation results.
     """
 
-    def __init__(self, clock=None, ai_available=False, ai_timeout_s=5.0):
+    def __init__(self, clock=None, ai_available=False, ai_timeout_s=5.0,
+                 approved_model_sha256=None):
         self.clock = clock if clock is not None else time.monotonic
         self.ai_available = bool(ai_available)
+        # Pure-FSM synthetic tests may inject a fixture digest. The deployed
+        # ROS Manager can obtain one ONLY from product_admission gate.
+        self.approved_model_sha256 = (
+            approved_model_sha256
+            if isinstance(approved_model_sha256, str)
+            and re.fullmatch(r"[0-9a-f]{64}", approved_model_sha256)
+            else None
+        )
         self.ai_timeout_s = float(ai_timeout_s)
         self.state = "IDLE"
         self.request_id = ""
@@ -195,6 +205,11 @@ class MissionManager:
                 or data.get("capture_id") != self.capture_id
                 or data.get("status") not in VALID_STABILITY):
             return False
+        # Deadline must be enforced at message receipt too: a late STABLE
+        # cannot sneak in before the 0.2s ROS timer callback.
+        if self.clock() >= self.deadline:
+            self._needs_confirmation("AI_TIMEOUT")
+            return False
         status = data["status"]
         # The v1.0 contract requires confidence and model_version. A missing
         # or fabricated STABLE must never authorize motion; wait for timeout.
@@ -209,9 +224,14 @@ class MissionManager:
         model = data["model_version"]
         if not isinstance(model, str) or not model:
             return False
-        if status == "STABLE" and (confidence is None or model == "none"):
-            return False
         if status == "STABLE":
+            # A correlated ROS message is NOT an authorized model signature.
+            # Product admission must inject a reviewed SHA, and the C response
+            # must match its published model version and confidence floor.
+            if (confidence is None or confidence < 0.80
+                    or self.approved_model_sha256 is None
+                    or model != "resnet18-" + self.approved_model_sha256[:12]):
+                return False
             self._begin_leg("TO_RETURN")
         else:
             self._needs_confirmation(f"AI_{status}")
