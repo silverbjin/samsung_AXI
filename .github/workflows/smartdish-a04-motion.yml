@@ -8,6 +8,9 @@ on:
       - '.github/workflows/smartdish-a04-motion.yml'
 permissions:
   contents: read
+concurrency:
+  group: a04-motion-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 jobs:
   scope:
     if: github.head_ref == 'feat/smartdish-a-product-collection' || github.ref_name == 'feat/smartdish-a-product-collection'

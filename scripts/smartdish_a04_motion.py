@@ -58,6 +58,12 @@ def localization_map(g,out):
     return path
 
 def moving_params(p):
+    # Simulation-specific localization candidate. The actual drift gate stays.
+    amcl=p["amcl"]["ros__parameters"]
+    amcl.update(alpha1=.015,alpha2=.015,alpha3=.015,alpha4=.015,alpha5=.015,
+                update_min_d=.05,update_min_a=.05,sigma_hit=.07,z_hit=.90,z_rand=.10,
+                max_beams=120,laser_min_range=.12,laser_max_range=3.5,
+                min_particles=1000,max_particles=3000,pf_err=.03)
     cp=p["controller_server"]["ros__parameters"]
     fp=cp["FollowPath"]
     require("MPPIController" in fp["plugin"],"UNREVIEWED_CONTROLLER")
@@ -242,6 +248,12 @@ class Witness:
             return
         t=self.buffer.lookup_transform("map","base_footprint",query)
         mapxy=[t.transform.translation.x,t.transform.translation.y]
+        odom_tf=self.buffer.lookup_transform("odom","base_footprint",query)
+        map_odom_tf=self.buffer.lookup_transform("map","odom",query)
+        def tfrow(t):
+            p=t.transform.translation;q=t.transform.rotation
+            return {"xyz":[p.x,p.y,p.z],"q":[q.x,q.y,q.z,q.w],
+                    "stamp_ns":t.header.stamp.sec*10**9+t.header.stamp.nanosec}
         reg=math.dist(robot["xyz"][:2],[mapxy[0]+NOMINAL[0],mapxy[1]+NOMINAL[1]])
         rt=tilt(robot["q"]);obstacle,clear=clearance_world(self.geom,robot["xyz"][:2],rt)
         measures=[dish_measure(robot,p,i) for i,p in enumerate(dishes)]
@@ -251,6 +263,7 @@ class Witness:
         linear=math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);angular=math.sqrt(w.x*w.x+w.y*w.y+w.z*w.z)
         row={"phase":self.phase,"robot_world":robot,"dish_world":dishes,"entity_ids":self.loaded_ids,
              "relative":measures,"map_xy":mapxy,"registration_error_m":reg,"clearance_m":clear,
+             "odom_to_base":tfrow(odom_tf),"map_to_odom":tfrow(map_odom_tf),"map_to_base":tfrow(t),
              "nearest_obstacle":obstacle,"robot_tilt_rad":rt,"odom_linear_mps":linear,"odom_angular_radps":angular,
              "odom_stamp_ns":od.header.stamp.sec*10**9+od.header.stamp.nanosec}
         self.trace.write(json.dumps(row,allow_nan=False)+"\n")

@@ -283,6 +283,14 @@ def run(a):
             value=future(pc.get_parameters(["static_layer.map_topic"]),8,"GLOBAL_STATIC_MAP_PARAM").values[0].string_value
             require(value=="/a04/clearance_map","GLOBAL_STATIC_MAP_TOPIC_MISMATCH")
             evidence["live_global_static_map_topic"]=value
+            amcl_client=AsyncParameterClient(node,"/amcl")
+            wait(amcl_client.services_are_ready,10,"LIVE_AMCL_PARAMS")
+            keys=["alpha1","alpha2","alpha3","alpha4","alpha5","update_min_d","update_min_a","sigma_hit","z_hit","z_rand","max_beams","laser_min_range","laser_max_range","min_particles","max_particles","pf_err"]
+            values=future(amcl_client.get_parameters(keys),8,"LIVE_AMCL_PARAMS").values
+            expected=config["amcl"]["ros__parameters"]
+            observed={k:(v.integer_value if type(expected[k]) is int else v.double_value) for k,v in zip(keys,values)}
+            require(all(abs(observed[k]-expected[k])<1e-9 for k in keys),"AMCL_RUNTIME_PARAMETER_DRIFT")
+            evidence["live_amcl_candidate_params"]=observed
         tf={}
         for name in ("odom","base_footprint","base_link"):
             t=buffer.lookup_transform("map",name,Time())
