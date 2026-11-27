@@ -1,0 +1,64 @@
+name: SmartDish B product evidence QA
+on:
+  push:
+    branches: [feat/smartdish-b-product-evidence-qa]
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'ai/scripts/verify_product_collection_evidence.py'
+      - 'tests/test_smartdish_b_product_evidence.py'
+      - '.github/workflows/smartdish-b-product-evidence-qa.yml'
+      - 'docs/reports/smartdish/b/B_PROD_*'
+permissions:
+  contents: read
+jobs:
+  evidence-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow==11.3.0
+      - name: Verify seed ancestry and run B offline tests
+        shell: bash
+        run: |
+          mkdir -p /tmp/b-product-qa
+          git rev-parse HEAD | tee /tmp/b-product-qa/source_sha.txt
+          git merge-base --is-ancestor 57c5f57b471a92ae11adf1d2432d44aa8640d2ad HEAD
+          git diff --name-only 57c5f57b471a92ae11adf1d2432d44aa8640d2ad HEAD | tee /tmp/b-product-qa/changed_paths.txt
+          python -m unittest discover -s tests -p test_smartdish_b_product_evidence.py -v 2>&1 | tee /tmp/b-product-qa/tests.log
+          export PYTHONPATH=tests:.
+          python - <<'PY'
+          import tempfile, subprocess, sys
+          from pathlib import Path
+          from test_smartdish_b_product_evidence import fixture, pack
+          sha = subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
+          with tempfile.TemporaryDirectory() as d:
+              m, blobs = fixture()
+              m["source_sha"] = sha
+              a, s = pack(Path(d),m,blobs)
+              args = [sys.executable, "ai/scripts/verify_product_collection_evidence.py", "--archive", str(a), "--sidecar", str(s), "--source-sha", sha]
+              with open("/tmp/b-product-qa/fixture_qa.json","w") as f:
+                  subprocess.run(args,stdout=f,check=True)
+              m["scope"] = "ACTUAL_PRODUCT_CANDIDATE"
+              a,s=pack(Path(d),m,blobs)
+              with open("/tmp/b-product-qa/actual_candidate_hold.json","w") as f:
+                  assert subprocess.run(args,stdout=f).returncode == 2
+          PY
+          echo "${{ github.event_name }}" > /tmp/b-product-qa/event.txt
+          cat /tmp/b-product-qa/fixture_qa.json /tmp/b-product-qa/actual_candidate_hold.json
+      - name: Evidence checksum
+        if: always()
+        run: |
+          cd /tmp/b-product-qa
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-b-product-qa
+          path: /tmp/b-product-qa
