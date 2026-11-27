@@ -65,7 +65,6 @@ def main():
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, qos_profile_sensor_data
     from rclpy.action import ActionClient
-    from rclpy.parameter import Parameter
     from rclpy.parameter_client import AsyncParameterClient
     from action_msgs.msg import GoalStatusArray
     from lifecycle_msgs.srv import GetState
@@ -353,9 +352,6 @@ def main():
         result["station_partition"]=station_env["GZ_PARTITION"]
         result["nav_partition"]=os.environ["GZ_PARTITION"]
         result["station_bridge_topics"]=[TOPIC]
-        launch("station",["gz","sim","-s","-r","-v2",str(world)],station_env)
-        launch("station_bridge",["ros2","run","ros_gz_bridge","parameter_bridge",
-            "--ros-args","-r","__node:=smartdish_e_station_bridge","-p","config_file:="+str(bridge)],station_env)
         event_log=out/"c_events.jsonl"
         if owner:
             c_env={**os.environ,"PYTHONPATH":os.environ["SMARTDISH_E_C_SITE_PACKAGES"]+
@@ -370,7 +366,8 @@ def main():
             d_code=STAFF_CHILD.replace("=='190'","=='191'")
             assert c_code!=LIVE_CHILD and d_code!=STAFF_CHILD
             launch("c_node",[sys.executable,"-u","-c",c_code,"--ros-args",
-                "-p","owner_gazebo_integration:=true","-p","model_path:=CI_ONLY_NO_CHECKPOINT"],
+                "-p","owner_gazebo_integration:=true","-p","model_path:=CI_ONLY_NO_CHECKPOINT",
+                "-p","stable_confidence_min:=0.65","-p","unstable_confidence_min:=0.90"],
                 {**os.environ,"E_CI_EVENT_LOG":str(event_log),"E_CI_FIXTURE_VERSION":FIXTURE_VERSION})
             launch("d_node",[sys.executable,"-u","-c",d_code,"--ai-available","true","--owner-gazebo-integration"],
                 {**os.environ,"E_CI_FIXTURE_SHA":FIXTURE_SHA})
@@ -378,10 +375,18 @@ def main():
         wait(lambda:(owner or (request.get_subscription_count()==1 and staff.get_subscription_count()==1)) and
              node.count_publishers("/collection/nav_goal")==1 and node.count_publishers("/collection/nav_result")==1 and
              node.count_publishers("/collection/stability")==1 and params.wait_for_services(timeout_sec=0),30,"DDS")
-        if not owner:
-            f=params.set_parameters_atomically([Parameter("stable_confidence_min",value=.65),
-                                               Parameter("unstable_confidence_min",value=.90)])
-            wait(f.done,5,"PARAMETER_ACK"); assert f.result().result.successful
+        # L1 has already verified dynamic atomic set/ACK; R4 uses pinned
+        # CI startup thresholds and actual ROS readback before image traffic.
+        f=params.get_parameters(["stable_confidence_min","unstable_confidence_min"])
+        wait(f.done,10,"PARAMETER_READBACK")
+        actual=[v.double_value for v in f.result().values]
+        assert len(actual)==2 and all(.50<=v<=1. for v in actual),actual
+        if not owner:assert actual==[.65,.90],actual
+        result["initial_threshold_readback"]={"stable":actual[0],"unstable":actual[1]}
+        print("E_R4_PARAMETER_READBACK="+json.dumps(result["initial_threshold_readback"]),flush=True)
+        launch("station",["gz","sim","-s","-r","-v2",str(world)],station_env)
+        launch("station_bridge",["ros2","run","ros_gz_bridge","parameter_bridge",
+            "--ros-args","-r","__node:=smartdish_e_station_bridge","-p","config_file:="+str(bridge)],station_env)
         def live_cache():
             candidates=marker_rows("c_node","C_OWNER_FRAME_ACCEPTED=") if owner else read_rows(event_log)
             for row in reversed(candidates):
