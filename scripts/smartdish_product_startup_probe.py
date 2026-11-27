@@ -109,6 +109,7 @@ def run(a,extension=None):
               "verdict":"NOT_RUN","first_error":None}
     procs=[]; files=[]; node=None
     frames={TRAY_TOPIC:{},TABLE_TOPIC:{}}; clock=[]
+    diagnostics={t:{"received":0,"wrong_frame":0,"bad_stamp":0,"bad_contract":0,"low_diversity":0,"accepted":0} for t in frames}
     def spawn(name,args):
         log=(out/(name+".log")).open("w")
         files.append(log)
@@ -121,15 +122,22 @@ def run(a,extension=None):
         (out/"scene_info.txt").write_text(p.stdout)
         return scene_models(p.stdout)
     def image_cb(topic,m):
+        d=diagnostics[topic];d["received"]+=1
+        d["last_frame_id"]=m.header.frame_id
         try:
             frame="smartdish_tray_optical" if topic==TRAY_TOPIC else "a_product_ci_table_optical"
-            if m.header.frame_id != frame: return
+            if m.header.frame_id != frame: d["wrong_frame"]+=1;return
             stamp=m.header.stamp.sec*10**9+m.header.stamp.nanosec
-            if stamp<=0 or stamp in frames[topic]:return
+            if stamp<=0 or stamp in frames[topic]:d["bad_stamp"]+=1;return
             data=pack_rgb(m)
-            if len(set(data)) < 8:return
+            diversity=len(set(data));d["last_byte_diversity"]=diversity
+            # A genuinely empty, uniformly colored table is a valid negative witness.
+            # Preserve strict RGB diversity for the mounted tray and positive table.
+            if diversity < 8 and not (topic==TABLE_TOPIC and a.scenario=="empty" and max(data)>0):
+                d["low_diversity"]+=1;return
+            d["accepted"]+=1
             if len(frames[topic]) < 4:frames[topic][stamp]=data
-        except ValueError: return
+        except ValueError: d["bad_contract"]+=1;return
     try:
         gz=spawn("gazebo",["gz","sim","-r","-s","-v","4",str(out/"witness_world.sdf")])
         until=time.monotonic()+100
@@ -186,7 +194,11 @@ def run(a,extension=None):
         evidence["verdict"]="FAIL"
         raise
     finally:
-        if node:node.destroy_node()
+        evidence["receive_diagnostics"]=diagnostics
+        evidence["clock_distinct_stamps"]=len(set(clock))
+        if node:
+            evidence["observed_publishers"]={t:node.count_publishers(t) for t in (*frames,"/clock")}
+            node.destroy_node()
         if rclpy.ok():rclpy.shutdown()
         evidence["cleanup"]={name:stop(p) for name,p in reversed(procs)}
         for f in files:f.close()
