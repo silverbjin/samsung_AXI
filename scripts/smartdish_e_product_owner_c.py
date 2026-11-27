@@ -18,7 +18,7 @@ def main():
     from rclpy.executors import ExternalShutdownException
     from smartdish_ai.product_stability_inference_node import ProductStabilityInferenceNode
     from smartdish_ai.model_runtime import load_predictor,OWNER_GAZEBO_INTEGRATION_CHECKPOINT_SHA256
-    assert OWNER_GAZEBO_INTEGRATION_CHECKPOINT_SHA256==MODEL_SHA
+    if OWNER_GAZEBO_INTEGRATION_CHECKPOINT_SHA256!=MODEL_SHA:raise RuntimeError("E_OWNER_C_PIN_DRIFT")
     meta=dict(scope=MODEL_SCOPE,private_model_loaded=True,checkpoint_sha256=MODEL_SHA,
               model_version=MODEL_VERSION,test4_opened=False,general_product_approved=False)
     class RealObservedC(ProductStabilityInferenceNode):
