@@ -1,3 +1,5 @@
+> **C 최신 상태 2026-11-27 — C17/C18 완료, C19 안전 출고:** E의 D/A/B/C AI OFF 통합은 PR #44로 **이미 main 병합 및 사용자 WSL2 L3 3-leg PASS**. 아래 2026-11-23 NOT_RUN/HOLD는 과거 통합 이전 이력입니다. C Dataset v1 frozen P2 단일 연구 실행은 성공했으나 Val1/3(33.3%)으로 **모델 성능 HOLD**, P3 Test4 **미승인·미개봉**. C17은 제품 모델 checksum 승인 게이트 기본 None으로 로딩을 차단하고 기존 UNKNOWN을 보호합니다. C18 [부정적 연구 모델 카드](../../ai/docs/C_V1_FROZEN_RESNET18_NEGATIVE_RESULT_MODEL_CARD_KO.md), C19 [선별 안전 출고](../reports/acceptance/SMARTDISH_C17_C19_SAFE_RELEASE_20261127_KO.md), C20 [별도 미승인 Change Request #59](https://github.com/silverbjin/samsung_AXI/issues/59)로 분리. **AI ON·A19·재학습·Test 개봉 권한 없음**, D/E 변경·WSL2 재실행 없음.
+
 # C 담당 → D/E SmartDish AI ON 선택 기능 인계
 
 - 일자: 2026-11-23
