@@ -66,6 +66,15 @@ unset PYTHONPATH PYTHONHOME PYTHONUSERBASE
   [[ "$(command -v python)" == "$VENV/bin/python" ]] ||
     { echo C_V1_P3_VENV_ACTIVATION_FAILED >&2; exit 2; }
   cd "$WORK/repo"
+  # Future necessary acceptance in one WSL2 action: environment + checkpoint seal.
+  # Existing accepted 2026-11-27 Owner pretest must NOT be rerun by this change.
+  python -m ai.train.owner_environment_diagnostics \
+      --p0-report "$HOME/smartdish_c_dataset_v1_p0_evidence/20261126T084104Z_ea54959b66b1/p0_report.json" \
+      --p1-report "$HOME/smartdish_c_dataset_v1_p1_evidence/20261127T003050Z-p1-23e5dcd49361/p1_report.json" \
+      --p2-summary "$P2_SUMMARY" \
+      --experiment-lock ai/docs/C_V1_EXPERIMENT_LOCK.json \
+      --checkpoint "$PRIVATE/c_v1_frozen_head.pt" \
+      --venv "$VENV" --report "$OUT/environment_report.json"
   python -m ai.train.p3_pretest_seal \
       --p2-summary "$P2_SUMMARY" \
       --checkpoint "$PRIVATE/c_v1_frozen_head.pt" \
