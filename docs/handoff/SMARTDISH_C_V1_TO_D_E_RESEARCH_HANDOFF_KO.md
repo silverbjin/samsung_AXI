@@ -36,3 +36,12 @@
 ## C 코드 검증 인계 증거
 
 [Draft PR #58](https://github.com/silverbjin/samsung_AXI/pull/58) / 검증 C 코드 SHA `bd0ca4cbb234c753269cf0486827af577fb19a4f`, [C V1 CI #45784500398](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500398) 51 PASS, [기존 C contract CI #45784500415](https://github.com/silverbjin/samsung_AXI/actions/runs/45784500415) SUCCESS. **P0 C private 42/42·P2 학습·P3 Test·P4 모델은 아직 HOLD/NOT_RUN**. D/E는 코드 JSON 계약과 UNKNOWN/직원 확인만 통합검토 가능; E AI ON product acceptance는 별도입니다.
+
+## 2026-11-27 C09 P1 Owner 도구 오류 원본 수령·최소 수정
+
+- 제출 `20261127T001421Z-p1-17c6db753b52.tar.gz`의 SHA256 `52ed93611104983e7f776e798e992ca0a08b9a2dd71072648e44cd6f1f730998`와 sidecar 직접 일치.
+- 정확 실행 코드 `17c6db753b52333b971bfc0b380a3da29b62f8a4`, detached checkout/clean, Python3.12.3, 종료코드 **2**, `p1_report.json` `HOLD / C_V1_TORCH_OR_TORCHVISION_MISSING / ModuleNotFoundError`. 이번 원본만으로 **어느 패키지가 누락됐는지는 알 수 없음**.
+- 기존 P0 42/42 결과는 **PASS 유지**, P0 재실행 없음; P1 실물 weight cache SHA·사용권 아직 없음, 연구 학습 GO **미발급**.
+- 오류 원인 분류 최소 수정 코드 `9a1f7bb46c91ab7f27727d5ba02bd1db9278a113`; [C 전용 CI #45916029495](https://github.com/silverbjin/samsung_AXI/actions/runs/45916029495) **70 passed**. 공개 fixture-only, Owner의 P1 환경 설치·가중치 인수 PASS가 아님.
+- [문제 진단](../reports/issues/2026-11-27_C_V1_ISSUE_02_P1_DEPENDENCY_IMPORT_HOLD_KO.md), [C09 교육 보고](../reports/tasks/2026-11-27_C09_P1_OWNER_DEPENDENCY_HOLD_EDU_KO.md) 참조.
+- 현재 상태 **`C_P0_CONTRACT_PASS_HUMAN_REVIEW_REQUIRED / C_P1_HOLD_DEPENDENCY_IMPORT / P2_NOT_RUN / P3_TEST_NOT_OPENED / P4_NO_MODEL / E_AI_ON_HOLD`**. Data Freeze, AI OFF, A19 금지, Production Contact HOLD 지속.
