@@ -80,6 +80,28 @@ def stop(proc):
         os.killpg(proc.pid,signal.SIGKILL)
         return {"exit":proc.wait(timeout=10),"forced":True}
 
+def quiesce_world(proc, node, rclpy, clock):
+    """Pause while transport is still alive; do not equate a signal with exit."""
+    if proc.poll() is not None:
+        return {"paused":False,"reason":"already_exited"}
+    try:
+        reply=subprocess.run(["gz","service","-s","/world/restaurant/control",
+            "--reqtype","gz.msgs.WorldControl","--reptype","gz.msgs.Boolean",
+            "--timeout","3000","--req","pause: true"],capture_output=True,text=True,timeout=5)
+        paused=reply.returncode==0 and bool(re.search(r"data\s*:\s*true",reply.stdout))
+        record={"paused":paused,"exit":reply.returncode,"stdout":reply.stdout,"stderr":reply.stderr}
+        # Leave the sensor bridge and DDS subscriber alive during quiescence.
+        until=time.monotonic()+1.5
+        stamps=[]
+        while time.monotonic()<until and proc.poll() is None:
+            if node:rclpy.spin_once(node,timeout_sec=.05)
+            else:time.sleep(.05)
+            if clock:stamps.append(clock[-1])
+        record["clock_quiescent"]=len(stamps)>=2 and len(set(stamps[-5:]))==1
+        return record
+    except (OSError,subprocess.TimeoutExpired) as exc:
+        return {"paused":False,"reason":repr(exc)}
+
 def run(a,extension=None):
     if os.environ.get("GITHUB_ACTIONS")!="true" or os.environ.get("CI")!="true" or os.environ.get("WSL_DISTRO_NAME") or not os.environ.get("GZ_PARTITION","").startswith("smartdish_a_product_"):
         raise RuntimeError("CI_ONLY")
@@ -198,11 +220,19 @@ def run(a,extension=None):
         evidence["clock_distinct_stamps"]=len(set(clock))
         if node:
             evidence["observed_publishers"]={t:node.count_publishers(t) for t in (*frames,"/clock")}
-            node.destroy_node()
+        # Stop Gazebo first with bridge and subscriber still alive. Pause first
+        # so renderer is not torn down concurrently with an active update.
+        evidence["cleanup"]={}
+        for name,p in procs:
+            if name=="gazebo":
+                evidence["quiescence"]=quiesce_world(p,node,rclpy,clock)
+                evidence["cleanup"][name]=stop(p)
+        for name,p in reversed(procs):
+            if name!="gazebo":evidence["cleanup"][name]=stop(p)
+        if node:node.destroy_node()
         if rclpy.ok():rclpy.shutdown()
-        evidence["cleanup"]={name:stop(p) for name,p in reversed(procs)}
         for f in files:f.close()
-        if any(x["forced"] for x in evidence["cleanup"].values()):
+        if any(x["forced"] or x["exit"]!=0 for x in evidence["cleanup"].values()):
             evidence["verdict"]="FAIL"
             evidence["first_error"]=evidence["first_error"] or "FORCED_CLEANUP"
         (out/"evidence.json").write_text(json.dumps(evidence,sort_keys=True,indent=2)+"\n")
