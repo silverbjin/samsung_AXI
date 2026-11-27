@@ -1,4 +1,4 @@
-# SmartDish 제품 복구 공통 계약 v1.1 (2026-11-27)
+# SmartDish 제품 복구 공통 계약 v1.1.1 (2026-11-27; wire schema 2 unchanged)
 
 상태: 개발 명세 승인용 문서 / 구현 및 신규 CI NOT_RUN. 이 문서는 제품 AI ON 승인서가 아니다. 기존 7토픽 계약의 하위 호환 확장으로, 신규 기능은 명시적 product recovery integration profile에서만 활성화한다.
 
@@ -40,7 +40,7 @@ T03만 활성, HOME (0,0) → T03 (5.25,0.38) → DISH_RETURN (-1.15,1.60) → H
 Capture는 A가 실제 RGB에서 선택한 frame을 지정; C는 stamp/frame_id/hash가 일치하는 canonical packed RGB를 bounded cache에서 찾아 사용. 새 frame으로 몰래 대체 금지. capture ACK 뒤 DDS 순서 경쟁 대비 C는 제한 시간 내 해당 frame을 기다릴 수 있으나 predictor 호출은 최대 1회. image stamp는 같은 Gazebo sim clock epoch만 비교; freshness=수신 monotonic <=2s, timeout=steady monotonic. sim reset/backward stamp는 invalid. bytes hash는 stride 제거 및 bgr→rgb 후 canonical RGB, PNG 파일 SHA와 별개. 모든 숫자는 finite; confidence null은 failure/threshold UNKNOWN의 기존 표현 허용, raw confidence는 정상 호출이면 보존. receipt는 canonical UTF-8 JSON sorted keys 및 실제 파일 SHA256, 외부 경로/개인 파일 금지. 동일 ID 동일 payload 재전송은 idempotent: 물리/추론 재실행 없음; 충돌 ID는 거부. ACK는 엔티티/pose/픽셀 실증 전 금지. ROS graph/ID만으로 암호학적 신뢰를 주장하지 않는다.
 
 ## 4. 안전·오류 처리
-제안 초기 설정(실제 CI 실측 후 E 승인): 구간 이동 120s, 정지 확인 3s (|v|<=0.01m/s, |w|<=0.02rad/s 1s 연속), 초기 식기 확인 3s, LOAD/UNLOAD 각 5s, CAPTURE 5s, AI 5s, STAFF 60s. 10/5s wait는 최소값; wait 끝이 물리 ACK를 대체하지 않음. 각 상태 deadline은 메시지 수신 및 timer에서 검사. 늦은 ACK/승인 무효. no retry 기본; 수동 재시작은 초기 상태/식기 위치 확인 후 새 request_id. 
+제안 초기 설정(실제 CI 실측 후 E 승인): 구간 이동 기본 120s (E 실제 단일 Gazebo 통합은 240s wall, 아래 실측 근거 참조), 정지 확인 3s (|v|<=0.01m/s, |w|<=0.02rad/s 1s 연속), 초기 식기 확인 3s, LOAD/UNLOAD 각 20s (A 실제 9.79/7.20, 8.43/6.13, 8.374/7.097s 및 이후 10.640/7.734s 측정; E 승인), CAPTURE 5s, AI 5s, STAFF 60s. 10/5s wait는 최소값; wait 끝이 물리 ACK를 대체하지 않음. 각 상태 deadline은 메시지 수신 및 timer에서 검사. 늦은 ACK/승인 무효. no retry 기본; 수동 재시작은 초기 상태/식기 위치 확인 후 새 request_id. 
 - EMPTY_TABLE, ROBOT_NOT_STOPPED, LOAD_FAILED, CAMERA_TIMEOUT, FRAME_INVALID, MODEL_UNAVAILABLE, INFERENCE_FAILED, AI_TIMEOUT, STAFF_CONFIRM_TIMEOUT, UNLOAD_FAILED, NODE_EXIT, NAV_FAILED/CANCEL_TIMEOUT 등 reason 코드. SAFE_HOLD는 진행 불가, action_allowed=false, no next goal. ABORTED/ERROR/CANCELED terminal 및 증거 보존. 기존 유효 상태와 reason 호환은 D가 문서화. 
 - 활성 Goal이 있는 실패/사용자 중단: A만 실제 해당 UUID 취소, terminal 확인 후 odom zero. CM 경로 우회 금지. 취소/정지 불확실 시 SAFE_HOLD_UNVERIFIED, 신규 요청 금지, 명시적 운영자 조치 필요. 정지 단계 실패를 성공 종료로 포장하지 않음. 
 - 직원 승인 60s countdown, UI 버튼 노출·활성 조건, ABORT 항상 가능한 안전 상태; 자동 진행 금지. 유효 추론 threshold UNKNOWN만 수동 판단 가능. hard failure의 승인/임계값 0 우회 금지. 
@@ -49,3 +49,11 @@ Capture는 A가 실제 RGB에서 선택한 frame을 지정; C는 stamp/frame_id/
 ## 5. 정량 검수 공통
 L0 schema, SDF/world/map 보호, state transitions, exact once, failure/deadline, threshold boundary. L1 ROS Jazzy build + actual DDS/QoS/parameter ACK + installed origin. L2 실제 단일 Gazebo: 초기 엔티티/카메라, LOAD/UNLOAD 단독, 실제 3 Nav2 UUID SUCCEEDED/odom displacement>0.25m/scan+odom >=3 per leg/AMCL error<=0.8m, 실제 10/5s wait (관측 허용 0.3s), stop dwell, actual tray pose follows robot 이동 중 상대좌표 및 수량 검증, 실제 camera frame hash/1 inference, no goal before approval/after failure, CM ACTIVE 및 sole /cmd_vel publisher 시작/종료, /clock 1, UI 상태 및 clean exit. L2 CI double은 별도 모델 ID, private weight 없음. L3 WSL2 실제 v1 모델 + 실제 TTY/UI + 동일 single-world scenario, 시각 품질 owner 판단(자동 gate 아님). 
 증거: source SHA, run ID, upstream SHA, generated world/robot/bridge/launch SHA, map, model receipt(가중치 제외), stack/entity lifecycle, world+relative pose, odom/scan/UUID, load/unload/capture receipts, PNG/hash+raw RGB hash, DDS events, actual predictor provenance, UI/staff causal log, process exit, first_error, tar+sha256. CI artifact expiry 고려해 요약/해시/Run ID를 MD로 보존. raw private checkpoint, dataset, Test4, 개인 경로 로그는 공개 커밋 금지.
+
+## v1.1.1 E 승인 보완
+- D의 CANCELING 15s (A 취소 10s + 정지 3s + transport margin 2s). 10/5s 대기는 물리 deadline 20/20s와 별개; D의 먼저 시작된 제한이 우선한다. 늦은 ACK는 무효.
+- READY는 실제 A entity/정지/카메라/CM 관측과 receipt bytes/hash/source/run/stack 확인 후 D arm. 실제 accepted handle UUID만 D owning executor에 binding; pre-UUID ABORT/늦은 handle은 정확히 취소하고 terminal/stop 확인. 불확실하면 SAFE_HOLD_UNVERIFIED. ABORT의 capture_id 명시 null은 capture 전/AI OFF에만 허용. 실패 transfer unknown counts/IDs는 ACK 아님.
+- B-QA-06: 동일 세션의 StopMonitor 입력 모든 odom callback, steady time, sim stamp, 실제 accepted/terminal/stop UUID, 10/5 wait와 20/20 deadline을 원본으로 출고. Decimated pose/receipt만으로 independent dwell PASS 금지.
+
+### E 단일 Gazebo 이동 wall deadline 보완 (2026-11-27)
+A04 실제 적재 주행 검증의 `nav.timeout=240`과 E의 A/D 120초 wall 제한이 불일치했다. E run 45991850522에서 TO_RETURN은 약 60.3 sim s/120 wall s 시점에 실제 이동 중 timeout 취소되었고, 이전 A 성공 적재 구간은 72.160 sim s(ECM). 따라서 E 단일 Gazebo 실행에서 A/D 각각 명시적 240s wall budget을 사용한다. 기본 120s는 보존한다. 정지 3s/1s, cancel 15s, LOAD/UNLOAD 20s, wait 10/5, freshness, CM, 지도, UUID, 물리 clearance 조건 불변. 240s 초과는 동일 UUID 취소·terminal·정지 후 fail-closed. 실제 E 재검수 필수. WSL2 Owner 승인은 별도.

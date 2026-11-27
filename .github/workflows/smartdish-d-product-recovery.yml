@@ -1,0 +1,77 @@
+name: SmartDish D product recovery L0
+on:
+  push:
+    branches: [feat/smartdish-d-product-fsm]
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'src/smartdish_service/**'
+      - '.github/workflows/smartdish-d-product-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Test D contract (fixtures only)
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/source_sha.txt
+          PYTHONPATH=src/smartdish_service python3 -m unittest discover -s src/smartdish_service/test -p test_product_recovery_fsm.py -v 2>&1 | tee evidence/d-l0.log
+      - name: Install Tk / Xvfb
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb xauth scrot
+      - name: Xvfb functional UI and exact frame fixture
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONPATH=src/smartdish_service D_UI_SCREENSHOT="$PWD/evidence/d-ui-fixture.png" xvfb-run -a python3 src/smartdish_service/test/product_recovery_ui_check.py 2>&1 | tee evidence/d-ui.log
+      - name: Archive test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d-product-l0-${{ github.run_id }}
+          path: evidence/
+  d-l1:
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+    timeout-minutes: 12
+    env:
+      ROS_DOMAIN_ID: '79'
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+    steps:
+      - name: Install ROS build and GUI test dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git python3-colcon-common-extensions python3-tk python3-yaml xvfb xauth ros-jazzy-sensor-msgs
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build installed D package
+        shell: bash
+        run: |
+          set -eo pipefail
+          mkdir -p evidence-l1
+          git config --global --add safe.directory "$PWD"
+          git rev-parse HEAD | tee evidence-l1/source_sha.txt
+          source /opt/ros/jazzy/setup.bash
+          colcon build --base-paths src/smartdish_service --packages-select smartdish_service 2>&1 | tee evidence-l1/build.log
+      - name: Installed DDS and Xvfb fixture
+        shell: bash
+        run: |
+          set -eo pipefail
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          xvfb-run -a python3 src/smartdish_service/test/product_recovery_dds_check.py 2>&1 | tee evidence-l1/d-l1.log
+      - name: Archive DDS evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d-product-l1-${{ github.run_id }}
+          path: evidence-l1/

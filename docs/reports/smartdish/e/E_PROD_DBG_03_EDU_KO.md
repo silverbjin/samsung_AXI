@@ -1,0 +1,7 @@
+# E-PROD-DBG-03 — stationary READY boundary (RED 45990825994)
+
+Source bc9cecb922120db55d932c2118d25d5c72e78b94; actual build and A NO_GOAL gate passed, C CI-double node initialized. First error TIMEOUT_E_RUNTIME_READY, NavigateToPose goal count 0. Artifact 15194115636 ZIP SHA256 5072201594cee83362b882deb34ed9ab84977c849b854786ba1721a93d1fc56d; TAR SHA256 157fa3423abd1de2780536bba5ede75b1d49fef7694c00adb6fe063e75551e97; 61/61 internal hashes independently verified from downloaded bytes. Raw StopMonitor callbacks 1033 unique, max receive gap 0.11970952 s, zero nav events. Lifecycle shutdown ACK 3/3, parent exit 0, no forced cleanup. Not B-QA-06 terminal proof.
+
+Hypothesis: runtime subscribes late to AMCL volatile pose while robot is stationary; preflight demands actual pose received within 2s. CM service polling and the other conjuncts were not exported, so exact failed predicate not yet proven. Add per-predicate telemetry and stationary-only actual AMCL /request_nomotion_update; service response never substitutes for a fresh pose. Preserve all freshness and stop gates. Steady-time polling. Also correct statically identified D heartbeat counting (first WAIT entry, repeated status, one correlated request); no claim this was the observed RED. Add independent artifact replay job after full session succeeds. No checkpoint in CI, no owner approval or main merge.
+
+Next: inspect actual runtime_ready.jsonl; advance only on true gate. Reuse old A evidence; no isolated full A replay. Full E session required because prior run had no goals.

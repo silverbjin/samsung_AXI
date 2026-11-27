@@ -1,0 +1,12 @@
+# E-PROD-DBG-01 — 실제 지도 unknown 분류와 경로 검수의 분리
+
+- 목표: 540 mm 장착 트레이의 보수적 정적 footprint 사전 검수. L0 only.
+- 실제 RED: 0176fea49dfa7ffc72102e04c3c8ba05680b021e, CI [45952380903](https://github.com/silverbjin/samsung_AXI/actions/runs/45952380903), job 140350962540, 1 failed / 3 passed, artifact 15177795304, digest sha256:fea58e36fe5b17bf05432f2537aba3b1d5d80647bd8554b3b834d3ffd0395ac1 (GitHub metadata). Test assertion data["all_connected"] failed. SHA256SUMS missing on RED due to step ordering.
+- 원인: initial independent calculation incorrectly treated pixel 205 as free. Actual Nav2 trinary map threshold .196; (255-205)/255=.196078431..., hence unknown. Pixel counts 254: 24811, 205: 9781, 0: 1588. Strict radius .445477 m includes unknown at HOME and T03, no full strict leg. Occupied-only result is diagnostic, never clearance evidence.
+- 수정: explicit free/unknown/occupied classes, strict connectivity plus separate non-authorizing diagnostic, preserve map and footprint. Block overlay on strict HOLD and save receipt. Test checks actual HOLD, positive fully free synthetic fixture, unknown-only fixture, rejected overlay. Always generate artifact manifest even on RED. No fake PASS or threshold relaxation.
+- GREEN candidate: this commit; CI pending until job actually completes, not a new product acceptance. Update exact run/artifact after completed. Actual L2/L3 NOT_RUN; map clearance HOLD pending independent actual world/live costmap verification and explicit safe release.
+- 학습: L0 regression PASS can validate correct rejection; it is not movement clearance PASS. Do not infer free from absence of occupied. Never shrink footprint or enable unknown traversal to hide failure.
+
+## Actual GREEN audit
+- Verified immutable SHA c7f6e30e36351d73eebe7bb9460853740a227c16: [CI 45952664886](https://github.com/silverbjin/samsung_AXI/actions/runs/45952664886), job 140351877778 completed success. Original job log: "6 passed, 4 warnings in 1.49s". Four warnings are Pillow getdata deprecation, not failures. Artifact [15178035446](https://github.com/silverbjin/samsung_AXI/actions/runs/45952664886/artifacts/15178035446), GitHub ZIP digest sha256:c31c2ea7fe02757674d70b52fe31ddbe89ae9675e6aa43e4cf5dc85e177f636a. Upload reports four files including SHA256SUMS. ZIP digest metadata/log inspected; no claim of separate raw ZIP download/hash in E.
+- Classification/regression GREEN. Physical clearance remains HOLD. No new Goal, no motion authorization, no L2/L3 acceptance.

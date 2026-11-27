@@ -1,0 +1,77 @@
+name: SmartDish C product exact inference
+on:
+  push:
+    branches: [feat/smartdish-c-product-inference]
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'src/smartdish_ai/**'
+      - '.github/workflows/smartdish-c-product.yml'
+      - 'docs/reports/smartdish/c/**'
+permissions:
+  contents: read
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Exact source and contract tests
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p evidence
+          git -c safe.directory="$PWD" rev-parse HEAD | tee evidence/source_sha.txt
+          PYTHONPATH=src/smartdish_ai python3 -m unittest discover -s src/smartdish_ai/test -p test_product_inference.py -v 2>&1 | tee evidence/l0.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: c-product-l0-${{ github.run_id }}
+          path: evidence/
+  l1-dds:
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install build tools (no torch or private checkpoint)
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-numpy
+      - name: Build C and run installed DDS fixture
+        shell: bash
+        env:
+          ROS_DOMAIN_ID: '83'
+          ROS_LOCALHOST_ONLY: '1'
+        run: |
+          set -eo pipefail
+          mkdir -p evidence
+          git -c safe.directory="$PWD" rev-parse HEAD | tee evidence/source_sha.txt
+          source /opt/ros/jazzy/setup.bash
+          colcon build --base-paths src/smartdish_ai --packages-select smartdish_ai 2>&1 | tee evidence/build.log
+          source install/setup.bash
+          python3 - <<'PY' | tee evidence/installed_origin.log
+          import hashlib
+          from pathlib import Path
+          import smartdish_ai.product_inference as core
+          import smartdish_ai.product_stability_inference_node as node
+          for module in (core, node):
+              p = Path(module.__file__).resolve()
+              src = Path("src/smartdish_ai/smartdish_ai") / p.name
+              assert "install" in p.parts, p
+              assert p.read_bytes() == src.read_bytes(), p
+              print(p, hashlib.sha256(p.read_bytes()).hexdigest())
+          PY
+          ros2 pkg executables smartdish_ai | tee evidence/executables.txt
+          grep -q 'product_stability_inference_node' evidence/executables.txt
+          python3 src/smartdish_ai/test/product_dds_fixture.py -v 2>&1 | tee evidence/l1.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: c-product-l1-${{ github.run_id }}
+          path: evidence/

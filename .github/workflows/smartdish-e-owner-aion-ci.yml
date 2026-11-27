@@ -1,0 +1,124 @@
+name: SmartDish E Owner v1 AI integration (model-free CI, NO_NAV2)
+on:
+  push:
+    branches:
+      - feat/smartdish-e-v1-owner-ai-integration
+    paths:
+      - "src/smartdish_ai/**"
+      - "src/smartdish_service/**"
+      - "tests/test_smartdish_e_*"
+      - ".github/workflows/smartdish-e-owner-aion-ci.yml"
+      - "scripts/smartdish_e_owner_aion_ros_probe.py"
+      - "scripts/smartdish_e_owner_model_preflight.py"
+      - "scripts/smartdish_e_owner_aion.sh"
+      - "scripts/smartdish_e_c_runtime_guard.py"
+      - "scripts/smartdish_e_installed_origin.py"
+      - "scripts/smartdish_e_ci_station_nav_probe.py"
+  pull_request:
+    paths:
+      - "src/smartdish_ai/**"
+      - "src/smartdish_service/**"
+      - "tests/test_smartdish_e_*"
+      - ".github/workflows/smartdish-e-owner-aion-ci.yml"
+      - "scripts/smartdish_e_owner_aion_ros_probe.py"
+      - "scripts/smartdish_e_owner_model_preflight.py"
+      - "scripts/smartdish_e_owner_aion.sh"
+      - "scripts/smartdish_e_c_runtime_guard.py"
+      - "scripts/smartdish_e_installed_origin.py"
+      - "scripts/smartdish_e_ci_station_nav_probe.py"
+permissions:
+  contents: read
+jobs:
+  e-l0:
+    name: E AI integration L0 / thresholds, owner rights scope, C17, D/E AI OFF
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python contract and safe synthetic regression (no data/model/Goals)
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml python3-pil python3-numpy
+          python3 -m compileall -q src/smartdish_ai/smartdish_ai src/smartdish_service/smartdish_service
+          bash -n scripts/smartdish_e_owner_aion.sh
+          python3 -m py_compile scripts/smartdish_e_c_runtime_guard.py scripts/smartdish_e_installed_origin.py scripts/smartdish_e_ci_station_nav_probe.py
+          # Expected failure has non-zero exit; do NOT lose it to pipefail.
+          if owner_out="$(env -u SMARTDISH_E_SOURCE_SHA bash scripts/smartdish_e_owner_aion.sh --preflight 2>&1)"; then
+            echo E_OWNER_BOOTSTRAP_FAIL_OPEN >&2
+            exit 2
+          fi
+          echo "$owner_out" | grep -Fq E_OWNER_AION_BLOCKED=SOURCE_PIN_REQUIRED
+          echo E_OWNER_UNPINNED_BOOTSTRAP_REJECTED_PASS
+          python3 -m pytest -q \
+            tests/test_smartdish_e_aion_thresholds.py \
+            tests/test_smartdish_e_aion_owner_loader.py \
+            tests/test_smartdish_e_owner_fsm.py \
+            tests/test_smartdish_e_aion_ui_control.py \
+            tests/test_smartdish_e_owner_preflight.py \
+            tests/test_smartdish_e_c_runtime_contract.py \
+            tests/test_smartdish_d_aion.py \
+            tests/test_smartdish_d_service.py \
+            tests/test_smartdish_d_ui.py \
+            tests/test_smartdish_e_contract.py \
+            tests/test_c17_product_model_admission.py \
+            tests/test_c_stability.py
+          echo E_OWNER_AION_L0_PASS_PERFORMANCE_WAIVED_NO_NAV2
+  e-l1:
+    name: E AI integration L1 / Jazzy 3pkgs + DDS owner threshold runtime
+    runs-on: ubuntu-24.04
+    needs: e-l0
+    timeout-minutes: 20
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DOMAIN_ID: "188"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build C+D+A and verify owner-only DDS without weights/Goal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            python3-colcon-common-extensions python3-yaml python3-numpy python3-pytest python3-tk
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-select smartdish_ai smartdish_service smartdish_robot --symlink-install
+          set +u
+          source install/setup.bash
+          set -u
+          /usr/bin/python3 scripts/smartdish_e_installed_origin.py --root "$PWD" --pin "$(git -c safe.directory="$PWD" rev-parse HEAD)" --install-base "$PWD/install" --packages smartdish_ai smartdish_service smartdish_robot
+          ros2 pkg executables smartdish_service | grep -F "smartdish_service smartdish_manager"
+          ros2 pkg executables smartdish_service | grep -F "smartdish_service smartdish_ui"
+          ros2 pkg executables smartdish_ai | grep -F "smartdish_ai stability_inference_node"
+          python3 -m py_compile src/smartdish_service/launch/smartdish_e_owner_aion.launch.py
+          ros2 launch smartdish_service smartdish_e_owner_aion.launch.py --show-args
+          # A manually invoked owner AI ON launch without verified C venv
+          # must fail before any node starts. Never accept UNKNOWN as model PASS.
+          if launch_out="$(timeout 12s ros2 launch smartdish_service smartdish_e_owner_aion.launch.py \
+                owner_gazebo_integration:=true ai_available:=true \
+                model_path:=/private/missing-model.pt 2>&1)"; then
+            echo E_OWNER_DIRECT_LAUNCH_FAIL_OPEN >&2
+            exit 2
+          fi
+          echo "$launch_out" | grep -F E_OWNER_C_RUNTIME_CONTRACT_NOT_VERIFIED
+          echo E_OWNER_DIRECT_LAUNCH_GUARD_PASS_NO_GOAL
+          # C with explicit Owner model and nonexistent weights must exit
+          # nonzero rather than announce STABILITY_READY (model-less fallback).
+          if model_out="$(timeout 12s ros2 run smartdish_ai stability_inference_node \
+                --ros-args -p owner_gazebo_integration:=true \
+                -p model_path:=/private/missing-model.pt 2>&1)"; then
+            echo E_OWNER_C_MODEL_FAIL_OPEN >&2
+            exit 2
+          fi
+          echo "$model_out" | grep -F E_OWNER_C_MODEL_LOAD_FAILED
+          if echo "$model_out" | grep -Fq C_STABILITY_READY; then
+            echo E_OWNER_C_FALSE_READY >&2
+            exit 2
+          fi
+          echo E_OWNER_C_MODEL_REQUIRED_FAIL_CLOSED_PASS
+          echo E_OWNER_AION_L1_3PKGS_BUILD_PASS
+          timeout 45s python3 scripts/smartdish_e_owner_aion_ros_probe.py
+          echo E_OWNER_AION_L1_DDS_PARAMETER_ACK_PASS_NO_NAV2

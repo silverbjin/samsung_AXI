@@ -1,0 +1,6 @@
+# E 담당 최종 통합 검수 실행 프롬프트
+당신은 SmartDish E 통합 담당이다. silverbjin/samsung_AXI, E #66 현재 기준 2dc70622d8dc8b718366e5533cbbc320fd5dbc51, A #67 기능 PIN 7d8bf9ec30f88c79ed1035b485a40aa3e7c3b688. A_PROD_04_E_HANDOFF_KO.md와 B 독립 QA 읽기. A 내부 L2 결합 증거 PASS, E final review required, Owner NOT_RUN.
+1. actual geometry/candidate planning and dual map, CM single cmd_vel / smoother chain, .10m registration, 560mm+10mm padding, AMCL candidate, exact physical traces and entity receipts 검수. S7 original unchanged, candidate adoption E decision. A diagnostic CI-only, product code에 직접 CI wrapper를 실행하지 않음.
+2. 실제 검증된 A API 및 configuration, persistent lifecycle service client/ACK→is_active false→pause/exit 계약을 E integration branch에 최소 반영. 기존 C runtime 및 model rights, D FSM/GUI, B QA, AI OFF 보존. 10/5 wait, 20/20 deadlines 유지. A/D API가 달라지면 관련 담당과 정확한 경계만 수정.
+3. E final actual single-session HOME→T03→LOAD→fresh capture/actual AI→DISH_RETURN→UNLOAD→HOME→UUID terminal/stop→all managers ACK→pause/exit 검수. A 이전 empty/full loaded/focused shutdown은 서로 다른 세션; 최종 SHA 동일 session PASS로 주장 금지. E product fault/negative tests 및 legacy regression 필요.
+4. 실패 시 최초 오류와 artifact를 분석해 E 또는 해당 담당에게 필요한 개발만 지시. 성공 시 E 보고서와 immutable WSL2 GUI PIN 준비. Owner L3 검수 전 main 승인 금지. 사용자의 MVP 정책 및 시각 검수 gate 제외 유지.

@@ -1,0 +1,64 @@
+name: SmartDish A product DDS fixture
+on:
+  push:
+    branches: [feat/smartdish-a-product-collection]
+    paths:
+      - 'src/smartdish_robot/**'
+      - 'tests/smartdish_product_dds_check.py'
+      - '.github/workflows/smartdish-a-product-dds.yml'
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'src/smartdish_robot/**'
+      - 'tests/smartdish_product_dds_check.py'
+      - '.github/workflows/smartdish-a-product-dds.yml'
+permissions:
+  contents: read
+jobs:
+  a-product-dds:
+    if: github.event_name != 'pull_request' || github.head_ref == 'feat/smartdish-a-product-collection'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      ROS_DOMAIN_ID: '89'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build actual A package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-colcon-common-extensions python3-pil ros-jazzy-nav2-msgs ros-jazzy-nav2-simple-commander
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-select smartdish_robot
+          set +u
+          source install/setup.bash
+          set -u
+          export SOURCE_SHA="$(git rev-parse HEAD)"
+          ros2 pkg executables smartdish_robot | grep product_capture_node
+          mkdir -p generated/a_product_dds
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import smartdish_robot.product_navigation as n
+          import smartdish_robot.product_capture_node as c
+          for module in (n,c):
+              p=Path(module.__file__)
+              assert '/install/' in str(p), p
+              source=Path('src/smartdish_robot/smartdish_robot')/p.name
+              assert hashlib.sha256(p.read_bytes()).digest()==hashlib.sha256(source.read_bytes()).digest()
+          PY
+          timeout --signal=INT --kill-after=10s 90s python3 tests/smartdish_product_dds_check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a-product-dds-${{ github.run_id }}
+          path: generated/a_product_dds/

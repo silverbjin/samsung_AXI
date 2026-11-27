@@ -1,0 +1,104 @@
+name: SmartDish E actual single-world product CI double
+on:
+  push:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_e_product_session.py'
+      - 'scripts/smartdish_e_product_supervisor.py'
+      - 'scripts/smartdish_e_product_ui_ci.py'
+      - '.github/workflows/smartdish-e-product-session.yml'
+permissions:
+  contents: read
+jobs:
+  single-world:
+    runs-on: ubuntu-24.04
+    container:
+      image: ros:jazzy-ros-base-noble
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      ROS_DOMAIN_ID: '197'
+      GZ_PARTITION: smartdish_a04_e_${{ github.run_id }}_motion
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      QT_QPA_PLATFORM: xcb
+      RESTAURANT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build reviewed official stack
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p generated/a04_live
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse HEAD > generated/a04_live/source_sha.txt
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git cmake g++ make ros-jazzy-gz-sim-vendor ros-jazzy-gz-plugin-vendor python3-colcon-common-extensions python3-pytest python3-yaml python3-pil python3-numpy python3-scipy xvfb xauth mesa-utils ros-jazzy-ros-gz ros-jazzy-nav2-bringup ros-jazzy-navigation2 ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros python3-tk
+          mkdir -p src/upstream
+          git init -q src/upstream/turtlebot3_simulations
+          git -C src/upstream/turtlebot3_simulations remote add origin https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          git -C src/upstream/turtlebot3_simulations fetch -q --depth=1 origin "$PIN"
+          git -C src/upstream/turtlebot3_simulations checkout -q --detach FETCH_HEAD
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+          echo "$PIN" > generated/a04_live/upstream_sha.txt
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          PYTHONPATH=scripts python3 -m pytest -q tests/test_smartdish_a04_launch_overlay.py tests/test_smartdish_a04_motion.py tests/test_smartdish_a04_ecm.py tests/test_smartdish_a04_shutdown.py | tee generated/a04_live/launch_overlay_l0.txt
+          cmake -S scripts/smartdish_a04_observer -B /tmp/a04-observer 2>&1 | tee generated/a04_live/ecm_configure.log
+          cmake --build /tmp/a04-observer -j2 2>&1 | tee generated/a04_live/ecm_build.log
+          sha256sum /tmp/a04-observer/libsmartdish_a04_observer.so > generated/a04_live/ecm_binary.sha256
+          dpkg-query -W ros-jazzy-gz-sim-vendor >> generated/a04_live/ecm_binary.sha256
+          colcon build --packages-up-to restaurant_world restaurant_bringup smartdish_robot smartdish_ai smartdish_service
+      - name: Actual E single world with real A/D and CI-only C predictor double
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+          ROBOT="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
+          PARAMS="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+          xvfb-run -a -s '-screen 0 1280x720x24' python3 -u scripts/smartdish_e_product_supervisor.py --phase generated/a04_live/session/startup_phase.json --report generated/a04_live/supervisor.json -- python3 -u scripts/smartdish_e_product_session.py --observer-plugin /tmp/a04-observer/libsmartdish_a04_observer.so --out generated/a04_live/session --robot-source "$ROBOT" --bridge-source src/restaurant_bringup/config/bridge.yaml --world-source src/restaurant_world/worlds/restaurant.sdf --map maps/restaurant_map.yaml --poses src/smartdish_robot/config/table_poses.yaml --params "$PARAMS"
+      - name: Archive normal or first failure evidence
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p generated/a04_live
+          python3 scripts/smartdish_e_product_supervisor.py --cleanup-only --report generated/a04_live/archive_cleanup.json
+          (cd generated/a04_live && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
+          tar -C generated -czf generated/a04-live.tar.gz a04_live
+          sha256sum generated/a04-live.tar.gz > generated/a04-live.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-product-session-${{ github.run_id }}
+          path: |
+            generated/a04-live.tar.gz
+            generated/a04-live.tar.gz.sha256
+
+  independent-qa:
+    needs: single-world
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: e-product-session-${{ github.run_id }}
+          path: received
+      - name: Independent exact artifact replay
+        run: |
+          set -euo pipefail
+          python -m pip install numpy scipy pandas matplotlib Pillow PyYAML
+          python scripts/smartdish_e_product_qa_adapter.py --tar received/a04-live.tar.gz --sidecar received/a04-live.tar.gz.sha256 --repo . --out qa --source-sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-product-independent-qa-${{ github.run_id }}
+          path: qa/

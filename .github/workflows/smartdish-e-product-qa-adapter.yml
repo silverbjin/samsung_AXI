@@ -1,0 +1,33 @@
+name: SmartDish E independent B adapter L0
+on:
+  push:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_e_product_qa_adapter.py'
+      - 'tests/test_smartdish_e_product_qa_adapter.py'
+      - '.github/workflows/smartdish-e-product-qa-adapter.yml'
+permissions:
+  contents: read
+jobs:
+  adapter-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest numpy==2.2.6 scipy==1.15.3 pandas==2.2.3 Pillow==11.3.0 matplotlib==3.10.3 PyYAML==6.0.2
+      - run: |
+          set -o pipefail
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/source_sha.txt
+          python -m pytest -q tests/test_smartdish_e_product_qa_adapter.py 2>&1 | tee evidence/adapter.log
+          python -m unittest discover -s tests -p test_smartdish_b_physical_qa.py -v 2>&1 | tee evidence/b-regression.log
+      - if: always()
+        run: cd evidence && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-product-qa-adapter-${{ github.run_id }}
+          path: evidence/

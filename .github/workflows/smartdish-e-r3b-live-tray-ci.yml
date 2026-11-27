@@ -1,0 +1,58 @@
+name: SmartDish E R3b / actual live tray bridge to C (CI test double)
+on:
+  push:
+    branches: [feat/smartdish-e-v1-owner-ai-integration]
+    paths:
+      - 'scripts/smartdish_e_ci_live_tray_probe.py'
+      - '.github/workflows/smartdish-e-r3b-live-tray-ci.yml'
+      - 'src/smartdish_ai/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-tray:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build unchanged Gazebo tray producer and C ROS consumer environment
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-yaml python3-pil python3-numpy python3-colcon-common-extensions ros-jazzy-ros-gz ros-jazzy-ros-gz-bridge ros-jazzy-tf2-msgs ros-jazzy-sensor-msgs xvfb xauth mesa-utils libgl1-mesa-dri
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          python3 -m py_compile scripts/smartdish_e_ci_live_tray_probe.py
+          colcon build --packages-select smartdish_ai --symlink-install
+      - name: Actual A13 Gazebo live bridge / C concurrent DDS inference test double
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/local_setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=35s 900s python3 -u scripts/smartdish_e_ci_live_tray_probe.py --pin "$GITHUB_SHA" --out generated/smartdish_e_r3b
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-e-r3b-evidence-${{ github.run_id }}
+          path: |
+            generated/smartdish_e_r3b/
+            generated/smartdish_tray/run_*/summary.json
+            generated/smartdish_tray/run_*/trial_*/trial_summary.json
+            generated/smartdish_tray/run_*/failure_context.json
+            generated/smartdish_tray/run_*/logs/
+          if-no-files-found: warn
+          retention-days: 14
