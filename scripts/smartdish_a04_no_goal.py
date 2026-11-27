@@ -14,6 +14,7 @@ from smartdish_a04_clearance import (
     prepare, read_map, sha, save, require,
 )
 from prepare_nav2_params import build
+from smartdish_a04_launch_overlay import prepare_launch_overlay
 from smartdish_product_startup_probe import stop, quiesce_world
 from smartdish_robot.product_physics import PhysicalOperations, ROBOT
 from smartdish_robot.product_gazebo_backend import GazeboEntityServices, FIXTURE
@@ -119,7 +120,9 @@ def run(a):
                         map_sha256=sha(map_path.parent/cfg["image"]),params_sha256=sha(params),
                         map_static_screen=audit["original" if a.mode=="original" else "candidate"])
         log=(out/"launch.log").open("w")
-        cmd=["ros2","launch","restaurant_bringup","navigation.launch.py","gui:=false",
+        launch_file,launch_manifest=prepare_launch_overlay(static/"launch_overlay")
+        evidence["launch_overlay"]=launch_manifest
+        cmd=["ros2","launch",str(launch_file),"gui:=false",
              "robot_sdf:="+str(robot),"world_file:="+str(static/"world.sdf"),"bridge_config:="+str(bridgefile),
              "map:="+str(map_path),"params_file:="+str(params),"s6_stagger_nav_start:=true"]
         evidence["launch_argv"]=cmd

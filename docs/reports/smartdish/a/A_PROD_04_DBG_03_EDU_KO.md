@@ -1,0 +1,5 @@
+# A-PROD-04 DBG-03 — 실제 Docking Server 우회 publisher
+
+RED: 15c299d69e6791051c9b08cedc11eeb3488b8b7e, run 45956255819 candidate job 140363302073, artifact 15178264825, ZIP af5c73d0e784ec574d460c9c7d765e52abb66cd4b5d4fa46ee9d949a18e3b382, TAR 28158428d5e01d2f087ada8e7938c09231237e159ecabb5868724bc6bcf33f5f. 실제 194 graph snapshots. /cmd_vel publishers collision_monitor + docking_server; /cmd_vel_smoothed velocity_smoother; /cmd_vel_nav controller_server + behavior_server; /clock 및 tray RGB 각 1. /cmd_vel_nav subscriber velocity_smoother, /cmd_vel_smoothed subscriber CM, /cmd_vel subscriber bridge. odom displacement 9.46e-15 m, nonzero commands 0, NavigateToPose 0. DDS discovery 지연이 아닌 지속적 중복 publisher 확인. 공식 Jazzy navigation_launch.py에서 docking_server remap 누락 교차 확인.
+
+수정: A04 전용 설치 launch 복사본을 생성하고 Node/ComposableNode의 docking_server 2개 선언만 cmd_vel→cmd_vel_nav로 remap한다. 설치/기존 repo launch는 읽기 전용, 원본/수정본/hash/diff artifact 저장. 선언 구조 변경 시 fail closed. CM 단일 최종 publisher 기준 유지. L0 구조 테스트와 실제 NO_GOAL 재검수. 아직 GREEN 아님. 이동 금지.
