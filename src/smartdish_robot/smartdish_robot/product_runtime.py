@@ -13,10 +13,12 @@ from .product_contract import PROFILE, ContractError, require, canonical_json
 from .product_navigation import make_nav_client,validate_goal
 from .product_physics import PhysicalOperations
 from .product_transfer import ProductTransferController
+from .product_goal_gate import DeferredGoal
 
 class ProductRuntime:
     def __init__(self,node,poses,scene,world_dir,evidence_dir,source_sha,
-                 *,accepted_hook,cm_active,transfer_timeout=20.,physical=None,shared_clock=None):
+                 *,accepted_hook,cm_active,transfer_timeout=20.,physical=None,shared_clock=None,
+                 goal_ready_wait_s=0.,goal_gate=lambda:True,goal_authorize=lambda _:True):
         from rclpy.qos import QoSProfile,ReliabilityPolicy,DurabilityPolicy,qos_profile_sensor_data
         from rosgraph_msgs.msg import Clock
         from nav_msgs.msg import Odometry
@@ -32,6 +34,9 @@ class ProductRuntime:
         self.amcl=None;self.amcl_at=None;self.motion=None;self.pending=None;self.armed=False
         self.clock_fault=False;self.current_request_id=None;self.nav_fault_logged=False
         self.closed_requests=set()
+        self.goal_ready_wait_s=goal_ready_wait_s
+        self.goal_gate=goal_gate;self.goal_authorize=goal_authorize
+        self.deferred_goal=DeferredGoal(goal_ready_wait_s)
         if physical is None:self.physics.attach(node,self.clock)
         else:require(self.physics.node is node and self.physics.clock is self.clock,"SHARED_PHYSICAL_OWNER")
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.VOLATILE)
@@ -132,10 +137,43 @@ class ProductRuntime:
         except (ContractError,ValueError,TypeError,KeyError,RuntimeError) as exc:
             self.event("REJECTED_NO_EFFECT",{"handler":cb.__name__,"reason":str(exc)})
 
+    def goal_allowed(self,d):
+        return (d["request_id"] not in self.closed_requests and self.armed and self.pending is None and
+                self.nav.active is None and self.transfer.can_start_leg(d))
+
     def on_goal(self,d):
         d=validate_goal(d)
-        require(d["request_id"] not in self.closed_requests and self.armed and self.pending is None and self.nav.active is None and self.transfer.can_start_leg(d),
-                "PRODUCT_LEG_NOT_AUTHORIZED")
+        require(self.goal_allowed(d),"PRODUCT_LEG_NOT_AUTHORIZED")
+        if self.goal_ready_wait_s:
+            if self.deferred_goal.submit(d,time.monotonic()):
+                self.event("GOAL_PENDING_READY",d)
+            return
+        self.start_goal(d)
+
+    def advance_goal(self):
+        d=self.deferred_goal.request
+        if d is None:return
+        # Never send after a failure or cancellation; D owns request state.
+        try:
+            result=self.deferred_goal.poll(time.monotonic(),allowed=lambda:self.goal_allowed(d),
+                       ready=lambda:self.preflight() and self.nav.client.server_is_ready() and self.goal_gate())
+            if result=="WAIT":return
+            if result=="CLOSED":
+                self.event("GOAL_PENDING_CLOSED",d);return
+            if result=="EXPIRED":raise ContractError("GOAL_READY_TIMEOUT_NO_SEND")
+            require(result=="SEND" and self.goal_authorize(d) is True,"GOAL_D_AUTHORIZATION_REJECTED")
+            require(self.goal_allowed(d) and self.preflight() and self.nav.client.server_is_ready() and self.goal_gate(),"GOAL_READY_CHANGED_NO_SEND")
+            self.start_goal(d)
+            self.event("GOAL_DISPATCHED_AFTER_READY",d)
+        except Exception as exc:
+            self.deferred_goal.clear()
+            self.closed_requests.add(d["request_id"]);self.transfer.locked=True
+            self.nav.abort_pending()
+            self.event("GOAL_DISPATCH_FAIL_CLOSED",d|{"reason":str(exc)})
+            raise
+
+    def start_goal(self,d):
+        require(self.goal_allowed(d),"PRODUCT_LEG_NOT_AUTHORIZED")
         require(self.odom_xy is not None,"ODOM_MISSING")
         self.motion={"start":self.odom_xy,"odom_n":self.odom_n,"scan_n":self.scan_n,"max_m":0.}
         try:
@@ -161,6 +199,9 @@ class ProductRuntime:
         rid=d.get("request_id")
         if not isinstance(rid,str) or not rid:return
         self.closed_requests.add(rid)
+        if self.deferred_goal.request is not None and self.deferred_goal.request['request_id']==rid:
+            self.event('GOAL_PENDING_CLOSED',self.deferred_goal.request)
+            self.deferred_goal.clear()
         if rid==self.current_request_id:
             self.nav.abort_pending()
             self.transfer.locked=True
@@ -178,6 +219,7 @@ class ProductRuntime:
                 if not self.nav_fault_logged:
                     self.event('NAV_UNVERIFIED_LOCKED',{'reason':str(exc)})
                     self.nav_fault_logged=True
+        self.advance_goal()
         if self.pending is not None:
             req=self.pending;self.pending=None
             try:self.publish("dish_transfer_result",self.transfer.run(req))

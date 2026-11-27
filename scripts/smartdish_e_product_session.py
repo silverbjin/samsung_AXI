@@ -13,6 +13,7 @@ from smartdish_e_product_odom import RawOdomTrace,audit,ns
 MODEL="CI_DOUBLE_PRODUCT_E"
 # A04 actual qualified configuration; wall-time budget, not a relaxed physical gate.
 NAV_WALL_TIMEOUT_S=240
+GOAL_READY_WAIT_S=5.
 def require_ci():
     require(os.environ.get("GITHUB_ACTIONS")=="true" and os.environ.get("CI")=="true" and
             os.environ.get("GZ_PARTITION","").startswith("smartdish_a04_e_") and not os.environ.get("WSL_DISTRO_NAME"),"E_CI_ONLY")
@@ -158,9 +159,20 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
         workers.append(ThreadNode(d,mailbox))
         c=make_ci_c(out);require(c.core.predictor is not None and c.core.model_version==MODEL,"C_DOUBLE_NOT_READY")
         workers.append(ThreadNode(c))
+        def goal_gate():
+            return (graph() and time.monotonic()-state["times"].get("odom",0)<=.3 and
+                    time.monotonic()-state["times"].get("scan",0)<=.8)
+        def authorize(req):
+            def check():
+                logic=d.logic
+                return (logic.request_id==req["request_id"] and logic.state==req["leg"] and
+                        logic.goal_uuid is None and logic.deadline is not None and logic.clock()<logic.deadline)
+            return mailbox.call(check) is True
         runtime=ProductRuntime(node,target,scene,static,out/"product_receipts",e["source_sha"],
             accepted_hook=lambda rid,leg,uid:accepted_hook(mailbox,d,rid,leg,uid),
-            cm_active=cm_active,physical=phys,shared_clock=clock)
+            cm_active=cm_active,physical=phys,shared_clock=clock,
+            goal_ready_wait_s=GOAL_READY_WAIT_S,goal_gate=goal_gate,goal_authorize=authorize)
+        e["goal_ready_wait_s"]=GOAL_READY_WAIT_S
         runtime.nav.timeout=float(NAV_WALL_TIMEOUT_S)
         e["nav_wall_timeout_s"]={"A":runtime.nav.timeout,"D":d.logic.nav_timeout_s}
         require(runtime.nav.timeout==d.logic.nav_timeout_s,"E_NAV_DEADLINE_DRIFT")
@@ -188,8 +200,9 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             ids=list(runtime.transfer.loaded_ids) if req["leg"]=="TO_RETURN" else None
             row=dict(mission="e-product",request_id=req["request_id"],leg=req["leg"],destination_id=req["destination_id"],
                 loaded_entity_ids=ids,status="STARTED",start_sim_ns=clock[-1])
-            m["legs"].append(row);witness.begin("e-product_"+req["leg"],ids)
+            # Record a moving phase only after the real ActionClient send call succeeds.
             original_start(req);e["navigate_to_pose_goals_sent"]+=1
+            m["legs"].append(row);witness.begin("e-product_"+req["leg"],ids)
         def nav_event(kind,body,at,extra):
             trace.nav(kind,body,at,extra)
             if kind=="accepted":m["accepted"].append(dict(body,steady_s=at))
@@ -257,6 +270,8 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
         e["model_scope"]="CI_DOUBLE_NOT_ACTUAL_MODEL";e["private_model_loaded"]=False
         save(out/"moving_progress.json",m)
     except BaseException:
+        if runtime:
+            runtime.deferred_goal.clear();runtime.transfer.locked=True
         if runtime and runtime.nav.active is not None:
             runtime.nav.abort_pending();deadline=time.monotonic()+15
             while runtime.nav.active is not None and time.monotonic()<deadline:
