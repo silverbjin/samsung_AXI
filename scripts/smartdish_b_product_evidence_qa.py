@@ -163,6 +163,38 @@ def separation(xy,floor,obs):
     for o in obs:
         lo,hi=o[3:];d=np.minimum(d,np.hypot(np.maximum.reduce([lo[0]-x,x-hi[0],np.zeros_like(x)]),np.maximum.reduce([lo[1]-y,y-hi[1],np.zeros_like(y)])))
     return d
+def check_dish(center,tilt,zerr,edge,mast):
+    need(np.max(center)<=.015 and np.max(tilt)<=.035 and np.max(zerr)<=.02 and np.min(edge)>0 and np.min(mast)>0,"DISH_POSE")
+def check_clearance(clear):
+    need(np.min(clear)>.05,"ENV_CLEARANCE")
+def check_rgb_order(frame,event):
+    need(type(frame) is int and type(event) is int and frame>event,"RGB_STALE")
+def scene_ids(raw):
+    # Gazebo scene/info protobuf text: only top-level model records.
+    models=re.findall(r'^model \{\n  name: "([^"]+)"\n  id: (\d+)',raw,re.M)
+    need(len(models)==len({x[0] for x in models}),"DUPLICATE_SCENE_MODEL")
+    return {n:int(i) for n,i in models}
+def service_review(log,op):
+    rows=[json.loads(x) for x in Path(log).open()]
+    need(rows and all(x["exit"]==0 for x in rows),"SERVICE_EXIT")
+    scenes=[scene_ids(x["stdout"]) for x in rows if x["service"]=="scene/info"]
+    need(len(scenes)>=2,"SERVICE_SCENE")
+    names=[f"smartdish_product_dish_{i:02d}" for i in range(3)]
+    first,last=scenes[0],scenes[-1]
+    calls=[x for x in rows if x["service"] in ("create","remove")]
+    need(all(re.search(r'data:\s*true',x["stdout"]) for x in calls),"SERVICE_RESPONSE")
+    removed=[int(re.search(r'id:\s*(\d+)',x["request"]).group(1)) for x in calls if x["service"]=="remove"]
+    created=[re.search(r'\bname:\s*"([^"]+)"',x["request"]).group(1) for x in calls if x["service"]=="create"]
+    if op=="LOAD":
+        need("s6_stacked_dishes" in first and not any(n in first for n in names),"INITIAL_FIXTURE")
+        need(removed==[first["s6_stacked_dishes"]] and created==names,"LOAD_CREATE_REMOVE")
+        need("s6_stacked_dishes" not in last and [last.get(n) for n in names]==IDS,"LOAD_SCENE_IDS")
+        # Each new dynamic name must keep its ID until end of LOAD.
+        need(all(s[n]==IDS[i] for s in scenes for i,n in enumerate(names) if n in s),"LOAD_ID_DRIFT")
+    else:
+        need([first.get(n) for n in names]==IDS and removed==IDS and not created and not any(n in last for n in names),"UNLOAD_SCENE_IDS")
+    return dict(initial_fixture_id=first.get("s6_stacked_dishes"),initial_dynamic_ids=[first[n] for n in names if n in first],
+                final_dynamic_ids=[last[n] for n in names if n in last],created_names=created,removed_ids=removed,scene_snapshots=len(scenes))
 def rgb(p,r,stem):
     raw=(p/(stem+".rgb")).read_bytes();png=p/(stem+".png")
     with Image.open(png) as im:need(im.mode=="RGB" and im.size==(640,480) and im.tobytes()==raw,"PNG_RGB")
@@ -189,7 +221,7 @@ def replay(p,e,rc,floor,obs,out,aid):
     pair={}
     for x in csv.DictReader((p/"ecm_pairs.tsv").open(),delimiter="\t"):
         k=x["id1"]+":"+x["id2"];need(k not in pair,"PAIR_DUPLICATE");pair[k]=pair_kind(x["name1"],x["name2"])
-    rec=[];series=[];legs=e["moving"]["legs"];accepted={x["goal_uuid"] for x in e["moving"]["accepted"]}
+    rec=[];series=[];paths=[];legs=e["moving"]["legs"];accepted={x["goal_uuid"] for x in e["moving"]["accepted"]}
     need(len(accepted)==len(e["moving"]["accepted"]),"DUPLICATE_UUID")
     for leg in legs:
         need(leg["goal_uuid"] in accepted and leg["terminal_status"]=="SUCCEEDED" and leg["post_terminal_stop_dwell_s"]>=1 and leg["stop_verified"],"TERMINAL")
@@ -202,7 +234,7 @@ def replay(p,e,rc,floor,obs,out,aid):
         up=Rotation.from_quat(rq).apply(np.broadcast_to([0,0,1],rp.shape))
         rt=np.arctan2(np.linalg.norm(up[:,:2],axis=1),up[:,2])
         clear=separation(rp[:,:2],floor,obs)-math.sqrt(2)*.29-1.15*np.sin(rt)-.01
-        need(clear.min()>.05,"ENV_CLEARANCE")
+        check_clearance(clear)
         wanted=leg["loaded_entity_ids"] or []
         rr=dict(phase=phase,samples=len(f),start_sim_ns=int(tt[0]),end_sim_ns=int(tt[-1]),minimum_clearance_m=float(clear.min()),clearance_min_sim_ns=int(tt[np.argmin(clear)]),robot_tilt_rad=stats(rt,tt),dishes=[])
         for i in range(3):
@@ -218,7 +250,7 @@ def replay(p,e,rc,floor,obs,out,aid):
                 lo,hi=c[3:];zext=.0185+.245*np.sin(tilt);mask=(xyz[:,2]+zext>=lo[2])&(xyz[:,2]-zext<=hi[2])
                 d=np.hypot(np.maximum.reduce([lo[0]-xyz[:,0],xyz[:,0]-hi[0],np.zeros(len(f))]),np.maximum.reduce([lo[1]-xyz[:,1],xyz[:,1]-hi[1],np.zeros(len(f))]))-.245-.0185*np.sin(tilt)
                 mast[mask]=np.minimum(mast[mask],d[mask])
-            need(center.max()<=.015 and tilt.max()<=.035 and zerr.max()<=.02 and edge.min()>0 and mast.min()>0,"DISH_POSE")
+            check_dish(center,tilt,zerr,edge,mast)
             relspeed=np.linalg.norm(np.diff(xyz,axis=0),axis=1)*1000
             rr["dishes"].append(dict(id=wanted[i],center_m=stats(center,tt),tilt_rad=stats(tilt,tt),z_error_m=stats(zerr,tt),roll_abs_rad=stats(np.abs(angle[:,0]),tt),pitch_abs_rad=stats(np.abs(angle[:,1]),tt),relative_speed_mps=stats(relspeed,tt[1:]),min_edge_m=float(edge.min()),min_mast_m=float(mast.min()),x_m=stats(xyz[:,0],tt),y_m=stats(xyz[:,1],tt),z_m=stats(xyz[:,2],tt)))
             series.append(pd.DataFrame(dict(sim_ns=tt[::20],phase=phase,dish=wanted[i],center_m=center[::20],tilt_rad=tilt[::20],clearance_m=clear[::20],x=rp[::20,0],y=rp[::20,1])))
@@ -232,6 +264,7 @@ def replay(p,e,rc,floor,obs,out,aid):
         ground=int(f.pairs.map(lambda x:"ground" in combos[x]).sum());dish=int(f.pairs.map(lambda x:"dish" in combos[x]).sum())
         need(ground==len(f) and (not wanted or dish==len(f)),"POSITIVE_SUPPORT")
         rr.update(ground_steps=ground,tray_steps=dish,goal_uuid=leg["goal_uuid"],stop_dwell_s=leg["post_terminal_stop_dwell_s"])
+        paths.append(pd.DataFrame(dict(sim_ns=tt[::20],phase=phase,x=rp[::20,0],y=rp[::20,1],clearance_m=clear[::20])))
         rec.append(rr)
     # DDS pose sample registration uses nominal map origin, independent of A reported scalar.
     rows=[json.loads(x) for x in (p/"motion_pose.jsonl").open()]
@@ -280,6 +313,7 @@ def replay(p,e,rc,floor,obs,out,aid):
             for ident,g in s.groupby("dish"):ax.plot(g.sim_ns/1e9,g[metric],label=str(ident))
             ax.axhline(limit,linestyle="--",label="contract");ax.set(xlabel="simulation seconds",ylabel=unit,title=f"{aid} {metric} / {e['source_sha'][:12]}")
             ax.legend();fig.savefig(out/f"{aid}_{metric}.png",dpi=140);plt.close(fig)
+    pd.concat(paths).to_csv(out/f"{aid}_world_path.csv",index=False)
     # ROS journal exact-stamp matches are a positive subset, not full DDS coverage.
     from collections import Counter
     contact_counts=Counter(); matched=Counter(); unknown=Counter()
@@ -310,14 +344,16 @@ def transfers(p,e,full):
         receipt=js(f);v=receipt["evidence"];need(receipt["result"]=={k:v for k,v in a.items() if k!="receipt_sha256"},"RECEIPT_RESULT")
         require_session(v,e["source_sha"],a["stack_id"].split(":")[0])
         need(v["event_sim_ns"]==a["event_sim_ns"] if "event_sim_ns" in v else v["observation"]["event_sim_ns"]==a["event_sim_ns"],"TRANSFER_TIME")
-        need(sha(p/"product_receipts"/v["service_receipt_dir"]/"gazebo_service_calls.jsonl")==v["service_calls_sha256"],"SERVICE_HASH")
+        log=p/"product_receipts"/v["service_receipt_dir"]/"gazebo_service_calls.jsonl"
+        need(sha(log)==v["service_calls_sha256"],"SERVICE_HASH")
+        service=service_review(log,op)
         wait=next((w for w in m.get("transfer_waits",[]) if w["operation"]==op),None)
         if full or wait is not None:
             need(wait is not None and wait["continuous_wait_s"]>=(10 if op=="LOAD" else 5) and wait["goal_uuid"]==v["navigation"]["goal_uuid"],"WAIT")
         if op=="UNLOAD":need(v["observation"]["method"]=="ACTUAL_REMOVE_RECEIPT" and v["observation"]["removed_entity_ids"]==IDS,"REMOVE")
         else:
-            rgb(p,m["loaded_rgb"],"loaded");need(m["loaded_rgb"]["stamp_ns"]>a["event_sim_ns"],"RGB_STALE")
-        out.append(dict(operation=op,elapsed_s=x["elapsed_wall_s"],wait_s=wait["continuous_wait_s"] if wait is not None else None,sim_ns=a["event_sim_ns"],ids=IDS,receipt_sha256=h,method=v["observation"].get("method","LOAD")))
+            rgb(p,m["loaded_rgb"],"loaded");check_rgb_order(m["loaded_rgb"]["stamp_ns"],a["event_sim_ns"])
+        out.append(dict(operation=op,elapsed_s=x["elapsed_wall_s"],wait_s=wait["continuous_wait_s"] if wait is not None else None,sim_ns=a["event_sim_ns"],ids=IDS,receipt_sha256=h,method=v["observation"].get("method","REMOVE_STATIC_FIXTURE_CREATE_DYNAMIC"),service=service))
     need([x["operation"] for x in out]==(["LOAD","UNLOAD"] if full else ["LOAD"]),"TRANSFER_SEQUENCE")
     return out
 def shutdown(p,e):
@@ -329,7 +365,39 @@ def shutdown(p,e):
     clean=re.sub(r"\x1b\[[0-9;]*m","",log)
     nav=[l for l in clean.splitlines() if "[lifecycle_manager_navigation]:" in l]
     transition={k:sum(k in l for l in nav) for k in ("Deactivating ","Cleaning up ","Shutting down ")}
+    need(transition["Deactivating "]==10 and transition["Cleaning up "]==10 and transition["Shutting down "]>=10,"NODE_TRANSITIONS")
     return dict(manager_ack=3,detail=d,transitions=transition,child_sigint_exit_count=log.count("exit code -2"),parent_exit=0)
+def plots(out,session,aid):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    label_text=f"Run {session['run_id']} | {session['source_sha'][:12]}"
+    d=pd.read_csv(out/f"{aid}_world_path.csv")
+    fig,ax=plt.subplots(figsize=(8,6))
+    for name,g in d.groupby("phase",sort=False):
+        ax.plot(g.x,g.y,label=name)
+    ax.set(xlabel="world x (m)",ylabel="world y (m)",title="Observed world trajectory | "+label_text)
+    ax.set_aspect("equal");ax.legend(fontsize=7);fig.tight_layout();fig.savefig(out/f"{aid}_world_path.png",dpi=140);plt.close(fig)
+    fig,axs=plt.subplots(4,1,figsize=(10,9),sharex=True)
+    for p in session["phases"]:
+        n=p["phase"];g=pd.read_csv(out/f"{aid}_{n}_ros.csv");t=g.sim_ns/1e9
+        for ax,k in zip(axs[:3],("registration_m","linear_mps","angular_radps")):ax.plot(t,g[k],label=n)
+    for n,g in d.groupby("phase",sort=False):axs[3].plot(g.sim_ns/1e9,g.clearance_m,label=n)
+    axs[0].axhline(.1,ls="--",label="registration gate")
+    axs[3].axhline(.05,ls="--",label="clearance gate")
+    for ax,unit in zip(axs,("registration (m)","linear (m/s)","angular (rad/s)","clearance (m)")):
+        ax.set_ylabel(unit)
+        for v in session.get("transfers",[]):ax.axvline(v["sim_ns"]/1e9,ls=":",alpha=.5)
+    axs[-1].set_xlabel("simulation seconds (unobserved intervals not joined)")
+    axs[0].legend(fontsize=6);fig.suptitle(label_text);fig.tight_layout();fig.savefig(out/f"{aid}_mission_metrics.png",dpi=140);plt.close(fig)
+    if (out/f"{aid}_dish_timeseries.csv").exists():
+        q=pd.read_csv(out/f"{aid}_dish_timeseries.csv")
+        fig,axs=plt.subplots(1,2,figsize=(9,4))
+        for ident,g in q.groupby("dish"):
+            axs[0].hist(g.center_m*1000,bins=40,alpha=.4,label=str(ident));axs[1].hist(g.tilt_rad,bins=40,alpha=.4,label=str(ident))
+        axs[0].set_xlabel("center (mm)");axs[1].set_xlabel("tilt (rad)")
+        for ax in axs:ax.legend();ax.set_ylabel("20 ms sampled frequency")
+        fig.suptitle(label_text+" | distribution (statistics calculated at 1ms)");fig.tight_layout();fig.savefig(out/f"{aid}_distribution.png",dpi=140);plt.close(fig)
 def main():
     p=argparse.ArgumentParser();p.add_argument("--evidence-dir",type=Path,required=True);p.add_argument("--out",type=Path,required=True);p.add_argument("--repo-root",type=Path,default=Path("."));a=p.parse_args();a.out.mkdir(parents=True,exist_ok=True)
     report=dict(verdict="HOLD",first_error=None,provenance=[],sessions=[],training_allowed=False,owner_l3="NOT_RUN",same_session_product=False)
@@ -352,13 +420,14 @@ def main():
                 result=dict(run_id=PINS[i][0],source_sha=PINS[i][2],first_error=e["first_error"],geometry=g,phases=rec,config=config)
                 if i in (2,3):result["transfers"]=transfers(p,e,i==3)
                 if i==4:result["shutdown"]=shutdown(p,e)
-                report["sessions"].append(result);save(a.out/"qa.json",report)
+                report["sessions"].append(result);plots(a.out,result,PINS[i][1]);save(a.out/"qa.json",report)
             need(configs[0]==configs[1]==configs[2],"CONFIG_DRIFT")
             report["same_physical_config"]=True
             need(sum(x["samples"] for x in report["sessions"][1]["phases"])==186122,"MISSION_SAMPLES")
             # Receipt-only boundaries remain explicit; C input is outside A artifacts.
             report["verdict"]="HOLD"
-            report["first_error"]="B_FULL_SCOPE_REVIEW_REQUIRED"
+            report["first_error"]="B_STOP_DWELL_RAW_CONTINUOUS_NOT_EXPORTED"
+            report["ledger"]={"B_QA_00":"PASS","B_QA_01":"PASS_STATIC_CANDIDATE","B_QA_02":"PASS_ECM_HOLD_FULL_DDS","B_QA_03":"PASS_LOADED_OBSERVED","B_QA_04":"PASS_OBSERVED_GEOMETRY_CONTACTS","B_QA_05":"PASS_RECEIPT_SERVICE_RGB","B_QA_06":"HOLD_RAW_DWELL_AND_E_SINGLE_SESSION","B_QA_07":"PASS_POLICY_NO_TRAINING","B_QA_08":"PASS_REPLAY_HOLD_RELEASE"}
             report["limitations"]=["A receipt fields are not independent raw stop dwell samples","ROS contact exact-stamp matching is positive subset, not full DDS coverage","C input/AI outside A scope","E single-session product required"]
             pd.DataFrame([dict(run_id=s["run_id"],**{k:v for k,v in p.items() if k!="dishes" and not isinstance(v,dict)}) for s in report["sessions"] for p in s["phases"]]).to_csv(a.out/"phases.csv",index=False)
     except Exception as e:
