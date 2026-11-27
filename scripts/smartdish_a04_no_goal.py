@@ -112,8 +112,15 @@ def run(a):
         phys=PhysicalOperations()
         static=out/"static"
         robot,bridge=phys.prepare(static,static/"overlay/robot.sdf",yaml.safe_load((static/"overlay/bridge.yaml").read_text()))
+        sources=None
+        if a.motion:
+            from smartdish_a04_motion import instrument,moving_params
+            require(a.mode=="candidate","MOTION_REQUIRES_CANDIDATE")
+            sources=instrument(static/"world.sdf",robot,bridge,scene)
         bridgefile=static/"live_bridge.yaml";bridgefile.write_text(yaml.safe_dump(bridge,sort_keys=False))
         params=static/"live_nav2.yaml";config=overlay(a.params,params)
+        if a.motion:
+            config=moving_params(config);params.write_text(yaml.safe_dump(config,sort_keys=False))
         map_path=a.map.resolve() if a.mode=="original" else static/"candidate.yaml"
         cfg,grid=read_map(map_path)
         evidence.update(world_sha256=sha(static/"world.sdf"),robot_sha256=sha(robot),bridge_sha256=sha(bridgefile),
@@ -141,7 +148,7 @@ def run(a):
             xy=(m.pose.pose.position.x,m.pose.pose.position.y)
             if state["odom_first"] is None:state["odom_first"]=xy
             state["odom_max"]=max(state["odom_max"],math.dist(xy,state["odom_first"]))
-            state["odom"]+=1;state["times"]["odom"]=time.monotonic()
+            state["odom"]+=1;state["times"]["odom"]=time.monotonic();state["odom_msg"]=m
         def scan(m):
             if len(m.ranges)>10 and any(math.isfinite(x) for x in m.ranges):
                 state["scan"]+=1;state["times"]["scan"]=time.monotonic();state["scan_msg"]=m
@@ -163,7 +170,7 @@ def run(a):
             require(proc.poll() is None,"LAUNCH_EARLY_EXIT")
             rclpy.spin_once(node,timeout_sec=.10)
             require(not phys.callback_error,"PHYS_CALLBACK:"+str(phys.callback_error))
-            require(state["odom_max"]<=.03 and state["cmd_nonzero"]==0,"NO_GOAL_MOTION_DETECTED")
+            if not evidence.get("motion_authorized"):require(state["odom_max"]<=.03 and state["cmd_nonzero"]==0,"NO_GOAL_MOTION_DETECTED")
         def wait(check,seconds,label):
             until=time.monotonic()+seconds
             while time.monotonic()<until:
@@ -299,7 +306,12 @@ def run(a):
             "cmd_nonzero_count":state["cmd_nonzero"],"stop_verified":phys.stop.verified(time.monotonic())}
         require(evidence["stationary"]["stop_verified"],"FINAL_STOP_NOT_PROVEN")
         evidence["verdict"]="ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"
-        evidence["clearance_gate"]="HOLD" # no moving authorization from one stationary transform
+        evidence["clearance_gate"]="HOLD" # product approval remains E-owned
+        if a.motion:
+            from smartdish_a04_motion import run_missions
+            run_missions(node,out,phys,g,sources,buffer,state,clock,evidence,scene,static,target,spin,wait)
+            evidence["scope"]="ACTUAL_CI_MOTION_ONLY_NOT_PRODUCT_INTEGRATION"
+            evidence["verdict"]="ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE"
     except BaseException as exc:
         evidence["first_error"]=repr(exc);evidence["verdict"]="FAIL";raise
     finally:
@@ -320,10 +332,12 @@ def run(a):
         if initialized and rclpy.ok():rclpy.shutdown()
         if log:log.close()
         save(out/"evidence.json",evidence)
-    require(evidence["verdict"]=="ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE",evidence["first_error"])
+    require(evidence["verdict"]==("ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE" if a.motion else "ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"),evidence["first_error"])
 def main():
     p=argparse.ArgumentParser()
     for k in ("out","robot-source","bridge-source","world-source","map","poses","params"):
         p.add_argument("--"+k,type=Path,required=True)
-    p.add_argument("--mode",choices=("original","candidate"),required=True);run(p.parse_args())
+    p.add_argument("--mode",choices=("original","candidate"),required=True)
+    p.add_argument("--motion",action="store_true",help="explicit isolated CI only, real same-session preflight required")
+    run(p.parse_args())
 if __name__=="__main__":main()

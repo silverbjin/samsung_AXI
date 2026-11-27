@@ -1,0 +1,76 @@
+name: SmartDish A04 actual empty and loaded motion
+on:
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_a04_motion.py'
+      - '.github/workflows/smartdish-a04-motion.yml'
+permissions:
+  contents: read
+jobs:
+  motion:
+    if: github.head_ref == 'feat/smartdish-a-product-collection'
+    runs-on: ubuntu-24.04
+    container:
+      image: ros:jazzy-ros-base-noble
+    timeout-minutes: 38
+    env:
+      CI: 'true'
+      ROS_DOMAIN_ID: '97'
+      GZ_PARTITION: smartdish_a04_${{ github.run_id }}_motion
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      QT_QPA_PLATFORM: xcb
+      RESTAURANT_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Build reviewed official stack
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p generated/a04_live
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse HEAD > generated/a04_live/source_sha.txt
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-colcon-common-extensions python3-pytest python3-yaml python3-pil python3-numpy python3-scipy xvfb xauth mesa-utils ros-jazzy-ros-gz ros-jazzy-nav2-bringup ros-jazzy-navigation2 ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+          mkdir -p src/upstream
+          git init -q src/upstream/turtlebot3_simulations
+          git -C src/upstream/turtlebot3_simulations remote add origin https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          git -C src/upstream/turtlebot3_simulations fetch -q --depth=1 origin "$PIN"
+          git -C src/upstream/turtlebot3_simulations checkout -q --detach FETCH_HEAD
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+          echo "$PIN" > generated/a04_live/upstream_sha.txt
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          PYTHONPATH=scripts python3 -m pytest -q tests/test_smartdish_a04_launch_overlay.py tests/test_smartdish_a04_motion.py | tee generated/a04_live/launch_overlay_l0.txt
+          colcon build --packages-up-to restaurant_world restaurant_bringup smartdish_robot
+      - name: Actual no-goal gate then six real Nav2 legs and physical transfer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+          ROBOT="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
+          PARAMS="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
+          xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=40s 1800s python3 -u scripts/smartdish_a04_no_goal.py --mode candidate --motion --out generated/a04_live/session --robot-source "$ROBOT" --bridge-source src/restaurant_bringup/config/bridge.yaml --world-source src/restaurant_world/worlds/restaurant.sdf --map maps/restaurant_map.yaml --poses src/smartdish_robot/config/table_poses.yaml --params "$PARAMS"
+      - name: Archive normal or first failure evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p generated/a04_live
+          (cd generated/a04_live && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
+          tar -C generated -czf generated/a04-live.tar.gz a04_live
+          sha256sum generated/a04-live.tar.gz > generated/a04-live.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a04-motion-${{ github.run_id }}
+          path: |
+            generated/a04-live.tar.gz
+            generated/a04-live.tar.gz.sha256
