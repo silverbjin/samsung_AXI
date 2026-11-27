@@ -17,7 +17,32 @@ from ai.evaluation.dataset_contract import read_verified_split, summarize
 from ai.evaluation.stability_model import LABELS, IMAGE_SIZE, MEAN, STD, new_resnet18, preprocess
 
 
+
+
+def enforce_locked_v1_args(args, plan: dict):
+    """Prevent CLI drift after private C research approval; fixture mode unchanged."""
+    if args.demo_fixtures:
+        return
+    run = plan.get("execution", {})
+    from ai.train.dataset_v1_gate import IntakeHold, require, VERSION
+    require(
+        plan.get("data", {}).get("version") == VERSION
+        and args.phase == "frozen" and args.device == run.get("device") == "cpu"
+        and args.epochs == run.get("epochs") == 3
+        and args.batch_size == run.get("batch_size") == 4
+        and args.lr == run.get("learning_rate") == 1e-4
+        and args.seed == run.get("seed") == 42
+        and run.get("max_frozen_runs") == 1
+        and run.get("train_augmentation") == "NONE"
+        and run.get("test_reselection_or_tuning") is False
+        and getattr(args, "init_checkpoint", None) is None,
+        "C_V1_FROZEN_RUN_HYPERPARAMETERS_CHANGED")
+
+
 def train(args):
+    if not args.demo_fixtures:
+        experiment_lock = getattr(args, "experiment_lock", Path("ai/docs/C_V1_EXPERIMENT_LOCK.json"))
+        enforce_locked_v1_args(args, json.loads(experiment_lock.read_text(encoding="utf-8")))
     import torch
     import torch.nn as nn
     from PIL import Image
@@ -77,11 +102,15 @@ def train(args):
     optimizer = torch.optim.AdamW((p for p in model.parameters() if p.requires_grad), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
     history = []
-    best_val, best_state = float("inf"), None
+    best_val, best_state, best_epoch = float("inf"), None, None
     for epoch in range(args.epochs):
         epoch_log = {"epoch": epoch + 1}
         for split in ("train", "val"):
             model.train(split == "train")
+            if args.phase == "frozen":
+                # Freeze BN running_mean/var too: gradients disabled alone are insufficient.
+                model.eval()
+                model.fc.train(split == "train")
             total_loss, seen, correct = 0.0, 0, 0
             for x, y in loaders[split]:
                 x, y = x.to(args.device), y.to(args.device)
@@ -101,6 +130,7 @@ def train(args):
         history.append(epoch_log)
         if epoch_log["val"]["loss"] < best_val:
             best_val = epoch_log["val"]["loss"]
+            best_epoch = epoch + 1
             # Copy to CPU immediately so the best epoch cannot mutate.
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -122,7 +152,8 @@ def train(args):
               "split_manifest_sha256": hashlib.sha256(args.split_manifest.read_bytes()).hexdigest(),
               "checkpoint_sha256": hashlib.sha256(args.out.read_bytes()).hexdigest(),
               "checkpoint": str(args.out), "dataset": summarize(rows),
-              "epochs": history, "test_used_for_training": False,
+              "epochs": history, "best_epoch_by_min_val_loss": best_epoch,
+              "best_val_loss": best_val, "test_used_for_training": False,
               "P1_approval": approval_metadata or "MOCK_ONLY"}
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f'C_{"MOCK_ONLY_" if args.demo_fixtures else ""}{args.phase.upper()}_TRAINED ' + json.dumps({
