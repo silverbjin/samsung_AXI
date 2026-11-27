@@ -69,13 +69,15 @@ def review_waits(trace_root,d_events,request_id):
     out=[]
     for state,op,seconds in (("WAIT_LOADING","LOAD",10),("WAIT_UNLOADING","UNLOAD",5)):
         starts=[r for r in d_events if r["topic"]=="/collection/status" and r["body"].get("state")==state and r["body"].get("request_id")==request_id]
-        ends=[r for r in d_events if r["topic"]=="/collection/dish_transfer_request" and r["body"].get("operation")==op]
-        require(len(starts)==len(ends)==1,"WAIT_EVENT_COUNT_"+op)
+        ends=[r for r in d_events if r["topic"]=="/collection/dish_transfer_request" and r["body"].get("operation")==op and r["body"].get("request_id")==request_id]
+        require(starts and len(ends)==1,"WAIT_EVENT_COUNT_"+op)
         a,b=starts[0]["steady_ns"],ends[0]["steady_ns"]
-        require(b-a>=seconds*10**9,"WAIT_TOO_SHORT_"+op)
+        require(b-a>=seconds*10**9 and all(a<=r["steady_ns"]<=b for r in starts),"WAIT_TOO_SHORT_"+op)
+        states=[r["body"]["state"] for r in d_events if r["topic"]=="/collection/status" and r["body"].get("request_id")==request_id and a<=r["steady_ns"]<=b]
+        require(states[-1]==("LOADING" if op=="LOAD" else "UNLOADING") and set(states[:-1])=={state},"WAIT_STATE_ORDER_"+op)
         rows=[r for r in data if not r["duplicate"] and a-300_000_000<=r["steady_ns"]<=b]
         require(rows and rows[0]["steady_ns"]<=a and b-rows[-1]["steady_ns"]<=300_000_000 and
-                all(y["steady_ns"]-x["steady_ns"]<=300_000_000 for x,y in zip(rows,rows[1:])) and
+                all(0<y["steady_ns"]-x["steady_ns"]<=300_000_000 for x,y in zip(rows,rows[1:])) and
                 all(math.hypot(*r["linear"])<=.01 and math.hypot(*r["angular"])<=.02 for r in rows),"WAIT_RAW_STOP_"+op)
         out.append(dict(operation=op,wait_s=(b-a)/1e9,request=ends[0]["body"],steady_ns=b,samples=len(rows)))
     return out
@@ -91,6 +93,8 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
     from smartdish_service.product_admission import product_ai_on_authorized
     from rclpy.parameter import Parameter
     from lifecycle_msgs.srv import GetState
+    from std_srvs.srv import Empty
+    from rclpy.clock import Clock,ClockType
     from std_msgs.msg import String
     from rclpy.qos import QoSProfile,ReliabilityPolicy
     require(not product_ai_on_authorized(True),"GENERAL_PRODUCT_DENY_DRIFT")
@@ -102,12 +106,38 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
     d_events=[];dds=[];workers=[];mailbox=OwnerMailbox();runtime=None;witness=None;ui=None;ui_log=None
     cm=node.create_client(GetState,"/collision_monitor/get_state")
     active={"at":0.,"value":False,"future":None}
+    amcl_update=node.create_client(Empty,"/request_nomotion_update")
+    update={"future":None,"last_request":-1.,"last_response":None,"error":None}
+    diagnostic={"last":-1.}
+    steady_clock=Clock(clock_type=ClockType.STEADY_TIME)
+    def report_ready(now):
+        if runtime is None or now-diagnostic["last"]<.5:return
+        diagnostic["last"]=now
+        def age(t):return None if t is None else now-t
+        row=dict(steady_s=now,odom_age_s=age(runtime.odom_at),scan_age_s=age(runtime.scan_at),amcl_age_s=age(runtime.amcl_at),amcl=runtime.amcl,
+            stop=phys.stop.verified(now),stop_start=phys.stop.start,stop_last_at=phys.stop.last_at,clock_samples=len(clock),clock_fault=runtime.clock_fault,
+            callback_error=phys.callback_error,cm_active=cm_active(),cm_age_s=age(active["at"]),cmd_vel=endpoints(node,"/cmd_vel"),clock=endpoints(node,"/clock"),
+            amcl_publishers=endpoints(node,"/amcl_pose"),nomotion_service_ready=amcl_update.service_is_ready(),nomotion_last_request=update["last_request"],nomotion_last_response=update["last_response"],nomotion_error=update["error"],
+            action_ready=runtime.nav.client.server_is_ready(),witness_ready=witness is not None and witness.raw.get("waffle_pi") is not None,preflight=runtime.preflight())
+        with (out/"runtime_ready.jsonl").open("a") as f:f.write(json.dumps(row)+"\n")
+    def refresh_amcl():
+        now=time.monotonic()
+        f=update["future"]
+        if f is not None and f.done():
+            try:f.result();update["last_response"]=now
+            except Exception as exc:update["error"]=repr(exc)
+            update["future"]=None
+        # Actual AMCL must produce a new pose; service response is not a pose.
+        if runtime is not None and phys.stop.verified(now) and (runtime.amcl_at is None or now-runtime.amcl_at>.7) and now-update["last_request"]>=.8 and update["future"] is None and amcl_update.service_is_ready():
+            update["future"]=amcl_update.call_async(Empty.Request());update["last_request"]=now
+        report_ready(now)
     def check_cm():
         f=active["future"]
         if f is not None and f.done():
             active.update(at=time.monotonic(),value=f.result().current_state.id==3,future=None)
         if active["future"] is None and cm.service_is_ready():active["future"]=cm.call_async(GetState.Request())
-    timer=node.create_timer(.4,check_cm)
+    timer=node.create_timer(.4,check_cm,clock=steady_clock)
+    refresh_timer=node.create_timer(.2,refresh_amcl,clock=steady_clock)
     def cm_active():
         return active["value"] and time.monotonic()-active["at"]<=2.
     def graph():
@@ -246,6 +276,7 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
         if witness:m["witness"]=witness.close()
         phys.odom_witness=None
         if trace:trace.close()
+        node.destroy_timer(refresh_timer)
         node.destroy_timer(timer)
         save(out/"moving_progress.json",m)
 

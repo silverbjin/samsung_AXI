@@ -78,3 +78,24 @@ jobs:
           path: |
             generated/a04-live.tar.gz
             generated/a04-live.tar.gz.sha256
+
+  independent-qa:
+    needs: single-world
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: e-product-session-${{ github.run_id }}
+          path: received
+      - name: Independent exact artifact replay
+        run: |
+          set -euo pipefail
+          python -m pip install numpy scipy pandas matplotlib Pillow PyYAML
+          python scripts/smartdish_e_product_qa_adapter.py --tar received/a04-live.tar.gz --sidecar received/a04-live.tar.gz.sha256 --repo . --out qa --source-sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-product-independent-qa-${{ github.run_id }}
+          path: qa/
