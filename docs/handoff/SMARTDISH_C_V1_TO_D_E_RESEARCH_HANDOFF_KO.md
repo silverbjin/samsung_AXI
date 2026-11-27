@@ -73,3 +73,8 @@
 - User WSL2 `9db90e52da3025f548faba28444d0dc777586138` pinned frozen ResNet18 1회 성공. Evidence TAR SHA `914b9ea89c78fb1a4c3cad82c4f2d25869d422e618d477236c89f6ecd30f0516`. Train11/Val3, checkpoint reported SHA `6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c`; checkpoint 바이트 미첨부.
 - Val 마지막 `1/3=33.3%` 및 Train `4/11=36.4%`로 모델 성능 HOLD; majority STABLE 비교 기준선 Val2/3=66.7%보다 낮음. 기존 한 번의 실행은 `C_P2_EXECUTION_ACCEPTED_RESEARCH_ONLY`; **연구 모델 인수/제품 AI ON 승인 아님**.
 - Test4 **한 번도 열지 않음**. P3 별도 명시 승인/체크포인트 원본 봉인 필요; 모델 미탑재 UNKNOWN + 직원 승인과 AI OFF 3-leg 보존. 상세 [C13 P2 리뷰](../reports/acceptance/SMARTDISH_C_V1_P2_OWNER_ACCEPTANCE_20261127_KO.md).
+
+## C14 (2026-11-27) 실제 Owner pretest PASS / Agent-first 인계
+
+- Owner `P3_PRETEST_CHECKPOINT_SHA_PASS_PERFORMANCE_HOLD`, evidence SHA `5874707038d2d74e2f83d0d7370dbed6ed4baf32d12c6d8164aa8357e0f84148`, checkpoint SHA `6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c`. P0/P1/P2 기존 성공 재사용; P3 Test4 미개봉·별도 승인 없음. D/E 연구 모델 제품 사용은 여전히 HOLD.
+- 에이전트가 코드/CI/문서/진단 책임, Owner WSL2는 불가피한 private 최종 인수 **원샷 하나**만 수행하고 성공한 pretest 재검 불요. [운영 정책](../policies/SMARTDISH_AGENT_FIRST_WSL2_FINAL_ONLY_POLICY_KO.md).

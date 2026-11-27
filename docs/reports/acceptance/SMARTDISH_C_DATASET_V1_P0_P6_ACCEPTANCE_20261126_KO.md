@@ -89,3 +89,10 @@ Data Freeze A15 4+A16 8+A18 8 =20 independent layout/6 family; 승인18/5 family
 - **모델 성능 HOLD**: 마지막 Train 4/11=36.4%, Val 1/3=33.3%; STABLE 다수 기준선 Train8/11=72.7%, Val2/3=66.7% 미달. 분류 경향/UNSTABLE 검출 성능·confidence는 집계만으로 판단 불가.
 - **P3 Test4 개봉 명시 승인 미발급**. `C_P2_EXECUTION_ACCEPTED_RESEARCH_ONLY`, `C_P2_MODEL_PERFORMANCE_HOLD`, `P3_TEST_OPEN_NOT_APPROVED`, `C_RESEARCH_PILOT_ACCEPTED=false`, `E_AI_ON_HOLD`.
 - [C13 증거 기반 인수 보고서](SMARTDISH_C_V1_P2_OWNER_ACCEPTANCE_20261127_KO.md). P2 재학습/재분할/Test 기반 튜닝/A19 금지, Production Contact HOLD, AI OFF 유지.
+
+## 2026-11-27 C14 최신 P3-pretest 실제 Owner checkpoint 기술 인수
+
+- P3 pretest TAR `20261127T010407Z-454600671d21.tar.gz` SHA256 `5874707038d2d74e2f83d0d7370dbed6ed4baf32d12c6d8164aa8357e0f84148` sidecar 일치. Immutable checkout `454600671d21dec78155baddfb528c1505754841`, clean/exit0, report `P3_PRETEST_CHECKPOINT_SHA_PASS_PERFORMANCE_HOLD`.
+- 실제 WSL2 private checkpoint SHA `6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c` + P2 summary·P1 plan 메타데이터 PASS. **P3 Test authorized=false, opened=false, evaluated=false**. Val1/3 vs majority2/3; 성능 HOLD, P4 미승인.
+- 운영 정책 [Agent-first / Owner WSL2 최종 1회](../../policies/SMARTDISH_AGENT_FIRST_WSL2_FINAL_ONLY_POLICY_KO.md): 에이전트 코드·CI·문서·분석 책임, 사용자 WSL2는 private/최종 인수만. 향후 환경 점검 필요시 단일 스크립트+자동 아카이브, **기존 PASS 재실행 불가**. C14 [교육 보고](../tasks/2026-11-27_C14_OWNER_MINIMAL_WSL2_EDU_KO.md).
+- AI OFF PROTECTED, A19 NOT_AUTHORIZED, Production Contact HOLD, P3 Test4 미개봉, E AI ON HOLD 지속.

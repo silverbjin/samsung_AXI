@@ -55,3 +55,11 @@
 ## 5. MVP 과도한 확장 방지
 
 문서 규칙은 새 검증 게이트·임계값·다중 PC·반복 주행을 추가하지 않습니다. **기능 동작을 우선**하며, 원인 규명·최소 수정·한 번의 해당 경계 재검만 기록합니다.
+
+## 6. Agent-first / WSL2 최소 실행 정책 (2026-11-27 적용)
+
+- **Agent 책임:** 원격 코드 조사·최소 수정·CI·fixture-only 검증·PR/교육 보고서·PASS/HOLD 원장·아카이브 검수. Owner WSL2에 소스 수정·Git 명령·독립 preflight를 분산시키지 않습니다.
+- **Owner 책임:** 공개 CI로 재현 불가능한 private 원본·하드웨어·GUI와 명시된 **최종 인수 1회**만 수행. 새 실환경 의존성이 불가피할 때 **하나의 SHA 고정 자동 환경검수+실행+증거 패키징 명령**을 제공합니다.
+- 이전 성공 증거는 P0/P1/P2/P3 pretest 모두 재사용. Owner에게 이미 판정된 Gate를 반복시키지 않고, 파일 보존 후 상태가 변경된 경우에만 새 오류 사유와 최소 재검 범위를 제시합니다.
+- 진단 TAR에는 로그·SHA·집계·상태만 보존, 실제 weights/checkpoint·private PNG·P0/P1/연구 승인 원본/ROS bag 원본은 제외. 원본 hash 검증은 WSL2에서 하고 Agent는 제출 TAR+sidecar만 비교합니다.
+- P3 Test는 별도 사람 승인이 선행되어야 하며 pretest PASS나 environment PASS가 이를 대신하지 못합니다. `AI_OFF=PROTECTED`, `A19=NOT_AUTHORIZED`, Production Contact `HOLD`, 학습 재실행 금지 경계 유지.
