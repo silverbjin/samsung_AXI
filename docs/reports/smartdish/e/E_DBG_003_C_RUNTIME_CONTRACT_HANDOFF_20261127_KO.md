@@ -28,3 +28,13 @@
 - 신규 L0 검증: 누락된 C venv, 불완전 receipt, 버전 drift, Python import 실패, ROS process injection/launcher 계약의 회귀.
 - 신규 Owner 기대 마커: `E_OWNER_C_RUNTIME_REUSED_VERIFIED` → `E_OWNER_AION_PREFLIGHT_PASS_OWNER_SCOPE_NO_GOAL` → `C_MODEL_LOADED version=resnet18-6afdcfe526e6`.
 - 실제 WSL2 모델 로딩 확인 전에는 `E_OWNER_C_MODEL_LOAD_PASS` 금지.
+
+## 6. 실제 수정 SHA·최종 GREEN 검증 (2026-11-27)
+
+- **수정 코드·CI 기준 SHA:** `316639a0a5c47121f3026c76e180efde3cea12d4`.
+- [Push CI #45932168384](https://github.com/silverbjin/samsung_AXI/actions/runs/45932168384): **SUCCESS**. L0 **146 passed**. L1 실제 ROS Jazzy **smartdish_ai/smartdish_service/smartdish_robot 3 packages PASS**, 모델 없는 DDS 회귀 PASS.
+- **L1 부정시험 추가:** `E_OWNER_C_RUNTIME_CONTRACT_NOT_VERIFIED` (직접 Owner launch 우회 시 즉시 차단) 및 `E_OWNER_C_MODEL_LOAD_FAILED` (모델 경로 존재/메타데이터 불합격 등 필수 로딩 실패 시 종료, `C_STABILITY_READY` 오인 방지) 모두 PASS.
+- `E_OWNER_C_RUNTIME_REUSED_VERIFIED`는 실제 사용자 C venv의 `torch/torchvision/Pillow/numpy` import가 성공한 후에만 출력되도록 수정. **CI에는 C venv/실 체크포인트가 없으므로 이 마커가 WSL2에서 나왔다는 주장은 하지 않음**.
+- 기존 C venv를 재설치하거나 시스템 패키지를 수정하지 않습니다. ROS 시스템 Python은 계속 유지하고, C 추론 프로세스에만 C `site-packages`를 주입합니다.
+- 최초 Owner PIN `4dbdeca6a0a8f8120cb42a44bd589d356726eb5d`로 체크아웃된 *깨끗한* E 작업공간만, 사용자 명시적 새 PIN을 받은 경우 안전한 조상관계 검증 후 **후속 SHA로 detach checkout**할 수 있습니다. 브랜치 HEAD 강제 reset/clean/미검증 변경 폐기는 하지 않습니다.
+- 현재 **`E_OWNER_C_RUNTIME_HANDOFF_CODE_VERIFIED`**. 실제 WSL2 import·C_MODEL_LOADED는 아직 재검하지 않았으므로 **`E_OWNER_C_MODEL_LOAD_PASS`는 미발급**.

@@ -11,7 +11,7 @@
 - 완료된 CI의 SHA와 private checkpoint 절대 경로를 지정해 아래 명령 사용. 실제 C 체크포인트 파일은 공개 GitHub에 업로드하지 않습니다.
 
 ```bash
-export SMARTDISH_E_SOURCE_SHA=4dbdeca6a0a8f8120cb42a44bd589d356726eb5d
+export SMARTDISH_E_SOURCE_SHA=316639a0a5c47121f3026c76e180efde3cea12d4
 export SMARTDISH_C_V1_CHECKPOINT=/absolute/private/path/to/c_v1_frozen_head.pt
 curl -fsSLo "$HOME/smartdish_e_owner_aion.sh" "https://raw.githubusercontent.com/silverbjin/samsung_AXI/$SMARTDISH_E_SOURCE_SHA/scripts/smartdish_e_owner_aion.sh"
 bash -n "$HOME/smartdish_e_owner_aion.sh"
@@ -38,3 +38,13 @@ bash "$HOME/smartdish_e_owner_aion.sh" --run-ui
 - E Owner 통합 검증 코드 PIN: `4dbdeca6a0a8f8120cb42a44bd589d356726eb5d` (문서 후속 커밋과 별개로 기능 코드는 이 SHA에서 L0/L1 확인됨).
 - [최종 Actions #45929414512](https://github.com/silverbjin/samsung_AXI/actions/runs/45929414512): L0 131 PASS, L1 실제 DDS·C/D/A 3패키지·런치 인자 PASS.
 - 필요한 비공개 모델 경로는 `SMARTDISH_C_V1_CHECKPOINT`로 사용자가 WSL2에서 직접 설정. **해당 파일 바이트 및 WSLg GUI, Nav2 3-leg AI ON L3는 이번 코드 CI에서 확인하지 않았으므로 미인수**.
+
+## E-DBG-003 — 기존 C 실행환경 재사용 수정 (최신 권고)
+
+- [E-DBG-003 교육 보고서](../reports/smartdish/e/E_DBG_003_C_RUNTIME_CONTRACT_HANDOFF_20261127_KO.md). C가 이미 구축한 `~/.venvs/smartdish-c-v1-py312-cpu`를 재사용하도록 실행기 수정. **신규 pip 설치/새 가상환경 구성 금지**.
+- **새 실행 PIN: `316639a0a5c47121f3026c76e180efde3cea12d4`**, [Actions #45932168384](https://github.com/silverbjin/samsung_AXI/actions/runs/45932168384) **L0 146 PASS / Jazzy L1 3pkgs+DDS+fail-fast PASS**.
+- `--preflight`에 C 가상환경 메타데이터·버전·C Python 및 ROS Python 양쪽 import 검증 추가. 실패 시 `E_OWNER_C_RUNTIME_BLOCKED=...`/exit2, GUI 실행 금지.
+- 성공 시 `E_OWNER_C_RUNTIME_REUSED_VERIFIED`, `E_OWNER_AION_PREFLIGHT_PASS_OWNER_SCOPE_NO_GOAL`. 실제 C 로딩 시 `C_MODEL_LOADED version=resnet18-6afdcfe526e6 scope=OWNER_GAZEBO_INTEGRATION_ONLY` 확인 필요.
+- 기존 `~/samsung_AXI_e_ai_on_v1`가 이전 인정 SHA `4dbdeca6...`이고 **clean**이면, 새 실행기는 명시된 신규 PIN이 원래 커밋의 자손인지 확인하고 Fast-forward 형태의 detach checkout만 허용합니다. 기존 작업에 수정 파일이 있거나 다른 SHA면 **안전 차단**합니다.
+- C CPU venv가 없다면 E가 무단으로 재설치하지 않습니다. C 전용 설치기의 이전 인수 근거·기존 승인 범위를 확인한 후 C 담당 정책으로만 복구합니다.
+- **현재 미완료:** 사용자 WSL2 실제 C runtime import / 모델 재로딩 / C 추론 / A+E L3. 기존 AI OFF L3는 PASS 재사용.

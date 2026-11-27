@@ -53,3 +53,11 @@
 - \`E_OWNER_AION_CODE_L0_L1_PASS\`
 - \`E_OWNER_MODEL_BYTES_NOT_VERIFIED_IN_CI\`
 - \`E_OWNER_AION_WSL2_L3_NOT_RUN\`
+
+## 8. E-DBG-003 — C의 기존 PyTorch 환경을 E가 재사용하지 않아 재발한 오류
+
+- 최초 Owner 오류 `C_MODEL_UNAVAILABLE ModuleNotFoundError: No module named 'torch'`, E PIN `4dbdeca6a0a8f8120cb42a44bd589d356726eb5d`.
+- 실제 C 성공 경로는 독립 브랜치 `feat/smartdish-c-dataset-v1-pilot@ea0de9ce0c5b9ee1c500421b9de0feea5f68cffc`의 `smartdish_c_v1_install_cpu_venv.sh` 및 `smartdish_c_v1_p2_frozen_owner_once.sh`. 이 계약을 E가 인계하지 않은 것이 원인.
+- **수정 SHA** `316639a0a5c47121f3026c76e180efde3cea12d4`, [L0 146 PASS + ROS Jazzy L1 PASS](https://github.com/silverbjin/samsung_AXI/actions/runs/45932168384). 누락/버전 드리프트/ROS import 실패/직접 런치 우회/모델 로딩 실패를 Fail-Closed로 보완.
+- 기존 AI OFF/제품 C17 기본 차단, 모델 체크포인트 SHA, C20 독립 정책 불변. 새 `--preflight`는 C 기존 CPU 가상환경에서 torch를 **재사용**하며, 실제 사용자 WSL2에서 `C_MODEL_LOADED`가 출력되기 전까지 실모델 통합 PASS 미발급.
+- 원인, 수정 내용, 단계별 검증 경계는 [E-DBG-003 전체 보고서](E_DBG_003_C_RUNTIME_CONTRACT_HANDOFF_20261127_KO.md)에서 학습.
