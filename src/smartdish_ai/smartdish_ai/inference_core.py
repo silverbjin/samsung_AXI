@@ -14,13 +14,37 @@ LABELS = ("STABLE", "UNSTABLE")
 
 class InferenceCore:
     def __init__(self, predictor: Callable | None = None, model_version: str = "none",
-                 confidence_min: float = 0.80, max_image_age_s: float = 2.0):
-        if not 0.5 <= confidence_min <= 1.0 or not 0 < max_image_age_s <= 60:
+                 confidence_min: float = 0.80, max_image_age_s: float = 2.0,
+                 stable_confidence_min: float | None = None,
+                 unstable_confidence_min: float | None = None):
+        if not self._valid_threshold(confidence_min) or not 0 < max_image_age_s <= 60:
             raise ValueError("C_INVALID_INFERENCE_PARAMETERS")
         self.predictor = predictor
         self.model_version = model_version if predictor is not None else "none"
-        self.confidence_min = confidence_min
+        self.confidence_min = float(confidence_min)  # backward-compatible default
+        self.set_decision_thresholds(
+            confidence_min if stable_confidence_min is None else stable_confidence_min,
+            confidence_min if unstable_confidence_min is None else unstable_confidence_min)
         self.max_image_age_s = max_image_age_s
+
+    @staticmethod
+    def _valid_threshold(value):
+        return (type(value) in (int, float) and math.isfinite(value)
+                and 0.50 <= value <= 1.00)
+
+    def set_decision_thresholds(self, stable, unstable):
+        """Atomically set per-label *confidence* thresholds (not physical GT).
+
+        An invalid update leaves both existing values unchanged.
+        """
+        if not self._valid_threshold(stable) or not self._valid_threshold(unstable):
+            raise ValueError("C_INVALID_CLASS_DECISION_THRESHOLD")
+        self.stable_confidence_min = float(stable)
+        self.unstable_confidence_min = float(unstable)
+        return self.stable_confidence_min, self.unstable_confidence_min
+
+    def decision_thresholds(self):
+        return self.stable_confidence_min, self.unstable_confidence_min
         self.frame = None
         self.frame_seq = 0
         self.last_used_seq = 0
@@ -76,7 +100,9 @@ class InferenceCore:
             if predicted not in LABELS or isinstance(conf, bool) or not isinstance(conf, (int, float)):
                 return result
             conf = float(conf)
-            if not math.isfinite(conf) or not 0 <= conf <= 1 or conf < self.confidence_min:
+            limit = (self.stable_confidence_min if predicted == "STABLE"
+                     else self.unstable_confidence_min)
+            if not math.isfinite(conf) or not 0 <= conf <= 1 or conf < limit:
                 return result
         except Exception:
             return result  # Real failure is logged by ROS wrapper; never fabricate STABLE.

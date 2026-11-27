@@ -36,12 +36,15 @@ def main():
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data
     from sensor_msgs.msg import Image
     from std_msgs.msg import String
+    from rcl_interfaces.msg import SetParametersResult
 
     class StabilityInferenceNode(Node):
         def __init__(self):
             super().__init__("smartdish_stability_inference")
             self.declare_parameter("model_path", "")
             self.declare_parameter("confidence_min", 0.80)
+            self.declare_parameter("stable_confidence_min", 0.80)
+            self.declare_parameter("unstable_confidence_min", 0.80)
             self.declare_parameter("max_image_age_s", 2.0)
             model_path = str(self.get_parameter("model_path").value).strip()
             predictor, version = None, "none"
@@ -56,7 +59,10 @@ def main():
             self.core = InferenceCore(
                 predictor, version,
                 float(self.get_parameter("confidence_min").value),
-                float(self.get_parameter("max_image_age_s").value))
+                float(self.get_parameter("max_image_age_s").value),
+                stable_confidence_min=self.get_parameter("stable_confidence_min").value,
+                unstable_confidence_min=self.get_parameter("unstable_confidence_min").value)
+            self.add_on_set_parameters_callback(self.on_threshold_parameters)
             contract_qos = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10,
                                       reliability=ReliabilityPolicy.RELIABLE,
                                       durability=DurabilityPolicy.VOLATILE)
@@ -64,6 +70,26 @@ def main():
             self.create_subscription(String, "/collection/ai_check_request", self.request_callback, contract_qos)
             self.create_subscription(Image, "/smartdish/tray/image_raw", self.image_callback, qos_profile_sensor_data)
             self.get_logger().info("C_STABILITY_READY optional AI ON; JSON RELIABLE VOLATILE KEEP_LAST_10")
+
+        def on_threshold_parameters(self, params):
+            """Atomic ROS 2 parameter update, without restart/retraining."""
+            incoming = {p.name: p.value for p in params}
+            watched = {"stable_confidence_min", "unstable_confidence_min"}
+            if not watched.intersection(incoming):
+                return SetParametersResult(successful=True)
+            stable = incoming.get("stable_confidence_min",
+                                  self.core.stable_confidence_min)
+            unstable = incoming.get("unstable_confidence_min",
+                                    self.core.unstable_confidence_min)
+            try:
+                self.core.set_decision_thresholds(stable, unstable)
+            except ValueError as exc:
+                self.get_logger().warning(str(exc))
+                return SetParametersResult(successful=False, reason=str(exc))
+            self.get_logger().info(
+                "C_DYNAMIC_THRESHOLD_APPLIED stable=%.3f unstable=%.3f" %
+                self.core.decision_thresholds())
+            return SetParametersResult(successful=True)
 
         def image_callback(self, msg):
             try:
@@ -86,8 +112,11 @@ def main():
             out = String()
             out.data = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
             self.publisher.publish(out)
-            self.get_logger().info("C_STABILITY_RESULT request_id=%s capture_id=%s status=%s model_version=%s" %
-                                   (result["request_id"], result["capture_id"], result["status"], result["model_version"]))
+            self.get_logger().info(
+                "C_STABILITY_RESULT request_id=%s capture_id=%s status=%s model_version=%s "
+                "stable_min=%.3f unstable_min=%.3f" %
+                (result["request_id"], result["capture_id"], result["status"],
+                 result["model_version"], *self.core.decision_thresholds()))
 
     rclpy.init()
     node = StabilityInferenceNode()
