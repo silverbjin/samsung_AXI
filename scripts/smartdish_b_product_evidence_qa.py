@@ -174,7 +174,7 @@ def scene_ids(raw):
     models=re.findall(r'^model \{\n  name: "([^"]+)"\n  id: (\d+)',raw,re.M)
     need(len(models)==len({x[0] for x in models}),"DUPLICATE_SCENE_MODEL")
     return {n:int(i) for n,i in models}
-def service_review(log,op):
+def service_review(log,op,ids=IDS):
     rows=[json.loads(x) for x in Path(log).open()]
     need(rows and all(x["exit"]==0 for x in rows),"SERVICE_EXIT")
     scenes=[scene_ids(x["stdout"]) for x in rows if x["service"]=="scene/info"]
@@ -188,11 +188,11 @@ def service_review(log,op):
     if op=="LOAD":
         need("s6_stacked_dishes" in first and not any(n in first for n in names),"INITIAL_FIXTURE")
         need(removed==[first["s6_stacked_dishes"]] and created==names,"LOAD_CREATE_REMOVE")
-        need("s6_stacked_dishes" not in last and [last.get(n) for n in names]==IDS,"LOAD_SCENE_IDS")
+        need("s6_stacked_dishes" not in last and [last.get(n) for n in names]==ids,"LOAD_SCENE_IDS")
         # Each new dynamic name must keep its ID until end of LOAD.
-        need(all(s[n]==IDS[i] for s in scenes for i,n in enumerate(names) if n in s),"LOAD_ID_DRIFT")
+        need(all(s[n]==ids[i] for s in scenes for i,n in enumerate(names) if n in s),"LOAD_ID_DRIFT")
     else:
-        need([first.get(n) for n in names]==IDS and removed==IDS and not created and not any(n in last for n in names),"UNLOAD_SCENE_IDS")
+        need([first.get(n) for n in names]==ids and removed==ids and not created and not any(n in last for n in names),"UNLOAD_SCENE_IDS")
     return dict(initial_fixture_id=first.get("s6_stacked_dishes"),initial_dynamic_ids=[first[n] for n in names if n in first],
                 final_dynamic_ids=[last[n] for n in names if n in last],created_names=created,removed_ids=removed,scene_snapshots=len(scenes))
 def rgb(p,r,stem):
