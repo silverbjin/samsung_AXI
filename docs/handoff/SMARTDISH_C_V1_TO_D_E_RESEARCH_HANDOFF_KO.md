@@ -54,3 +54,10 @@
 - 설치 기본값은 wheel만 설치. `--with-weights`는 명시적으로 요청할 때만 공식 `ResNet18_Weights.IMAGENET1K_V1` 가중치를 전용 Torch 캐시에 다운로드·SHA-prefix+full SHA 확인. **가중치 사용권 승인이나 모델 학습 GO가 아님**.
 - 개발 코드 SHA `683a682bc1ecf2f6c959b82dd8fda998be8b706f`. CI는 공개 fixture-only이며 **Owner 실제 WSL2 CPU wheel 설치/P1 재검은 NOT_RUN**. [C10 교육 보고서](../tasks/2026-11-27_C10_VENV_AUTO_ACTIVATION_EDU_KO.md).
 - 상태 유지: `P0_PASS / P1_HOLD_ENV_INSTALL_NOT_RUN / P2_TRAIN_NOT_RUN / P3_TEST_NOT_OPENED / P4_NO_CHECKPOINT / AI_OFF_PROTECTED / A19_NOT_AUTHORIZED / PRODUCTION_CONTACT_HOLD`.
+
+## 최신 P1 Owner 인계 — 2026-11-27 (기존 과거 HOLD 문단보다 우선)
+
+- WSL2 전용 CPU venv·Torchvision ResNet18 V1 cache 검수 PASS, 실행 pin `23e5dcd49361405d2ee53fa379ed7a28ff3ce3c8`, 6파일 로그 TAR SHA `c346ddae3764198b1aadb878747a2ca4c097535aa54b9c15b504dee3bc1db38a`.
+- torch2.5.1+cpu / torchvision0.20.1+cpu / Pillow10.2.0 / ResNet18 pretrained SHA `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec`. 계획 SHA `9e3eb03172940ef04bdc016051e4dca2905a640bd658e1e919dd9ba70fc33019`.
+- P0 42/42 + P1 weights/runtime **기술 PASS**, 그러나 C human research approval/weights license 미승인: `training_permitted=false`. **P2 train, P3 Test, P4 model release NOT_RUN**, D/E AI ON HOLD, AI OFF protected.
+- [P1 상세 검토](../reports/acceptance/SMARTDISH_C_V1_P1_OWNER_TECH_ACCEPTANCE_20261127_KO.md). 기존 P0/과거 P1 HOLD 설명은 당시 이력이며 현행 우선 판정이 아님.

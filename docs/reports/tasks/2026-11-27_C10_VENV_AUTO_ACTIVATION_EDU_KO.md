@@ -46,3 +46,7 @@ P1 성공은 `P1_WEIGHT_BYTES_READY_C_APPROVAL_REQUIRED`로, **학습 허가가 
 - Python P1의 `inspect()`는 venv 내부인지와 `torch 2.5.1` / `torchvision 0.20.1` / Pillow `10.2.0` / **CPU-only**인지 재확인합니다. 다른 설치자가 C 전용 디렉터리를 변경한 경우 `C_V1_P1_CPU_DEPENDENCY_VERSION_MISMATCH`로 HOLD합니다.
 - P1 원샷은 설치 스크립트와 **동일한 설치 잠금 파일의 shared lock**을 nonblocking 방식으로 취득합니다. 설치 중이라면 `C_V1_P1_INSTALL_IN_PROGRESS`로 fail-fast, 설치 중간 상태를 인수 증거로 사용하지 않습니다.
 - PyTorch 전체 wheel 실제 다운로드·설치 및 WSL2 P1 Owner 검증은 사용자 머신에서만 수행할 수 있으므로 GitHub의 fixture-only CI 결과와 구분합니다.
+
+## C11 최신 증거 (기술 P1 PASS)
+
+2026-11-27 사용자 WSL2 `23e5dcd49361405d2ee53fa379ed7a28ff3ce3c8` 원샷의 `exit0`, 전용 venv 사용, `ResNet18_Weights.IMAGENET1K_V1` 전체 SHA `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec` 직접 제출 증거와 SHA sidecar 일치. `C_P1_WEIGHT_TECHNICAL_PASS_C_RESEARCH_APPROVAL_PENDING`: **설치 성공은 학습 승인이 아님**. [상세 원장](../acceptance/SMARTDISH_C_V1_P1_OWNER_TECH_ACCEPTANCE_20261127_KO.md) 참고.

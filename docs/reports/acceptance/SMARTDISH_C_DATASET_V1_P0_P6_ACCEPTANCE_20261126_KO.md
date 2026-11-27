@@ -66,3 +66,10 @@ Data Freeze A15 4+A16 8+A18 8 =20 independent layout/6 family; 승인18/5 family
 - 설치 기본값은 wheel만 설치. `--with-weights`는 명시적으로 요청할 때만 공식 `ResNet18_Weights.IMAGENET1K_V1` 가중치를 전용 Torch 캐시에 다운로드·SHA-prefix+full SHA 확인. **가중치 사용권 승인이나 모델 학습 GO가 아님**.
 - 개발 코드 SHA `683a682bc1ecf2f6c959b82dd8fda998be8b706f`. CI는 공개 fixture-only이며 **Owner 실제 WSL2 CPU wheel 설치/P1 재검은 NOT_RUN**. [C10 교육 보고서](../tasks/2026-11-27_C10_VENV_AUTO_ACTIVATION_EDU_KO.md).
 - 상태 유지: `P0_PASS / P1_HOLD_ENV_INSTALL_NOT_RUN / P2_TRAIN_NOT_RUN / P3_TEST_NOT_OPENED / P4_NO_CHECKPOINT / AI_OFF_PROTECTED / A19_NOT_AUTHORIZED / PRODUCTION_CONTACT_HOLD`.
+
+## 2026-11-27 C11 — WSL2 Owner P1 isolated CPU / pretrained SHA 기술 검증 PASS
+
+- 새 제출 원본 `20261127T003050Z-p1-23e5dcd49361.tar.gz` SHA256 `c346ddae3764198b1aadb878747a2ca4c097535aa54b9c15b504dee3bc1db38a`; sidecar 직접 일치. 고정 C checkout SHA `23e5dcd49361405d2ee53fa379ed7a28ff3ce3c8`, clean1/exit0, stderr 빈 로그, 6개 일반 증거 파일.
+- Python3.12.3 / `torch2.5.1+cpu` / `torchvision0.20.1+cpu` / Pillow10.2.0; 공식 ResNet18 V1 가중치 46,830,571 bytes, SHA256 `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec` Owner 보고서 수령. P0 report hash `56951cab0e6f69f99d71b249cac53c555add5e2322d4b1febc04f369cfd3f3f0`; 사전 P1 계획 hash `9e3eb03172940ef04bdc016051e4dca2905a640bd658e1e919dd9ba70fc33019`.
+- 기술적 결과 **`P1_WEIGHT_BYTES_READY_C_APPROVAL_REQUIRED`**. `pretrained_license_reviewed=false`, `C_research_approval_issued=false`, `training_permitted=false` 지속. P0 42/42 PASS 보존, P1 재설치/재검수 필요 없음.
+- [실제 검수/교육 상세](../reports/acceptance/SMARTDISH_C_V1_P1_OWNER_TECH_ACCEPTANCE_20261127_KO.md). **P2 학습·P3 Test·P4 모델 미실행**, E AI ON HOLD, A19 금지, Production Contact HOLD, AI OFF 유지.
