@@ -107,11 +107,12 @@ def verify_ticks(tick_path,pair_path,legs,geom,categorize,mission_mode="both"):
         if not p['positive_support_steps']:err(p,'GROUND_SUPPORT_NOT_OBSERVED')
         if p['ids'] and not p['positive_tray_steps']:err(p,'TRAY_SUPPORT_NOT_OBSERVED')
         p['pass']=not p['errors']
-    expected_count={"both":6,"loaded":3,"shutdown":1}.get(mission_mode)
-    if mission_mode not in ("both","loaded","shutdown"):raise ValueError("INVALID_MISSION_MODE")
+    expected_count={"both":6,"loaded":3,"shutdown":1,"product":3}.get(mission_mode)
+    if mission_mode not in ("both","loaded","shutdown","product"):raise ValueError("INVALID_MISSION_MODE")
     expected_names=["a04-loaded_"+leg for leg in ("TO_TABLE","TO_RETURN","TO_HOME")]
     if mission_mode=="both":expected_names=["a04-empty_"+leg for leg in ("TO_TABLE","TO_RETURN","TO_HOME")]+expected_names
     if mission_mode=="shutdown":expected_names=["a04-shutdown_TO_TABLE"]
+    if mission_mode=="product":expected_names=["e-product_"+leg for leg in ("TO_TABLE","TO_RETURN","TO_HOME")]
     phase_names=[p["phase"] for p in phases]
     return {'scope':'READ_ONLY_ECM_EVERY_PHYSICS_STEP_GEOMETRIC_SEPARATION_AND_POSITIVE_CONTACTS',
         'mission_mode':mission_mode,'completed_leg_count':len(phases),'phases':phases,

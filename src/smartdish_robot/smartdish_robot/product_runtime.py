@@ -16,7 +16,7 @@ from .product_transfer import ProductTransferController
 
 class ProductRuntime:
     def __init__(self,node,poses,scene,world_dir,evidence_dir,source_sha,
-                 *,accepted_hook,cm_active,transfer_timeout=20.):
+                 *,accepted_hook,cm_active,transfer_timeout=20.,physical=None,shared_clock=None):
         from rclpy.qos import QoSProfile,ReliabilityPolicy,DurabilityPolicy,qos_profile_sensor_data
         from rosgraph_msgs.msg import Clock
         from nav_msgs.msg import Odometry
@@ -25,21 +25,25 @@ class ProductRuntime:
         from std_msgs.msg import String
         self.node=node;self.poses=poses;self.cm_active=cm_active;self.String=String
         self.root=Path(evidence_dir);self.root.mkdir(parents=True,exist_ok=True)
-        self.physics=PhysicalOperations();self.clock=deque(maxlen=4096)
+        require((physical is None)==(shared_clock is None),"SHARED_PHYSICAL_CLOCK_PAIR")
+        self.physics=physical if physical is not None else PhysicalOperations()
+        self.clock=shared_clock if shared_clock is not None else deque(maxlen=4096)
         self.odom_xy=None;self.odom_n=0;self.odom_at=None;self.scan_n=0;self.scan_at=None
         self.amcl=None;self.amcl_at=None;self.motion=None;self.pending=None;self.armed=False
         self.clock_fault=False;self.current_request_id=None;self.nav_fault_logged=False
         self.closed_requests=set()
-        self.physics.attach(node,self.clock)
+        if physical is None:self.physics.attach(node,self.clock)
+        else:require(self.physics.node is node and self.physics.clock is self.clock,"SHARED_PHYSICAL_OWNER")
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.VOLATILE)
         self.pubs={key:node.create_publisher(String,"/collection/"+key,qos)
                    for key in ("nav_result","nav_cancel_result","dish_transfer_result")}
         self.subs=[
-            node.create_subscription(Clock,"/clock",self.on_clock,qos),
+
             node.create_subscription(Odometry,"/odom",self.on_odom,qos_profile_sensor_data),
             node.create_subscription(LaserScan,"/scan",self.on_scan,qos_profile_sensor_data),
             node.create_subscription(PoseWithCovarianceStamped,"/amcl_pose",self.on_amcl,qos_profile_sensor_data),
         ]
+        if shared_clock is None:self.subs.append(node.create_subscription(Clock,"/clock",self.on_clock,qos))
         self.nav=make_nav_client(node,poses,self.physics.stop,accepted_hook,
                                  self.nav_result,self.cancel_result,self.preflight,self.arrival_verified)
         self.transfer=ProductTransferController(self.nav,self.physics,scene,world_dir,self.root,

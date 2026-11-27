@@ -129,6 +129,7 @@ class NavigationBoundary:
             if a.terminal is None and a.result_future.done():
                 status=a.result_future.result().status
                 require(status in TERMINAL,"NAV_NONTERMINAL_RESULT")
+                now=self.clock()
                 a.terminal=TERMINAL[status];a.terminal_at=now
                 a.stop_deadline=now+self.stop_timeout
                 self.evidence('terminal',a,now,terminal_status=a.terminal)

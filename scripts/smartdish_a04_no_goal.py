@@ -136,9 +136,10 @@ def shutdown_managers(node,proc,rclpy,manager_clients,detail):
             result[name]="POST_SHUTDOWN_STATE_UNPROVEN"
     return result
 
-def run(a):
+def run(a, *, product_session=None):
     require(os.environ.get("CI")=="true" and os.environ.get("GITHUB_ACTIONS")=="true" and
             os.environ.get("GZ_PARTITION","").startswith("smartdish_a04_") and not os.environ.get("WSL_DISTRO_NAME"),"CI_ONLY")
+    if product_session is not None:require(a.motion and a.mode=="candidate" and a.mission=="product","E_PRODUCT_SCOPE")
     out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
     evidence={"scope":"ACTUAL_NAV2_COMPUTE_PATH_ONLY_NO_MOTION","mode":a.mode,
               "source_sha":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),
@@ -195,7 +196,7 @@ def run(a):
         evidence["launch_argv"]=cmd
         proc=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
         rclpy.init(domain_id=int(os.environ["ROS_DOMAIN_ID"]));initialized=True
-        node=rclpy.create_node("smartdish_a04_no_goal",parameter_overrides=[Parameter("use_sim_time",value=True)])
+        node=rclpy.create_node("smartdish_navigation_adapter" if product_session is not None else "smartdish_a04_no_goal",parameter_overrides=[Parameter("use_sim_time",value=True)])
         phys.attach(node,clock)
         if a.motion:manager_clients=make_manager_clients(node,("lifecycle_manager_navigation","lifecycle_manager_localization","a04_clearance_lifecycle"))
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE)
@@ -394,10 +395,15 @@ def run(a):
         evidence["verdict"]="ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"
         evidence["clearance_gate"]="HOLD" # product approval remains E-owned
         if a.motion:
-            from smartdish_a04_motion import run_missions
-            run_missions(node,out,phys,g,sources,buffer,state,clock,evidence,scene,static,target,spin,wait,a.mission)
-            evidence["scope"]="ACTUAL_CI_MOTION_ONLY_NOT_PRODUCT_INTEGRATION"
-            evidence["verdict"]="ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE"
+            if product_session is None:
+                from smartdish_a04_motion import run_missions
+                run_missions(node,out,phys,g,sources,buffer,state,clock,evidence,scene,static,target,spin,wait,a.mission)
+                evidence["scope"]="ACTUAL_CI_MOTION_ONLY_NOT_PRODUCT_INTEGRATION"
+                evidence["verdict"]="ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE"
+            else:
+                product_session(node,out,phys,g,sources,buffer,state,clock,evidence,scene,static,target,spin,wait)
+                evidence["scope"]="ACTUAL_E_SINGLE_WORLD_CI_C_PREDICTOR_DOUBLE"
+                evidence["verdict"]="ACTUAL_E_MISSION_COMPLETE_PENDING_SHUTDOWN"
     except BaseException as exc:
         evidence["first_error"]=repr(exc);evidence["verdict"]="FAIL";raise
     finally:
@@ -434,21 +440,26 @@ def run(a):
                 save(out/"ecm_review.json",ecm)
                 evidence["moving"]["ecm_review"]=ecm
                 save(out/"motion_dynamics.json",dynamics(out/"motion_pose.jsonl"))
-                if evidence["verdict"]=="ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE":
+                if evidence["verdict"] in ("ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE","ACTUAL_E_MISSION_COMPLETE_PENDING_SHUTDOWN"):
                     require(ecm["pass"],"ECM_ACTUAL_PHYSICAL_COVERAGE_HOLD")
                     require(all(v=="ACK" for v in evidence.get("lifecycle_shutdown",{}).values()) and
                             len(evidence.get("lifecycle_shutdown",{}))==3,"LIFECYCLE_SHUTDOWN_NOT_ACKED")
                     launchlog=(out/"launch.log").read_text()
                     require("SIGKILL" not in launchlog and "exit code -9" not in launchlog,"FORCED_CHILD_CLEANUP")
                     require(evidence.get("quiescence",{}).get("paused") and evidence["quiescence"].get("clock_quiescent"),"WORLD_NOT_QUIESCENT")
-                    evidence["moving"]["verdict"]=("A_SHUTDOWN_FOCUSED_L2_PASS" if a.mission=="shutdown" else "A_LOADED_NAV_L2_PASS" if a.mission=="both" else "A_LOADED_MISSION_L2_PASS_WITH_REUSED_EMPTY_EVIDENCE")
-                    evidence["clearance_gate"]="A_SHUTDOWN_FOCUSED_PASS_REVIEW_REFERENCED_MISSION" if a.mission=="shutdown" else "A_INTERNAL_L2_PASS_E_FINAL_REVIEW_REQUIRED"
+                    if product_session is not None:
+                        evidence["verdict"]="E_SINGLE_WORLD_CI_DOUBLE_L2_PASS"
+                        evidence["moving"]["verdict"]="E_SINGLE_WORLD_CI_DOUBLE_L2_PASS"
+                        evidence["clearance_gate"]="E_ACTUAL_CI_CANDIDATE_MAP_CLEARANCE_PASS"
+                    else:
+                        evidence["moving"]["verdict"]=("A_SHUTDOWN_FOCUSED_L2_PASS" if a.mission=="shutdown" else "A_LOADED_NAV_L2_PASS" if a.mission=="both" else "A_LOADED_MISSION_L2_PASS_WITH_REUSED_EMPTY_EVIDENCE")
+                        evidence["clearance_gate"]="A_SHUTDOWN_FOCUSED_PASS_REVIEW_REFERENCED_MISSION" if a.mission=="shutdown" else "A_INTERNAL_L2_PASS_E_FINAL_REVIEW_REQUIRED"
             except Exception as exc:
                 evidence["ecm_review_error"]=repr(exc)
                 if evidence.get("first_error") is None:
                     evidence["first_error"]=repr(exc);evidence["verdict"]="FAIL"
         save(out/"evidence.json",evidence)
-    require(evidence["verdict"]==("ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE" if a.motion else "ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"),evidence["first_error"])
+    require(evidence["verdict"]==("E_SINGLE_WORLD_CI_DOUBLE_L2_PASS" if product_session is not None else "ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE" if a.motion else "ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"),evidence["first_error"])
 def main():
     p=argparse.ArgumentParser()
     for k in ("out","robot-source","bridge-source","world-source","map","poses","params"):
