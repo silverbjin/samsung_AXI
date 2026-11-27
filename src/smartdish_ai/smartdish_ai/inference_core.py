@@ -26,6 +26,12 @@ class InferenceCore:
             confidence_min if stable_confidence_min is None else stable_confidence_min,
             confidence_min if unstable_confidence_min is None else unstable_confidence_min)
         self.max_image_age_s = max_image_age_s
+        # Restore frame cache and duplicate-detection state in constructor.
+        self.frame = None
+        self.frame_seq = 0
+        self.last_used_seq = 0
+        self.seen_requests: set[tuple[str, str]] = set()
+        self.last_stamp_ns = None
 
     @staticmethod
     def _valid_threshold(value):
@@ -45,11 +51,6 @@ class InferenceCore:
 
     def decision_thresholds(self):
         return self.stable_confidence_min, self.unstable_confidence_min
-        self.frame = None
-        self.frame_seq = 0
-        self.last_used_seq = 0
-        self.seen_requests: set[tuple[str, str]] = set()
-        self.last_stamp_ns = None
 
     def cache_rgb(self, rgb: bytes, width: int, height: int,
                   *, received_at: float | None = None, stamp_ns: int | None = None) -> bool:
