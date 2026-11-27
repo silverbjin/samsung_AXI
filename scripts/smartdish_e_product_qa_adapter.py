@@ -66,7 +66,7 @@ def wait_review(odom,d_events,rid):
         results.append(dict(operation=operation,wait_s=(z-a)/1e9,start_ns=a,steady_ns=z,request=end["body"],samples=len(window),status_heartbeats=len(starts)))
     return results
 
-def capture_review(p,load,cap,ai,c):
+def capture_review(p,load,cap,ai,c,*,owner=False):
     keys=("request_id","stack_id","transfer_id","capture_id","image_stamp_ns","rgb_sha256")
     need(all(cap[k]==ai[k]==c["request"][k] for k in keys),"CAPTURE_AI_ID")
     need(cap["request_id"]==load["request_id"] and cap["stack_id"]==load["stack_id"] and cap["transfer_id"]==load["transfer_id"],"CAPTURE_LOAD_ID")
@@ -88,14 +88,28 @@ def capture_review(p,load,cap,ai,c):
     need(canonical==predict,"ROS_RAW_CANONICAL")
     need(c["invocation_count"]==1 and c["model_version"]==ai["model_version"],"C_INVOCATION_COUNT")
     # CI is explicitly an inference double; no private model claim or product model authorization.
-    need(c["scope"]=="CI_DOUBLE_NOT_ACTUAL_MODEL" and c["private_model_loaded"] is False and c["model_version"]=="CI_DOUBLE_PRODUCT_E","CI_MODEL_SCOPE")
+    if owner:
+        from smartdish_e_product_owner_scope import model_receipt
+        need(model_receipt(c) and model_receipt(js(p/"owner_c_loaded.json")),"OWNER_MODEL_SCOPE")
+        need(c["prediction"]=={"status":ai["raw_status"],"confidence":ai["raw_confidence"]},"OWNER_ACTUAL_PREDICTION")
+    else:
+        need(c["scope"]=="CI_DOUBLE_NOT_ACTUAL_MODEL" and c["private_model_loaded"] is False and c["model_version"]=="CI_DOUBLE_PRODUCT_E","CI_MODEL_SCOPE")
     return dict(scope=c["scope"],rgb_sha256=cap["rgb_sha256"],capture_id=cap["capture_id"],model_version=c["model_version"])
 
-def review(root,repo,out,source,run):
+def review(root,repo,out,source,run,*,owner=False):
     root=Path(root);p=root/"session";out=Path(out);out.mkdir(parents=True,exist_ok=True)
     e=js(p/"evidence.json");b.require_session(e,source,run)
     need((root/"source_sha.txt").read_text().strip()==source and (root/"upstream_sha.txt").read_text().strip()==b.UPSTREAM,"E_SOURCE_PIN")
-    need(e["scope"]=="ACTUAL_E_SINGLE_WORLD_CI_C_PREDICTOR_DOUBLE" and e["verdict"]=="E_SINGLE_WORLD_CI_DOUBLE_L2_PASS" and e["first_error"] is None,"E_L2_NOT_GREEN")
+    if owner:
+        from smartdish_e_product_owner_scope import OWNER_SCOPE,OWNER_VERDICT,MODEL_SHA,CI_L2_PIN
+        need(e["scope"]==OWNER_SCOPE and e["verdict"]==OWNER_VERDICT and e["first_error"] is None and
+             e["private_model_loaded"] is True and e["checkpoint_sha256"]==MODEL_SHA and e["owner_l2_baseline"]==CI_L2_PIN and
+             e["owner_acceptance"]=="REVIEW_REQUIRED" and e["test4_opened"] is False,"E_OWNER_NOT_CANDIDATE")
+        pre=js(root/"model_preflight.json");need(pre["checkpoint_sha256"]==MODEL_SHA and pre["private_weights_disclosed"] is False,"OWNER_PREFLIGHT")
+        need(e["moving"]["owner_c_exit"]=={"exit":0,"clean":True},"OWNER_C_EXIT")
+        sup=js(root/"supervisor.json");need(sup["process_exit"]==0 and sup["cleanup"]["clean"] and not sup["cleanup"]["remaining"],"OWNER_SUPERVISOR")
+    else:
+        need(e["scope"]=="ACTUAL_E_SINGLE_WORLD_CI_C_PREDICTOR_DOUBLE" and e["verdict"]=="E_SINGLE_WORLD_CI_DOUBLE_L2_PASS" and e["first_error"] is None,"E_L2_NOT_GREEN")
     need(e["navigate_to_pose_goals_sent"]==3 and e["velocity_commands_published"]==0 and e["moving"]["nav_quiescent"],"GOAL_COUNT")
     # Original B actual geometric and exact ECM implementation, not runtime summary.
     geom,rc,floor,obs=b.geometry(p/"static",p)
@@ -133,24 +147,28 @@ def review(root,repo,out,source,run):
         need(0<=elapsed<20 and ack["table_count"]==0,"TRANSFER_DEADLINE")
         actual.append(dict(operation=ack["operation"],ids=ids,elapsed_s=elapsed,service=service))
     cap=one(topic("capture_result"),"CAPTURE_COUNT");ai=one(topic("stability"),"AI_COUNT")
-    model=capture_review(p,load,cap,ai,js(p/"c_predictor_receipt.json"))
+    model=capture_review(p,load,cap,ai,js(p/"c_predictor_receipt.json"),owner=owner)
     ui=js(p/"ui_events.json");approve=one([x for x in ui if x["event"]=="staff_confirm" and x["body"]["action"]=="APPROVE_CONTINUE"],"STAFF_APPROVAL_COUNT")
     need(approve["body"]["request_id"]==load["request_id"] and approve["body"]["capture_id"]==cap["capture_id"] and approve["body"]["stack_id"]==load["stack_id"],"STAFF_APPROVAL_ID")
     goals=[r for r in d_events if r["topic"]=="/collection/nav_goal"]
     need([x["body"]["leg"] for x in goals]==["TO_TABLE","TO_RETURN","TO_HOME"] and ns(approve["steady_s"])<goals[1]["steady_ns"],"STAFF_BEFORE_RETURN")
-    need(js(p/"ui_result.json")["completed"] is True,"UI_COMPLETED")
+    ui_result=js(p/"ui_result.json")
+    need(ui_result["completed"] is True,"UI_COMPLETED")
+    if owner:
+        need(ui_result.get("staff_operator_click") is True and ui_result.get("automatic_click") is False and
+             ui_result.get("threshold_set_get") is True and ui_result.get("preview") is True,"OWNER_UI_SCOPE")
     shutdown=b.shutdown(p,e)
-    return dict(verdict="E_INDEPENDENT_CI_DOUBLE_PHYSICAL_QA_PASS",source_sha=source,run_id=run,
+    return dict(verdict="E_INDEPENDENT_OWNER_PRODUCT_PHYSICAL_QA_PASS" if owner else "E_INDEPENDENT_CI_DOUBLE_PHYSICAL_QA_PASS",source_sha=source,run_id=run,
         geometry=geom,map=map_review,plans=paths,phases=phases,raw_stop=stop,waits=waits,transfers=actual,
-        model=model,shutdown=shutdown,owner_l3="NOT_RUN",actual_private_model_loaded=False)
+        model=model,shutdown=shutdown,owner_l3="REVIEW_REQUIRED" if owner else "NOT_RUN",actual_private_model_loaded=owner)
 
 def main():
     p=argparse.ArgumentParser()
     for k in ("tar","sidecar","repo","out"):p.add_argument("--"+k,type=Path,required=True)
-    p.add_argument("--source-sha",required=True);p.add_argument("--run-id",required=True);a=p.parse_args()
+    p.add_argument("--source-sha",required=True);p.add_argument("--run-id",required=True);p.add_argument("--owner",action="store_true");a=p.parse_args()
     with tempfile.TemporaryDirectory() as tmp:
         root,manifest=intake(a.tar,a.sidecar,tmp)
-        result=review(root,a.repo,a.out,a.source_sha,a.run_id)|{"archive":manifest}
+        result=review(root,a.repo,a.out,a.source_sha,a.run_id,owner=a.owner)|{"archive":manifest}
         b.save(a.out/"e_independent_qa.json",result)
         print(result["verdict"])
 if __name__=="__main__":main()

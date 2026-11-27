@@ -1,7 +1,7 @@
 """E actual single restaurant CI session; A startup/physics, C actual node with explicit
 CI-only predictor double, D real FSM/Tk UI. No real checkpoint in CI; not Owner runner.
 """
-import argparse,faulthandler,hashlib,json,math,os,subprocess,sys,threading,time
+import argparse,faulthandler,hashlib,json,math,os,signal,subprocess,sys,threading,time
 from collections import OrderedDict
 from pathlib import Path
 from smartdish_a04_clearance import save,sha,require
@@ -90,8 +90,12 @@ def review_waits(trace_root,d_events,request_id):
         out.append(dict(operation=op,wait_s=(b-a)/1e9,request=ends[0]["body"],steady_ns=b,samples=len(rows)))
     return out
 
-def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spin,wait):
-    require_ci();gate_paths(e)
+def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spin,wait,*,owner=None):
+    if owner is None:require_ci()
+    else:
+        from smartdish_e_product_owner_scope import require_owner,MODEL_VERSION,MODEL_SHA,MODEL_SCOPE,model_receipt
+        require_owner(owner["pin"],owner["run_id"])
+    gate_paths(e)
     # Only the validated A candidate map (original remains untouched) may be used.
     require(e["map_sha256"]=="b73920d77e7e40577958b672dbf6a6fcc5e3bb1bcaeb4b018663bc5d101ef87a" and
             e["localization_map_sha256"]=="f796cd4571f032c493c750b8ccff1f13ddb480210b8cfec963ef5c50c041e15b","E_A_MAP_PIN_DRIFT")
@@ -110,8 +114,8 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
     phys.odom_witness=trace.odom
     # Conservative +0.3s margin so independent first postterminal sample spans >=1s.
     phys.stop.dwell=1.3
-    m=e["moving"]={"legs":[],"accepted":[],"transfers":[],"nav_quiescent":False,"scope":"ACTUAL_E_CI_DOUBLE"}
-    d_events=[];dds=[];workers=[];mailbox=OwnerMailbox();runtime=None;witness=None;ui=None;ui_log=None
+    m=e["moving"]={"legs":[],"accepted":[],"transfers":[],"nav_quiescent":False,"scope":"ACTUAL_E_CI_DOUBLE" if owner is None else "ACTUAL_E_OWNER_PRIVATE_MODEL"}
+    d_events=[];dds=[];workers=[];mailbox=OwnerMailbox();runtime=None;witness=None;ui=None;ui_log=None;c_proc=None;c_log=None;c=None
     def phase(name,initializing=True):
         row=dict(stage=name,initializing=initializing,steady_s=time.monotonic())
         with (out/"startup_phases.jsonl").open("a") as f:f.write(json.dumps(row)+"\n")
@@ -161,7 +165,8 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
     try:
         phase("D_NODE_BEGIN")
         d=make_recovery_node(owner_ai_requested=True,nav_timeout_s=NAV_WALL_TIMEOUT_S)
-        d.logic.model_version=MODEL # CI-only explicit separate identity; no product admission mutation.
+        if owner is None:d.logic.model_version=MODEL # CI-only explicit separate identity; no product admission mutation.
+        else:require(d.logic.model_version==MODEL_VERSION,"E_OWNER_D_MODEL_ADMISSION")
         old_emit=d.logic.emit
         def emit(topic,**kw):
             old_emit(topic,**kw)
@@ -171,7 +176,8 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             with (out/"d_events.jsonl").open("a") as f:f.write(json.dumps(row)+"\n")
         d.logic.emit=emit
         phase("C_NODE_BEGIN")
-        c=make_ci_c(out);require(c.core.predictor is not None and c.core.model_version==MODEL,"C_DOUBLE_NOT_READY")
+        if owner is None:
+            c=make_ci_c(out);require(c.core.predictor is not None and c.core.model_version==MODEL,"C_DOUBLE_NOT_READY")
         phase("A_RUNTIME_BEGIN")
         def goal_gate():
             return (graph() and time.monotonic()-state["times"].get("odom",0)<=.3 and
@@ -207,7 +213,23 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             node.create_subscription(String,"/collection/"+key,lambda msg,k=key:recv(k,msg),qos)
         # Construct every node, subscription and executor before spinning any worker.
         phase("EXECUTOR_CONSTRUCT_BEGIN")
-        for child,mb in ((d,mailbox),(c,None),(cap,None)):workers.append(ThreadNode(child,mb))
+        for child,mb in ((d,mailbox),(c,None),(cap,None)):
+            if child is not None:workers.append(ThreadNode(child,mb))
+        if owner is not None:
+            phase("OWNER_C_PROCESS_BEGIN")
+            c_log=(out/"owner_c.log").open("w")
+            env=os.environ.copy()
+            site=Path(env["SMARTDISH_E_C_SITE_PACKAGES"]).resolve()
+            require(site.is_dir(),"E_OWNER_C_SITE_MISSING")
+            env["PYTHONPATH"]=str(site)+(":"+env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+            c_proc=subprocess.Popen([sys.executable,"-u",str(Path(__file__).with_name("smartdish_e_product_owner_c.py")),
+                "--out",str(out),"--checkpoint",owner["checkpoint"],"--pin",owner["pin"],"--run-id",owner["run_id"]],
+                env=env,stdout=c_log,stderr=subprocess.STDOUT)
+            until=time.monotonic()+30
+            while not (out/"owner_c_loaded.json").exists() and time.monotonic()<until:
+                require(c_proc.poll() is None,"E_OWNER_C_EXIT_BEFORE_READY")
+                spin()
+            require((out/"owner_c_loaded.json").is_file() and model_receipt(json.loads((out/"owner_c_loaded.json").read_text())),"E_OWNER_C_NOT_READY")
         phase("EXECUTOR_START_BEGIN")
         for worker in workers:worker.start()
         phase("INIT_COMPLETE",False)
@@ -245,10 +267,12 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             original_result(body)
         runtime.nav.start=start;runtime.nav.result=result;runtime.nav.evidence_hook=nav_event
         ui_log=(out/"ui.log").open("w")
-        ui=subprocess.Popen([sys.executable,"-u",str(Path(__file__).with_name("smartdish_e_product_ui_ci.py")),str(out)],stdout=ui_log,stderr=subprocess.STDOUT)
+        ui_file="smartdish_e_product_ui_ci.py" if owner is None else "smartdish_e_product_owner_ui.py"
+        ui=subprocess.Popen([sys.executable,"-u",str(Path(__file__).with_name(ui_file)),str(out)],stdout=ui_log,stderr=subprocess.STDOUT)
         deadline=time.monotonic()+650
         while time.monotonic()<deadline:
             require(all(w.error is None for w in workers),"E_CHILD_EXECUTOR_ERROR:"+str([w.error for w in workers]))
+            if c_proc is not None:require(c_proc.poll() is None,"E_OWNER_C_EXIT_DURING_MISSION")
             runtime.step()
             if witness.active:
                 require(graph() and time.monotonic()-state["times"].get("scan",0)<=.8 and time.monotonic()-state["times"].get("odom",0)<=.3,"E_MOVING_SENSOR_OR_GRAPH")
@@ -292,7 +316,14 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             arows=[json.loads(x) for x in (runtime.root/"a_runtime_events.jsonl").open()]
             published=[x for x in arows if x["event"]=="dish_transfer_result" and x["body"]["transfer_id"]==w["request"]["transfer_id"]]
             require(len(published)==1 and 0<=ns(published[0]["steady_s"])-w["steady_ns"]<20_000_000_000,"E_TRANSFER_DEADLINE")
-        e["model_scope"]="CI_DOUBLE_NOT_ACTUAL_MODEL";e["private_model_loaded"]=False
+        if owner is None:
+            e["model_scope"]="CI_DOUBLE_NOT_ACTUAL_MODEL";e["private_model_loaded"]=False
+        else:
+            require(model_receipt(c_receipt) and model_receipt(json.loads((out/"owner_c_loaded.json").read_text())),"E_OWNER_MODEL_PROVENANCE")
+            require(c_receipt["prediction"]=={"status":aibody["raw_status"],"confidence":aibody["raw_confidence"]},"E_OWNER_ACTUAL_PREDICTION_MISMATCH")
+            e["model_scope"]=MODEL_SCOPE;e["private_model_loaded"]=True;e["checkpoint_sha256"]=MODEL_SHA
+            e["owner_l2_baseline"]="28dd5150b96ae842bebab1cd2ee1a3ce78cc4a33"
+            e["owner_acceptance"]="REVIEW_REQUIRED";e["test4_opened"]=False
         save(out/"moving_progress.json",m)
     except BaseException:
         if runtime:
@@ -318,6 +349,15 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             try:ui.wait(timeout=5)
             except subprocess.TimeoutExpired:ui.kill();ui.wait()
         if ui_log:ui_log.close()
+        c_clean=True
+        if c_proc is not None:
+            if c_proc.poll() is None:
+                c_proc.send_signal(signal.SIGINT)
+                try:c_proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:c_proc.kill();c_proc.wait();c_clean=False
+            c_clean=c_clean and c_proc.returncode==0
+            m["owner_c_exit"]={"exit":c_proc.returncode,"clean":c_clean}
+        if c_log:c_log.close()
         for worker in reversed(workers):worker.close()
         mailbox.close()
         if witness:m["witness"]=witness.close()
@@ -326,6 +366,7 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
         node.destroy_timer(refresh_timer)
         node.destroy_timer(timer)
         save(out/"moving_progress.json",m)
+        require(c_clean,"E_OWNER_C_CLEAN_EXIT_FAILED")
 
 def main():
     require_ci()

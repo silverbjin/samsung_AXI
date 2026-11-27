@@ -136,14 +136,19 @@ def shutdown_managers(node,proc,rclpy,manager_clients,detail):
             result[name]="POST_SHUTDOWN_STATE_UNPROVEN"
     return result
 
-def run(a, *, product_session=None):
-    require(os.environ.get("CI")=="true" and os.environ.get("GITHUB_ACTIONS")=="true" and
-            os.environ.get("GZ_PARTITION","").startswith("smartdish_a04_") and not os.environ.get("WSL_DISTRO_NAME"),"CI_ONLY")
+def run(a, *, product_session=None,owner=None):
+    if owner is None:
+        require(os.environ.get("CI")=="true" and os.environ.get("GITHUB_ACTIONS")=="true" and
+                os.environ.get("GZ_PARTITION","").startswith("smartdish_a04_") and not os.environ.get("WSL_DISTRO_NAME"),"CI_ONLY")
+    else:
+        from smartdish_e_product_owner_scope import require_owner,OWNER_VERDICT,OWNER_SCOPE
+        require(product_session is not None,"E_OWNER_PRODUCT_SESSION_REQUIRED")
+        require_owner(owner["pin"],owner["run_id"])
     if product_session is not None:require(a.motion and a.mode=="candidate" and a.mission=="product","E_PRODUCT_SCOPE")
     out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
     evidence={"scope":"ACTUAL_NAV2_COMPUTE_PATH_ONLY_NO_MOTION","mode":a.mode,
               "source_sha":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),
-              "run_id":os.environ["GITHUB_RUN_ID"],"navigate_to_pose_goals_sent":0,
+              "run_id":os.environ["GITHUB_RUN_ID"] if owner is None else owner["run_id"],"navigate_to_pose_goals_sent":0,
               "velocity_commands_published":0,"first_error":None,"motion_authorized":False,"paths":[]}
     proc=node=None;log=None;initialized=False;clock=deque(maxlen=4096);manager_clients={}
     import rclpy
@@ -190,7 +195,7 @@ def run(a, *, product_session=None):
         log=(out/"launch.log").open("w")
         launch_file,launch_manifest=prepare_launch_overlay(static/"launch_overlay",map_path if a.motion else None)
         evidence["launch_overlay"]=launch_manifest
-        cmd=["ros2","launch",str(launch_file),"gui:=false",
+        cmd=["ros2","launch",str(launch_file),"gui:=false" if owner is None else "gui:=true",
              "robot_sdf:="+str(robot),"world_file:="+str(static/"world.sdf"),"bridge_config:="+str(bridgefile),
              "map:="+str(amcl_map),"params_file:="+str(params),"s6_stagger_nav_start:=true"]
         evidence["launch_argv"]=cmd
@@ -402,7 +407,7 @@ def run(a, *, product_session=None):
                 evidence["verdict"]="ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE"
             else:
                 product_session(node,out,phys,g,sources,buffer,state,clock,evidence,scene,static,target,spin,wait)
-                evidence["scope"]="ACTUAL_E_SINGLE_WORLD_CI_C_PREDICTOR_DOUBLE"
+                evidence["scope"]="ACTUAL_E_SINGLE_WORLD_CI_C_PREDICTOR_DOUBLE" if owner is None else OWNER_SCOPE
                 evidence["verdict"]="ACTUAL_E_MISSION_COMPLETE_PENDING_SHUTDOWN"
     except BaseException as exc:
         evidence["first_error"]=repr(exc);evidence["verdict"]="FAIL";raise
@@ -448,9 +453,9 @@ def run(a, *, product_session=None):
                     require("SIGKILL" not in launchlog and "exit code -9" not in launchlog,"FORCED_CHILD_CLEANUP")
                     require(evidence.get("quiescence",{}).get("paused") and evidence["quiescence"].get("clock_quiescent"),"WORLD_NOT_QUIESCENT")
                     if product_session is not None:
-                        evidence["verdict"]="E_SINGLE_WORLD_CI_DOUBLE_L2_PASS"
-                        evidence["moving"]["verdict"]="E_SINGLE_WORLD_CI_DOUBLE_L2_PASS"
-                        evidence["clearance_gate"]="E_ACTUAL_CI_CANDIDATE_MAP_CLEARANCE_PASS"
+                        evidence["verdict"]="E_SINGLE_WORLD_CI_DOUBLE_L2_PASS" if owner is None else OWNER_VERDICT
+                        evidence["moving"]["verdict"]=evidence["verdict"]
+                        evidence["clearance_gate"]="E_ACTUAL_CI_CANDIDATE_MAP_CLEARANCE_PASS" if owner is None else "E_ACTUAL_OWNER_CANDIDATE_MAP_CLEARANCE_PASS"
                     else:
                         evidence["moving"]["verdict"]=("A_SHUTDOWN_FOCUSED_L2_PASS" if a.mission=="shutdown" else "A_LOADED_NAV_L2_PASS" if a.mission=="both" else "A_LOADED_MISSION_L2_PASS_WITH_REUSED_EMPTY_EVIDENCE")
                         evidence["clearance_gate"]="A_SHUTDOWN_FOCUSED_PASS_REVIEW_REFERENCED_MISSION" if a.mission=="shutdown" else "A_INTERNAL_L2_PASS_E_FINAL_REVIEW_REQUIRED"
@@ -459,7 +464,7 @@ def run(a, *, product_session=None):
                 if evidence.get("first_error") is None:
                     evidence["first_error"]=repr(exc);evidence["verdict"]="FAIL"
         save(out/"evidence.json",evidence)
-    require(evidence["verdict"]==("E_SINGLE_WORLD_CI_DOUBLE_L2_PASS" if product_session is not None else "ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE" if a.motion else "ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"),evidence["first_error"])
+    require(evidence["verdict"]==(("E_SINGLE_WORLD_CI_DOUBLE_L2_PASS" if owner is None else OWNER_VERDICT) if product_session is not None else "ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE" if a.motion else "ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"),evidence["first_error"])
 def main():
     p=argparse.ArgumentParser()
     for k in ("out","robot-source","bridge-source","world-source","map","poses","params"):

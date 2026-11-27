@@ -3,7 +3,12 @@ import argparse,json,os,signal,subprocess,sys,time
 from pathlib import Path
 
 ENV="SMARTDISH_E_SESSION_TOKEN"
-def token():
+def token(owner=False):
+    if owner:
+        from smartdish_e_product_owner_scope import require_owner
+        run=os.environ["SMARTDISH_E_OWNER_PRODUCT_RUN"]
+        require_owner(os.environ["SMARTDISH_E_SOURCE_SHA"],run)
+        return "smartdish-e-owner-"+run
     if os.environ.get("CI")!="true" or os.environ.get("GITHUB_ACTIONS")!="true" or not os.environ.get("GZ_PARTITION","").startswith("smartdish_a04_e_") or os.environ.get("WSL_DISTRO_NAME"):
         raise RuntimeError("E_SUPERVISOR_CI_ONLY")
     return "smartdish-e-"+os.environ["GITHUB_RUN_ID"]+"-"+os.environ.get("GITHUB_RUN_ATTEMPT","1")
@@ -54,7 +59,7 @@ def phase_timeout(path,now,budget=45.):
     return None
 
 def supervise(args):
-    value=token();env=os.environ|{ENV:value}
+    value=token(args.owner);env=os.environ|{ENV:value}
     if owned(value):raise RuntimeError("E_PRIOR_OWNED_PROCESSES")
     proc=subprocess.Popen(args.command,env=env,start_new_session=True)
     begin=time.monotonic();reason=None;stalled=None
@@ -83,10 +88,10 @@ def supervise(args):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--phase",type=Path);p.add_argument("--report",type=Path,required=True)
-    p.add_argument("--cleanup-only",action="store_true");p.add_argument("command",nargs=argparse.REMAINDER)
+    p.add_argument("--cleanup-only",action="store_true");p.add_argument("--owner",action="store_true");p.add_argument("command",nargs=argparse.REMAINDER)
     a=p.parse_args()
     if a.cleanup_only:
-        r=cleanup(token());a.report.write_text(json.dumps(r,indent=2)+"\n")
+        r=cleanup(token(a.owner));a.report.write_text(json.dumps(r,indent=2)+"\n")
         # Non-empty before means a cleanup fault, but no residual permits diagnostic archive.
         return 0 if not r["remaining"] else 1
     if a.command and a.command[0]=="--":a.command=a.command[1:]
