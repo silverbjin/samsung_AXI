@@ -252,8 +252,8 @@ def main(argv=None):
     import tkinter as tk
     import rclpy
     from rclpy.node import Node
-    from rclpy.parameter import Parameter
     from rclpy.parameter_client import AsyncParameterClient
+    from .product_recovery_thresholds import ThresholdTransaction
     from rclpy.qos import QoSProfile,ReliabilityPolicy,DurabilityPolicy
     from std_msgs.msg import String
     from sensor_msgs.msg import Image
@@ -268,20 +268,13 @@ def main(argv=None):
     pubs={k:node.create_publisher(String,"/collection/"+k,qos) for k in ("request","staff_confirm")}
     c=AsyncParameterClient(node,"/smartdish_stability_inference")
     root=tk.Tk()
-    pending=[]
+    transaction=ThresholdTransaction(c)
     def send(topic,body):
         m=String()
         m.data=json.dumps(body,allow_nan=False)
         pubs[topic].publish(m)
-    def thresholds(values,done):
-        if not c.wait_for_services(timeout_sec=0.0):
-            done(False,None)
-            return
-        names=["stable_confidence_min","unstable_confidence_min"]
-        f=c.set_parameters_atomically([Parameter(k,value=float(v)) for k,v in zip(names,values)])
-        pending.append([f,time.monotonic()+5,"set",done,names])
     view=RecoveryView(root,read_layout(args.layout or Path(get_package_share_directory("smartdish_service"))/"config/ui_layout.yaml"),
-                      send,thresholds,product_ai_on_authorized(args.owner_gazebo_integration,owner_gazebo_integration=True))
+                      send,transaction.request,product_ai_on_authorized(args.owner_gazebo_integration,owner_gazebo_integration=True))
     def decode(fn):
         def cb(m):
             try:
@@ -296,21 +289,7 @@ def main(argv=None):
     node.create_subscription(Image,"/smartdish/tray/image_raw",frame,qos)
     def poll():
         rclpy.spin_once(node,timeout_sec=0)
-        for item in pending[:]:
-            f,deadline,stage,done,names=item
-            if time.monotonic()>=deadline:
-                pending.remove(item)
-                done(False,None)
-            elif f.done():
-                pending.remove(item)
-                try:
-                    result=f.result()
-                    if stage=="set" and result.result.successful:
-                        pending.append([c.get_parameters(names),deadline,"get",done,names])
-                    elif stage=="get" and len(result.values)==2 and all(v.type==3 for v in result.values):
-                        done(True,RecoveryFSM.validate_thresholds(tuple(v.double_value for v in result.values)))
-                    else: done(False,None)
-                except Exception: done(False,None)
+        transaction.poll()
         root.after(50,poll)
     root.after(50,poll)
     try: root.mainloop()
