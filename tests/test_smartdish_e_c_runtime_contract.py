@@ -81,3 +81,14 @@ def test_torch_missing_in_C_venv_is_a_hard_block(tmp_path):
           "ModuleNotFoundError: No module named 'torch'")
     with pytest.raises(guard.ContractBlocked,match="C_VENV_IMPORT_OR_ABI_FAILURE"):
         guard.verify_runtime(v,Path("/usr/bin/python3"),runner=missing)
+
+
+def test_immutable_pin_migration_is_ancestry_checked_and_non_destructive():
+    script=(ROOT/"scripts/smartdish_e_owner_aion.sh").read_text()
+    assert 'CURRENT_HEAD="$(git -C "$WORKDIR" rev-parse HEAD)"' in script
+    assert '4dbdeca6a0a8f8120cb42a44bd589d356726eb5d' in script
+    assert 'git -C "$WORKDIR" merge-base --is-ancestor "$CURRENT_HEAD" "$PIN"' in script
+    assert 'git -C "$WORKDIR" checkout --quiet --detach "$PIN"' in script
+    assert "E_OWNER_RUNTIME_PIN_FAST_FORWARD" in script
+    assert "git reset --hard" not in script and "git clean" not in script
+    assert "git checkout main" not in script

@@ -23,6 +23,21 @@ if [[ -e "$WORKDIR" ]]; then
   esac
   [[ -z "$(git -C "$WORKDIR" status --porcelain --untracked-files=all)" ]] ||
     { echo E_OWNER_AION_BLOCKED=LOCAL_CHANGES_PRESERVED >&2; exit 2; }
+  CURRENT_HEAD="$(git -C "$WORKDIR" rev-parse HEAD)"
+  if [[ "$CURRENT_HEAD" != "$PIN" ]]; then
+    # One-way migration ONLY from the exact accepted original Owner E PIN.
+    # New caller PIN is immutable; never reset/clean or merge a moving branch.
+    if [[ "$CURRENT_HEAD" != "4dbdeca6a0a8f8120cb42a44bd589d356726eb5d" ]]; then
+      echo E_OWNER_AION_BLOCKED=PIN_DRIFT_MANUAL_REVIEW >&2; exit 2
+    fi
+    git -C "$WORKDIR" fetch --depth 16 origin "$PIN" ||
+      { echo E_OWNER_AION_BLOCKED=PIN_FETCH_FAILED >&2; exit 2; }
+    git -C "$WORKDIR" merge-base --is-ancestor "$CURRENT_HEAD" "$PIN" ||
+      { echo E_OWNER_AION_BLOCKED=PIN_NOT_DESCENDANT >&2; exit 2; }
+    git -C "$WORKDIR" checkout --quiet --detach "$PIN" ||
+      { echo E_OWNER_AION_BLOCKED=PIN_CHECKOUT_FAILED >&2; exit 2; }
+    echo "E_OWNER_RUNTIME_PIN_FAST_FORWARD old=$CURRENT_HEAD new=$PIN"
+  fi
   [[ "$(git -C "$WORKDIR" rev-parse HEAD)" == "$PIN" ]] ||
     { echo E_OWNER_AION_BLOCKED=PIN_DRIFT_MANUAL_REVIEW >&2; exit 2; }
 else
