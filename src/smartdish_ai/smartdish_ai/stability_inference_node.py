@@ -42,6 +42,7 @@ def main():
         def __init__(self):
             super().__init__("smartdish_stability_inference")
             self.declare_parameter("model_path", "")
+            self.declare_parameter("owner_gazebo_integration", False)
             self.declare_parameter("confidence_min", 0.80)
             self.declare_parameter("stable_confidence_min", 0.80)
             self.declare_parameter("unstable_confidence_min", 0.80)
@@ -50,8 +51,13 @@ def main():
             predictor, version = None, "none"
             if model_path:
                 try:
-                    predictor, version = load_predictor(Path(model_path))
-                    self.get_logger().info(f"C_MODEL_LOADED version={version}")
+                    owner_scope = self.get_parameter("owner_gazebo_integration").value
+                    predictor, version = load_predictor(
+                        Path(model_path), owner_gazebo_integration=owner_scope is True)
+                    self.get_logger().info(
+                        "C_MODEL_LOADED version=%s scope=%s" %
+                        (version, "OWNER_GAZEBO_INTEGRATION_ONLY" if owner_scope
+                         else "PRODUCT"))
                 except Exception as exc:
                     self.get_logger().error(f"C_MODEL_UNAVAILABLE {type(exc).__name__}: {exc}")
             else:
