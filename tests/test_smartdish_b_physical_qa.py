@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from scipy.spatial.transform import Rotation
-from scripts.smartdish_b_product_evidence_qa import (relative, check_clock, need, QAError, pair_kind, require_session, verify_transfer, safe_name)
+from scripts.smartdish_b_product_evidence_qa import (relative, check_clock, need, QAError, pair_kind, require_session, verify_transfer, safe_name, check_dish, check_clearance, check_rgb_order, intake, scene_ids, shutdown)
 
 class TestPhysicalQA(unittest.TestCase):
     def test_rotation(self):
@@ -32,6 +32,39 @@ class TestPhysicalQA(unittest.TestCase):
     def test_invalid_transfer(self):
         with self.assertRaises(QAError): verify_transfer({"operation":"LOAD","entity_ids":["159","164","170"],"status":"ACK","tray_count":3},[159,164,169],3)
     def test_center_gate(self):
-        with self.assertRaises(QAError): need(.016<=.015,"DISH_CENTER")
+        with self.assertRaises(QAError): check_dish(np.array([.016]),np.array([0.]),np.array([0.]),np.array([.02]),np.array([.01]))
     def test_clearance_gate(self):
-        with self.assertRaises(QAError): need(.049>.05,"CLEARANCE")
+        with self.assertRaises(QAError): check_clearance(np.array([.049]))
+
+    def test_stale_rgb(self):
+        with self.assertRaises(QAError): check_rgb_order(9,10)
+        with self.assertRaises(QAError): check_rgb_order(10,10)
+        check_rgb_order(11,10)
+    def test_dish_tilt_gate(self):
+        with self.assertRaises(QAError): check_dish(np.array([.001]),np.array([.036]),np.array([0.]),np.array([.02]),np.array([.01]))
+    def test_duplicate_model(self):
+        with self.assertRaises(QAError): scene_ids('model {\n  name: "dish"\n  id: 1\n}\nmodel {\n  name: "dish"\n  id: 2\n}')
+    def test_wrong_zip(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/"a.zip";p.write_bytes(b"tampered")
+            with self.assertRaisesRegex(QAError,"ZIP_SHA"):
+                intake(p,Path(td)/"out",(1,1,"a","0"*64,"1"*64,1))
+    def test_lifecycle_ack_missing(self):
+        with self.assertRaisesRegex(QAError,"ACK_MISSING"):
+            shutdown(None,{"lifecycle_shutdown_detail":{"a":{},"b":{},"c":{}},"lifecycle_shutdown":{"a":"ACK","b":"ACK","c":"NO_ACK"}})
+    def test_internal_corruption(self):
+        import tempfile, io, zipfile, tarfile, hashlib
+        from pathlib import Path
+        H=lambda b:hashlib.sha256(b).hexdigest()
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/"a.zip"; buf=io.BytesIO()
+            with tarfile.open(fileobj=buf,mode="w:gz") as t:
+                for n,b in [("a04/SHA256SUMS",(H(b"expected")+"  ./data.txt\n").encode()),("a04/data.txt",b"tampered")]:
+                    info=tarfile.TarInfo(n);info.size=len(b);t.addfile(info,io.BytesIO(b))
+            body=buf.getvalue()
+            with zipfile.ZipFile(p,"w") as z:
+                z.writestr("a.tar.gz",body);z.writestr("a.tar.gz.sha256",H(body)+"  a.tar.gz\n")
+            with self.assertRaisesRegex(QAError,"INNER_SHA"):
+                intake(p,Path(td)/"out",(1,1,"a",H(p.read_bytes()),H(body),1))
