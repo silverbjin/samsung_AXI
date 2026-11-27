@@ -177,12 +177,25 @@ def run(a):
                     phys.fresh_pose(ROBOT) and phys.stop.verified(time.monotonic()) and
                     phys.cache.select(0,time.monotonic()) is not None and action.server_is_ready())
         wait(ready,200,"CLOCK_SCAN_ODOM_AMCL_TF_FOOTPRINT_RGB")
-        for name in ("collision_monitor","planner_server","controller_server","velocity_smoother","amcl","local_costmap/local_costmap","global_costmap/global_costmap"):
-            client=node.create_client(GetState,"/"+name+"/get_state")
-            wait(client.service_is_ready,10,"LIFECYCLE_"+name)
-            result=future(client.call_async(GetState.Request()),8,"LIFECYCLE_"+name)
-            require(result.current_state.id==State.PRIMARY_STATE_ACTIVE,"LIFECYCLE_NOT_ACTIVE_"+name)
-            evidence.setdefault("lifecycle",{})[name]=result.current_state.label
+        # A planner action endpoint and published footprint may be available
+        # before lifecycle_manager activates CM (observed RED 45955271845).
+        names=("collision_monitor","planner_server","controller_server","velocity_smoother","amcl",
+               "local_costmap/local_costmap","global_costmap/global_costmap")
+        clients={n:node.create_client(GetState,"/"+n+"/get_state") for n in names}
+        evidence["lifecycle_history"]=[]
+        deadline=time.monotonic()+45
+        while time.monotonic()<deadline:
+            all_states={}
+            for name,client in clients.items():
+                if not client.service_is_ready():
+                    all_states[name]="SERVICE_NOT_READY";continue
+                result=future(client.call_async(GetState.Request()),5,"LIFECYCLE_"+name)
+                all_states[name]=result.current_state.label
+            evidence["lifecycle_history"].append({"steady_s":time.monotonic(),"states":all_states})
+            if all(all_states.get(n)=="active" for n in names):break
+            spin()
+        else:raise RuntimeError("TIMEOUT_ALL_LIFECYCLES_ACTIVE")
+        evidence["lifecycle"]=all_states
         for name in ("global_costmap","local_costmap"):
             client=AsyncParameterClient(node,"/"+name+"/"+name)
             wait(client.services_are_ready,10,"PARAM_"+name)
@@ -272,6 +285,12 @@ def run(a):
     except BaseException as exc:
         evidence["first_error"]=repr(exc);evidence["verdict"]="FAIL";raise
     finally:
+        if "state" in locals():
+            evidence["observed_at_exit"]={"scan_count":state["scan"],"odom_count":state["odom"],
+                "amcl_received":state["amcl"] is not None,"map_received":state["map"] is not None,
+                "footprint_topics":list(state["footprints"]),"clock_samples":len(clock),
+                "odom_max_displacement_m":state["odom_max"],"nonzero_cmd_count":state["cmd_nonzero"],
+                "physics_callback_error":phys.callback_error}
         if proc:
             # Keep subscriptions alive until Gazebo is quiescent and launch exits.
             try:evidence["quiescence"]=quiesce_world(proc,node,rclpy,clock)
