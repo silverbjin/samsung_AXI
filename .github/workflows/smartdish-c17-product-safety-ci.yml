@@ -1,0 +1,30 @@
+name: SmartDish C17 product-model admission / AI OFF regression (L0)
+on:
+  push:
+    branches: [feat/smartdish-c17-c19-safe-release]
+  pull_request:
+    paths:
+      - src/smartdish_ai/smartdish_ai/model_runtime.py
+      - tests/test_c17_product_model_admission.py
+      - .github/workflows/smartdish-c17-product-safety-ci.yml
+      - docs/reports/tasks/2026-11-27_C17_PRODUCT_ADMISSION_SAFETY_EDU_KO.md
+permissions:
+  contents: read
+jobs:
+  c17-safe-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fixture-only contracts
+        run: python -m pip install pytest pillow numpy pyyaml
+      - name: Enforce model admission and D/E AI OFF, no model downloads or private assets
+        run: |
+          python -m compileall -q src/smartdish_ai/smartdish_ai
+          python -m pytest -q tests/test_c17_product_model_admission.py \
+            tests/test_c_stability.py tests/test_smartdish_d_service.py \
+            tests/test_smartdish_d_ui.py tests/test_smartdish_e_contract.py
+          echo C17_AI_OFF_CONTRACT_ONLY_PASS_NO_TRAIN_NO_GAZEBO
