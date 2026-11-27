@@ -1,8 +1,6 @@
-# B 담당 독립 증거 QA 실행 프롬프트
-
-당신은 SmartDish B 데이터·물리 증거 QA 담당이다. repo silverbjin/samsung_AXI, A #67, 기능 PIN 870262c8c8fc2c509a25d74d6f8ff28c0133db8e, E #66 @2dc70622d8dc8b718366e5533cbbc320fd5dbc51. A 브랜치의 A_PROD_04_E_HANDOFF_KO.md 및 단계/DBG 보고서 읽기. B 전용 브랜치에서만 작업하고 A/E/main 변경 금지. 
-1. CI 45954975000 Artifact 15178590920, 45955654421 Artifact 15178881241/15178333860, 45956255819 Artifact 15178264825 및 45956739176 완료 artifact를 실제 다운로드. ZIP digest/TAR SHA256/내부 SHA256SUMS/source SHA/upstream PIN을 교차 검수. 미생성 파일은 NOT_RUN.
-2. geometry.json에서 tray/plate/부착물 AABB, frame, mass/COM/inertia를 독립 재계산. map 원본/후보 cell 분류, 원본 occupied 보존, SDF로만 unknown 변경, registration margin, 목표 yaw, all-yaw static/actual path clearance 구분을 검사. 후보는 E 채택 전 승인 금지.
-3. evidence.json에서 actual ROS lifecycle, footprint, graph 194 snapshots, TF 및 clock, entity/RGB, path UUID/status, raw costmap, odom, first_error, cleanup을 검사. 정적/정지/이동 증거를 섞지 않는다. 실패 당시 docking_server가 /cmd_vel에 발행한 점과 수정 후 실제 CM 단독 발행 여부를 검증.
-4. 추후 실제 움직임 증거가 있다면 UUID와 same entity ID, world/relative pose/tilt 연속성, 실제 최소 clearance, 속도/가감속, 접촉 pair/coverage, 낙하/이탈, terminal-stop 및 10/5 wait와 20s deadline 검증. contact silence를 무충돌로 해석 금지. 실제 moving artifact 없으면 NOT_RUN.
-5. 기존 B 연구 dataset pipeline 보존. 실제 증거와 fixture 분리. QA report/검수 코드/테스트/CI를 B branch에 커밋 후 E #66에 PASS/HOLD 원장 및 정확한 재개 지점 인계. 현재 A는 A_CLEARANCE_HOLD, Owner 미실행.
+# B 담당 독립 물리 증거 QA — A 개발 완료 후
+당신은 B 데이터·물리 증거 QA 담당이다. silverbjin/samsung_AXI, A #67 기능 PIN 7d8bf9ec30f88c79ed1035b485a40aa3e7c3b688, E #66 @2dc70622d8dc8b718366e5533cbbc320fd5dbc51. A_PROD_04_E_HANDOFF_KO.md 및 DBG10/11/11_GREEN 읽기. B 전용 브랜치만 수정.
+1. 실제 artifacts 15178590920,15178773153,15184188608,15185112687,15185567891 다운로드. ZIP/TAR/내부 SHA256, source/upstream PIN, same configuration hashes 확인. 세 독립 session이며 앞 두 CI 전체 RED와 검증된 성공 구간 구분.
+2. 실제 ECM raw ticks/pairs를 독립 분석하여 timestamp/iteration gap, entity identity, world→tray transform, relative center/tilt, geometry separation, mast separation, expected contact pair 및 positive support 증거 검수. contact silence를 무충돌로 해석 금지.
+3. actual action UUID/terminal stop, load/unload same IDs, 10/5s wait, 20/20 deadline, journal receipt/hash, RGB event order 및 실제 종료 ACK 검수. 실제 물리 증거를 AI GT/human approved label과 구분. 기존 B 연구 파이프라인 보존.
+4. B QA report/코드/테스트를 커밋. E 최종 통합에서 사용할 PASS/HOLD ledger와 정확한 실패 경계 제공. A/E/main 무단 변경 금지. E final single-session test 및 Owner L3 별도.

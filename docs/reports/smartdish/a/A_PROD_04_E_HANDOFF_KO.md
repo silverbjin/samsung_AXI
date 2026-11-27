@@ -1,21 +1,23 @@
-# A-PROD-04 E 인계서 — 과거 중간 기록 (신규 인계 아님)
+# A-PROD-04 — A 최종 개발 결과, E 통합 검수용 인계
+**A_INTERNAL_L2_PASS_COMPOSED / E_FINAL_REVIEW_REQUIRED / OWNER_L3_NOT_RUN**
+공통 seed 57c5f57b471a92ae11adf1d2432d44aa8640d2ad; A baseline ce26a41d0f5f9519b2983e78c7bd4e65d4ffa5cd; E 현재 확인 HEAD 2dc70622d8dc8b718366e5533cbbc320fd5dbc51 (#66); A #67 기능 PIN 7d8bf9ec30f88c79ed1035b485a40aa3e7c3b688; official Waffle upstream 45633014a14e8f438495b532a723e4ad45cbbd31. A 전용 구현 완료; E/main 병합 금지. B 독립 QA 및 E 최종 실제 통합 검수 필요. 과거 중간 인계 기록은 Git history 보존.
 
-2026-11-27 사용자 지시에 따라 이 문서는 과거 원장으로 보존한다. 현재 A 내부 개발 및 검수는 A_PROD_04_INTERNAL_DEVELOPMENT_POLICY_KO.md와 A_PROD_04_04_LOADED_NAV_EDU_KO.md가 우선한다. A 개발 완료 전 E 신규 인계 또는 중간 승인 요청 없음.
+## 기술 결과
+- S7 원본 지도/launch/제품 기능 보존. 원본 3구간 conservative clearance HOLD. SDF 전체 장애물 projection, .10m registration margin, original occupied preserved, candidate map 별도 생성. 560mm footprint + 10mm padding 실제 580mm. AMCL scan-plane map 20mm center occupancy 분리, planning map 50mm conservative. docking cmd_vel→cmd_vel_nav, CM sole /cmd_vel, smoother sole /cmd_vel_smoothed.
+- 실제 Waffle tray ±.27m, plate R.245m + .015m center, mast/상부 장애물 포함. actual pose/ECM 증거; 정적/fixture와 구분. 제품 transfer controller 실제 LOAD/UNLOAD, exact same IDs, UUID, stop dwell, 10/5 waits와 20/20 deadlines 유지. A04 diagnostic is CI-only, E product launch에서 그대로 실행하지 않는다.
+- A 개발 코드: scripts/smartdish_a04_clearance.py, smartdish_a04_launch_overlay.py, smartdish_a04_no_goal.py, smartdish_a04_motion.py, smartdish_a04_ecm.py, scripts/smartdish_a04_observer/, A04 CI/tests; A00–03 shared product_runtime/navigation/transfer/physics/contract/capture API는 기존 A handoff 참조. E는 검증 설정과 lifecycle 로직을 제품 launch/런타임에 통합해야 함. 현재 E branch 직접 변경하지 않음.
 
-기준: A ce26a41d0f5f9519b2983e78c7bd4e65d4ffa5cd, Seed 57c5f57b471a92ae11adf1d2432d44aa8640d2ad, E 검수 2dc70622d8dc8b718366e5533cbbc320fd5dbc51, 수정 기능 PIN 870262c8c8fc2c509a25d74d6f8ff28c0133db8e, Waffle upstream 45633014a14e8f438495b532a723e4ad45cbbd31. PR #67 A 전용. E/main/원본 지도/기존 launch/다른 담당 코드 변경 없음. E 승인 20s LOAD/UNLOAD 유지.
+## 실제 증거 원장 (서로 다른 session)
+| 범위 | Run / Artifact | Source SHA | TAR SHA256 | 결과 |
+|---|---|---|---|---|
+| 무부하 3 legs | 45967974937 / 15184188608 | e48778e6825a022c8fd249a5c501095b7daa83e3 | 50dd17ad17061ababe1624bb7f92441e8eff1855ff6810721ccbdbf4fd179b89 | empty 3/3 actual ECM PASS; 전체 CI는 이후 pre-unload stale RED |
+| 실제 적재 full mission | 45970380453 / 15185112687 | 247db79e239d7694406a23e77d5c9e5e9acc58fb | c79f6e56d2638aeee84bc2945fd400714bc229024b5480ff4486769ff0cdbaf9 | 3/3 actual UUID SUCCEEDED + LOAD/UNLOAD ACK + ECM PASS; 전체 CI shutdown nav ACK RED |
+| 종료 집중 | 45972717341 / 15185567891 | 7d8bf9ec30f88c79ed1035b485a40aa3e7c3b688 | b1f9ca5867bd986b6e85a453ac35c55c153fc0ac5669844a0ab8191ba7fbfefc | actual 1 leg + terminal stop + manager 3/3 ACK + pause/parent exit PASS |
 
-## 최초 문제 및 실제 원인 구분
-1. E 보수적 검사 원본 map 3구간 HOLD. 실제 지도 픽셀과 SDF geometry audit: 원본 map free 24811 unknown 9781 occupied 1588. full-yaw 반경 0.445477m에서 HOME/T03/DISH_RETURN unknown 1/70/0. 실제 도착 yaw 580mm 정사각형 intersect unknown 0/39/0. 별도 기존 S2-MAP03는 0/10/0. T03 unknown은 회전 과보수만의 문제가 아님.
-2. Nominal SDF 기반 후보: 모든 정적 collision geometry를 높이 무관 투영, .10m registration margin 및 셀 여유, 원본 occupied 보존, SDF predicate로만 unknown 변경. 원본 map 덮어쓰기 없음. 후보 free 28472 unknown 1443 occupied 6265; unknown→free 5782. full-yaw static 3구간 connected. 실제 live TF 및 Nav2 경로 확인 전 후보 승인 금지.
-3. 실제 tray ±.27m, plate R .245 + .015m centering, 권고 footprint ±.28 + .01 padding. 실제 local/global published 580mm 확인. 로봇 정적 질량 2.0509kg, nominal 적재 2.7109kg, COM z .16796→.24892m, 높이 1.1425m, lidar z .121m, elevated collision 미감지 위험. 실제 이동 안정성 별도.
-4. DBG01 lifecycle 순서 RED→GREEN. DBG02 publisher graph 실패; DBG03 실제 194/194 snapshots에서 collision_monitor+docking_server가 /cmd_vel 발행. Docking bypass 구조 확정. 신규 A04 opt-in launch overlay에서 docking remap 두 선언만 변경, installed/repo source 무변경, 45956739176 실제 재검수 결과 확인 필요.
+ZIP digests 및 상세 receipt/trace는 DBG10/11/11_GREEN. Geometry 45954975000/15178590920, candidate no-goal 45956739176/15178773153도 재사용.
+세 session 공통 actual hash: world.before_contact.sdf 914e09c51c55a8f531eb8b95b977def9ed1508cf6d608212f64aabdf5e31a8ff; transfer_robot.before_contact.sdf 2669b097f5b4dda8a42172601fce4c38b157bb68cbbe6df142bb97aa555c0834; actual robot SDF 450deb5d729ae08570ee77c33269d8ea9e1516ff4a5a7827e8ea34353423c482; bridge 89aef8459a44ce19f23eb3906b9aca54aba70bd63a1aedcd04611926b239dade; params 11f812d3caec21148f0aec41e493dfabc0e459c59a71cfe20b2fef5e51c50dcc; planning PGM b73920d77e7e40577958b672dbf6a6fcc5e3bb1bcaeb4b018663bc5d101ef87a; localization PGM f796cd4571f032c493c750b8ccff1f13ddb480210b8cfec963ef5c50c041e15b; observer binary 15c6e529020f6e330cd1a376215c90949d61f6733dce38f3df927623169c153f. Runtime world plugin output path is session-specific; underlying physical world hash equal.
 
-## 증거 및 파일
-- Geometry L0 3 tests/실제 SDF 생성: 489d2014fbb532c4c285f61869761428c3abf26b, Run 45954975000 Artifact 15178590920, ZIP dd0aefc3f007f4574b5a69e4d7b0efa0969bae0d9b9c758c8b58153c422f00c0, TAR d7054598dfe83dfad47e513ec172e7baf4242e57af032900e6e9ce4c125649a9. candidate PGM b73920d77e7e40577958b672dbf6a6fcc5e3bb1bcaeb4b018663bc5d101ef87a, YAML a151fcb5866ab592ee1f0d0d065c581a318d6d530e51900ad49217ef44839b37. 정적 회귀 Run 45956739185 success.
-- NO_GOAL: 45955654421 Artifact 15178881241/15178333860 (7 ACTIVE, footprint, odom, scan, graph RED); 45956255819 candidate Artifact 15178264825 (actual bypass RED). SHA256 상세는 03_NO_GOAL/DBG03 보고서. Actual ComputePathToPose 및 moving clearance/contact/속도 검증 미완료.
-- code: scripts/smartdish_a04_clearance.py, smartdish_a04_no_goal.py, smartdish_a04_launch_overlay.py, A04 전용 workflows/tests.
-- B QA schema: a04/static/geometry.json, map_audit.json, world.sdf, overlay/robot.sdf, candidate.pgm/yaml, source_sha.txt, upstream_sha.txt, SHA256SUMS; a04_live/session/evidence.json, launch.log, static/live_nav2.yaml, static/launch_overlay/* manifest/diffs (새 PIN), path_*.json, global_costmap_*.npy, tray.rgb/png (생성된 경우만). 외부 TAR SHA256/ZIP digest/내부 파일 hash 검수.
-- B/E 별도 프롬프트: A_PROD_04_B_QA_PROMPT_KO.md, A_PROD_04_E_REINTEGRATION_PROMPT_KO.md.
-
-## 재개 지점
-45956739176 완료 결과의 graph/diff/hash 확인. GREEN이면 실제 경로와 등록/지도/물리 여유 검토; 새로운 RED면 해당 첫 실패부터 수정. 모든 조건 충족 후 별도 A moving CI (빈 tray→적재), 실제 contact 관측 범위 및 relative pose 검증. 최종 E adoption 전 E 전용 source 변경/merge 금지. 움직임 승인/접촉 0/최소 clearance/최적 속도는 현재 NOT_RUN. A03 stationary evidence만 재사용. 최종 판정 A_CLEARANCE_HOLD / OWNER_L3_NOT_RUN.
+Loaded mission: actual LOAD 10.640s/UNLOAD 7.734s, IDs 159/164/169, final tray0, journal unlocked, receipt hashes 62674e57d4cd3daaf2d5e141b0fd626c549d7e2ba6ff58c30b40d763195008bb and a014ffeb2e0f64b12a4b6bc570b51f9d58f8fe504363772cc1a2e10d7385fe1d. 186122 ECM ticks no gaps over legs, loaded 72160 positive tray support every step, min environment .416622m, max same-step center .002969818m, min mast .010036590m, max registration .083585m. No unexpected contact observed, not silence-based proof. Actual RGB post-load stamp 72200000000, event72190000000. UNLOAD actual removal per approved virtual employee contract, not placement on physical return tabletop.
+Shutdown focused actual goal SUCCEEDED, stop 1.048s, manager ACK nav2.186s/loc.268s/map.138s, actual pre/post active states, 10-node transition log, pause/clock quiescent, parent exit0; child -2 SIGINT, no SIGKILL. 
+## E 최종 통합 검수
+B 독립 검수 → E final review. E must adopt/review candidate maps and lifecycle config; integrate A APIs with D/C/B on E branch. 실제 제품 single-session HOME→T03→LOAD→fresh capture/AI→DISH_RETURN→UNLOAD→HOME→exact terminal/stop→3 manager ACK→Gazebo pause/exit. Existing D state machine, actual inference and threshold UI, faults, AI OFF, owner contracts unchanged. Latest A feature PIN has focused shutdown CI PASS, not same-session full mission after shutdown patch. E single session test is mandatory before E or main merge; do not claim Owner L3. If E finds new A issue, record exact first failure and bounded reproduction; no redundant A full tests absent changed scope. B/E prompts separate.

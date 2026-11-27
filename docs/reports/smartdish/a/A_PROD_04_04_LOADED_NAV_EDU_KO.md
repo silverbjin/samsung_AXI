@@ -1,13 +1,16 @@
-# A-PROD-04-04 — A 내부 실제 무부하/적재 주행 개발 원장
+# A-PROD-04-04 — 실제 무부하·적재 주행 및 종료 검수 원장
+A_INTERNAL_L2_PASS_COMPOSED / E_FINAL_REVIEW_REQUIRED / OWNER_L3_NOT_RUN. 최신 기능 PIN 7d8bf9ec30f88c79ed1035b485a40aa3e7c3b688. 세 독립 actual Gazebo/Nav2 session의 성공 구간을 재사용한 검수. 동일 session 전체 성공으로 확대하지 않는다.
 
-A04 자체 개발 진행 중 (E 미인계 / OWNER_L3_NOT_RUN). A03 정지 LOAD/UNLOAD 성공 증거는 재사용하지만 이동 성공으로 승격하지 않는다. 현재 구현: 같은 실제 월드에서 NO_GOAL→empty 3 legs→loaded mission 3 legs+LOAD/UNLOAD, A 기존 exact UUID 및 stop/transfer controller, 10/5s 및 20/20s 유지. 실제 pose/relative/tilt/ID/contact, 1ms read-only Gazebo ECM, 속도/가감속 증거와 lifecycle shutdown gate 포함. A 전용 CI이며 제품 배포 아님.
+| Run | Source PIN (short) | 실제 결과 |
+|---|---|---|
+| 45958030964 | 9e7f098 | 바닥 지지 접촉 양방향 분류 RED, DBG04 |
+| 45958451276 | c10f9dd | 2.888m 이동, 등록 오차 .100302m, cancel/stop |
+| 45958928009 | f3ea542 | dual map 적용 GREEN, 등록 오차 .107083m |
+| 45959501785 | 1f5d949 | actual ECM 28900 ticks, 등록 RED 및 종료 writer 오류 |
+| 45959741594 | 9394f1e | 무부하 3/3 + loaded TO_TABLE/LOAD GREEN; pre-goal stale |
+| 45960123978 | 7bb0271 | 등록 오차 재현 RED; 종료 writer 해소 |
+| 45967974937 | e48778e | empty 3/3 + loaded 2/3 GREEN, LOAD GREEN, pre-unload stale |
+| 45970380453 | 247db79 | loaded 3/3 + LOAD/UNLOAD actual ACK + ECM PASS; shutdown nav NO_ACK |
+| 45972717341 | 7d8bf9e | focused actual terminal stop + manager 3/3 ACK + pause + clean parent exit PASS |
 
-| 실제 Run | 결과 |
-|---|---|
-| 45958030964 | 바닥 지지 접촉 양방향 분류 RED, 수정 DBG04 |
-| 45958451276 | 실제 2.888m 이동 후 등록 오차 .100302m, exact cancel+stop |
-| 45958928009 | dual map 실제 적용 GREEN, 등록 오차 .107083m, exact cancel+stop |
-| 45959501785 | ECM 28900 ticks/1ms gap 0 GREEN, 등록 오차 .107328m, exact cancel+stop. 종료 콜백 결함 DBG08 |
-| 45959741594 | 9394f1e AMCL 후보 및 exact TF decomposition 실제 CI, 결과 미확정 |
-
-각 상세 Artifact/해시는 DBG04~08 참조. 완료된 무부하 leg 0, A04 실제 LOAD/UNLOAD 미도달. E handoff 보류는 A 내부 개발 상태이며 E에 수정/중간 검수 요청하지 않는다. 다음 gate: 새 PIN 실제 six legs+transfer+ECM+terminal stop+shutdown 모두 통과. 원본 및 E/main 미변경.
+Evidence: empty artifact15184188608; full loaded mission artifact15185112687; focused shutdown artifact15185567891. 각각 내부 70/72/60개 해시 확인. DBG09/10/11/11_GREEN 상세 참고. 실제 3+3 legs, UUID, postterminal stop, .10m registration, .05m conservative clearance, same 3 dishes, 10/5s wait, 20s transfer deadline 유지. Loaded mission ECM 186122 steps, 3 legs all PASS, LOAD 10.640s, UNLOAD 7.734s. No inferred zero-contact from silence. E/main/Owner 배포 미실행. E에서 full actual integrated mission+shutdown same-session 최종 검수.
