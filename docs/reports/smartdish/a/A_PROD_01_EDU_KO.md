@@ -1,0 +1,7 @@
+# A-PROD-01 — S7 startup scene reuse / L0 cycle
+## WHAT / WHY
+S7 world_file opt-in and original geometry reused, no original world/map or launch edits. New generator separates generated expectation from live receipt, with run-scoped stack_id (proposal, D/E handshake pending), 3 logical plates not 6 visual elements; empty=0; immutable SHA, no overwrite/duplicate.
+## RED
+[45946752189](https://github.com/silverbjin/samsung_AXI/actions/runs/45946752189), checkout e6c15f1f01446099a7765b9e37492da274f5e6a3, job 140333085641. First error ModuleNotFoundError: smartdish_product_scene during collection, exit 2. Intentional missing implementation; not environment error. Artifact 15174284136 digest sha256:18e74fb075f102c1a143affcafbd08007e8cc6f03731632c7674bf1a0202b5ce.
+## GREEN / review
+[d601274](https://github.com/silverbjin/samsung_AXI/commit/d6012744f4446ea74c2193623fbbec2a6bc17d34) adds only generator. [45946780963](https://github.com/silverbjin/samsung_AXI/actions/runs/45946780963) actual PR CI success, job 140333176028; exact checkout logged; 9 passed (6 new + 3 S7). Artifact 15174892944 digest sha256:2266c1e3a1b8a0b1acb1441de3cf3b3b44927062c046b5119a7ccb0bf9cf6a90. Actual branch trigger confirmed via PR runs. Source manifest declares runtime_verified=false and empty entity_ids; does not claim physical placement. No real PNG, no entity ID observation yet. L0 PASS, L2 HOLD pending same-world Gazebo startup/camera witness. A02 static development may continue; no physical acceptance or navigation release.
