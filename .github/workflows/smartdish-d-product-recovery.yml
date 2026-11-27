@@ -1,0 +1,33 @@
+name: SmartDish D product recovery L0
+on:
+  push:
+    branches: [feat/smartdish-d-product-fsm]
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'src/smartdish_service/**'
+      - '.github/workflows/smartdish-d-product-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d-l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Test D contract (fixtures only)
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/source_sha.txt
+          PYTHONPATH=src/smartdish_service python3 -m unittest discover -s src/smartdish_service/test -p test_product_recovery_fsm.py -v 2>&1 | tee evidence/d-l0.log
+      - name: Archive test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d-product-l0-${{ github.run_id }}
+          path: evidence/
