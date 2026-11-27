@@ -1,7 +1,7 @@
 """E actual single restaurant CI session; A startup/physics, C actual node with explicit
 CI-only predictor double, D real FSM/Tk UI. No real checkpoint in CI; not Owner runner.
 """
-import argparse,hashlib,json,math,os,subprocess,sys,threading,time
+import argparse,faulthandler,hashlib,json,math,os,subprocess,sys,threading,time
 from collections import OrderedDict
 from pathlib import Path
 from smartdish_a04_clearance import save,sha,require
@@ -24,7 +24,11 @@ class ThreadNode:
         from rclpy.executors import SingleThreadedExecutor
         self.node=node;self.mailbox=mailbox;self.executor=SingleThreadedExecutor();self.executor.add_node(node)
         self.end=threading.Event();self.error=None
-        self.thread=threading.Thread(target=self.work,daemon=True);self.thread.start()
+        self.thread=threading.Thread(target=self.work,daemon=True)
+        self.started=False
+    def start(self):
+        require(not self.started,"E_EXECUTOR_STARTED_TWICE")
+        self.thread.start();self.started=True
     def work(self):
         try:
             while not self.end.is_set():
@@ -32,7 +36,8 @@ class ThreadNode:
                 self.executor.spin_once(timeout_sec=.02)
         except BaseException as exc:self.error=repr(exc)
     def close(self):
-        self.end.set();self.thread.join(5)
+        self.end.set()
+        if self.started:self.thread.join(5)
         require(not self.thread.is_alive(),"E_EXECUTOR_NOT_JOINED")
         self.executor.remove_node(self.node);self.executor.shutdown(timeout_sec=2);self.node.destroy_node()
 
@@ -107,6 +112,14 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
     phys.stop.dwell=1.3
     m=e["moving"]={"legs":[],"accepted":[],"transfers":[],"nav_quiescent":False,"scope":"ACTUAL_E_CI_DOUBLE"}
     d_events=[];dds=[];workers=[];mailbox=OwnerMailbox();runtime=None;witness=None;ui=None;ui_log=None
+    def phase(name,initializing=True):
+        row=dict(stage=name,initializing=initializing,steady_s=time.monotonic())
+        with (out/"startup_phases.jsonl").open("a") as f:f.write(json.dumps(row)+"\n")
+        tmp=out/"startup_phase.tmp";tmp.write_text(json.dumps(row));os.replace(tmp,out/"startup_phase.json")
+        print("E_STARTUP_PHASE="+name,flush=True)
+    phase("CM_CLIENTS_BEGIN")
+    stacks=(out/"startup_stacks.log").open("w")
+    faulthandler.dump_traceback_later(15,repeat=True,file=stacks)
     cm=node.create_client(GetState,"/collision_monitor/get_state")
     active={"at":0.,"value":False,"future":None}
     amcl_update=node.create_client(Empty,"/request_nomotion_update")
@@ -146,6 +159,7 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
     def graph():
         return cm_active() and [p["name"] for p in endpoints(node,"/cmd_vel")]==["collision_monitor"] and [p["name"] for p in endpoints(node,"/cmd_vel_smoothed")]==["velocity_smoother"] and len(endpoints(node,"/clock"))==1
     try:
+        phase("D_NODE_BEGIN")
         d=make_recovery_node(owner_ai_requested=True,nav_timeout_s=NAV_WALL_TIMEOUT_S)
         d.logic.model_version=MODEL # CI-only explicit separate identity; no product admission mutation.
         old_emit=d.logic.emit
@@ -156,9 +170,9 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             d_events.append(row)
             with (out/"d_events.jsonl").open("a") as f:f.write(json.dumps(row)+"\n")
         d.logic.emit=emit
-        workers.append(ThreadNode(d,mailbox))
+        phase("C_NODE_BEGIN")
         c=make_ci_c(out);require(c.core.predictor is not None and c.core.model_version==MODEL,"C_DOUBLE_NOT_READY")
-        workers.append(ThreadNode(c))
+        phase("A_RUNTIME_BEGIN")
         def goal_gate():
             return (graph() and time.monotonic()-state["times"].get("odom",0)<=.3 and
                     time.monotonic()-state["times"].get("scan",0)<=.8)
@@ -177,9 +191,11 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
         e["nav_wall_timeout_s"]={"A":runtime.nav.timeout,"D":d.logic.nav_timeout_s}
         require(runtime.nav.timeout==d.logic.nav_timeout_s,"E_NAV_DEADLINE_DRIFT")
         runtime.nav.evidence_hook=trace.nav
+        phase("CAPTURE_NODE_BEGIN")
         cap=TrayCaptureNode(parameter_overrides=[Parameter("enabled",value=True),Parameter("evidence_dir",value=str(runtime.root.resolve()))])
-        workers.append(ThreadNode(cap))
+        phase("WITNESS_BEGIN")
         witness=Witness(node,out,phys,g,sources,buffer,state,clock)
+        phase("DDS_OBSERVER_BEGIN")
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE)
         def recv(key,msg):
             row=dict(topic=key,body=json.loads(msg.data),steady_ns=time.monotonic_ns())
@@ -188,6 +204,13 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
         for key in ("request","status","nav_goal","nav_result","dish_transfer_request","dish_transfer_result",
                     "capture_request","capture_result","ai_check_request","stability","staff_confirm","nav_cancel_request","nav_cancel_result"):
             node.create_subscription(String,"/collection/"+key,lambda msg,k=key:recv(k,msg),qos)
+        # Construct every node, subscription and executor before spinning any worker.
+        phase("EXECUTOR_CONSTRUCT_BEGIN")
+        for child,mb in ((d,mailbox),(c,None),(cap,None)):workers.append(ThreadNode(child,mb))
+        phase("EXECUTOR_START_BEGIN")
+        for worker in workers:worker.start()
+        phase("INIT_COMPLETE",False)
+        faulthandler.cancel_dump_traceback_later();stacks.close()
         wait(lambda:runtime.preflight() and runtime.nav.client.server_is_ready() and graph() and witness.raw.get("waffle_pi") is not None,30,"E_RUNTIME_READY")
         ready=runtime.arm_verified()
         stack=verify_ready(ready,runtime.root/"startup/ready.json",scene,e["source_sha"])
@@ -286,6 +309,8 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             except Exception:pass
         raise
     finally:
+        faulthandler.cancel_dump_traceback_later()
+        if not stacks.closed:stacks.close()
         if ui and ui.poll() is None:
             ui.terminate()
             try:ui.wait(timeout=5)

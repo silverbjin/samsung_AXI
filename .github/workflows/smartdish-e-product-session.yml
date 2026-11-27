@@ -4,6 +4,7 @@ on:
     branches: [integration/smartdish-product-recovery]
     paths:
       - 'scripts/smartdish_e_product_session.py'
+      - 'scripts/smartdish_e_product_supervisor.py'
       - 'scripts/smartdish_e_product_ui_ci.py'
       - '.github/workflows/smartdish-e-product-session.yml'
 permissions:
@@ -62,12 +63,14 @@ jobs:
           set -u
           ROBOT="$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf"
           PARAMS="$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml"
-          xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=40s 950s python3 -u scripts/smartdish_e_product_session.py --observer-plugin /tmp/a04-observer/libsmartdish_a04_observer.so --out generated/a04_live/session --robot-source "$ROBOT" --bridge-source src/restaurant_bringup/config/bridge.yaml --world-source src/restaurant_world/worlds/restaurant.sdf --map maps/restaurant_map.yaml --poses src/smartdish_robot/config/table_poses.yaml --params "$PARAMS"
+          xvfb-run -a -s '-screen 0 1280x720x24' python3 -u scripts/smartdish_e_product_supervisor.py --phase generated/a04_live/session/startup_phase.json --report generated/a04_live/supervisor.json -- python3 -u scripts/smartdish_e_product_session.py --observer-plugin /tmp/a04-observer/libsmartdish_a04_observer.so --out generated/a04_live/session --robot-source "$ROBOT" --bridge-source src/restaurant_bringup/config/bridge.yaml --world-source src/restaurant_world/worlds/restaurant.sdf --map maps/restaurant_map.yaml --poses src/smartdish_robot/config/table_poses.yaml --params "$PARAMS"
       - name: Archive normal or first failure evidence
         if: always()
         shell: bash
         run: |
+          set -Eeuo pipefail
           mkdir -p generated/a04_live
+          python3 scripts/smartdish_e_product_supervisor.py --cleanup-only --report generated/a04_live/archive_cleanup.json
           (cd generated/a04_live && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
           tar -C generated -czf generated/a04-live.tar.gz a04_live
           sha256sum generated/a04-live.tar.gz > generated/a04-live.tar.gz.sha256
