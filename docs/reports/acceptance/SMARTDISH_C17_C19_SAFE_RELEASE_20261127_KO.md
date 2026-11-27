@@ -1,6 +1,6 @@
 # C19 — SmartDish C 최종 안전 출고 / PR 분리 인수 원장 (2026-11-27)
 
-> 현재 기록은 **C17/C18 범위에 한정된 안전 출고 후보**입니다. GitHub의 해당 최종 HEAD CI·PR·main 병합 여부는 작업 종료 시 실제 API에서 확인하고 갱신합니다.
+> **C19 최종 인수 완료:** C17 승인 검증·C18 부정적 모델 카드·C19 한정 출고가 [PR #60](https://github.com/silverbjin/samsung_AXI/pull/60)을 통해 main **실제 병합 완료**. main merge SHA `c997e7e7ad884928dd7fffbd01c0e28ffcfd0f6b`. D/E AI OFF E L3 기존 PASS 재사용, 제품 AI ON 미승인.
 
 ## 1. 왜 C Draft PR #58 전체를 main에 병합하지 않는가?
 
@@ -22,7 +22,7 @@
 ## 3. 품질 게이트 / 실제 검증
 
 - C17 RED (#45922654643): 새 테스트6 FAIL / 기존 테스트66 PASS로 허가 누락 재현. GREEN [#45922743053](https://github.com/silverbjin/samsung_AXI/actions/runs/45922743053): 72 PASS, C 기존 UNKNOWN·D/E AI OFF 계약 보존.
-- 추가 C19 L1 Jazzy 빌드 및 final main 병합 검수는 **최종 PR SHA·Actions 링크를 실제 확인한 뒤** 본 보고서 또는 PR에 추가합니다. CI PASS를 Owner 신규 WSL2 실물 PASS로 표기 금지.
+- **최종 PR #60 코드 HEAD `9f6d4dd205266af9b9e3ca0e0f6fdbd43849c94d`**: [C17/C18 L0·ROS Jazzy L1 #45922997619](https://github.com/silverbjin/samsung_AXI/actions/runs/45922997619) **74 PASS + A/D/C 3패키지 L1 colcon build 및 NO_GOAL 성공**. [C 기존 L0 #45922997684](https://github.com/silverbjin/samsung_AXI/actions/runs/45922997684) SUCCESS; [B dataset 계약 #45922997651](https://github.com/silverbjin/samsung_AXI/actions/runs/45922997651) SUCCESS. 별도 [C17 push L0/L1 #45923078436](https://github.com/silverbjin/samsung_AXI/actions/runs/45923078436) SUCCESS. `Restaurant Robot MVP CI #45922997622`는 최종 기록 작성 시 **in_progress**이므로 실제 L2 결과를 꾸미지 않으며, 기존 E L3 WSL2 인수 PASS로 대체하지도 않습니다. CI 통과는 공개 fixture-only/L1 계약 검증이며 Owner 신규 WSL2 실물 PASS가 아님.
 - 현행 AI OFF 3구간은 기존 E Owner L3 [main 보고서](../integration/SMARTDISH_MVP_FINAL_ACCEPTANCE_KO.md)에서 이미 PASS. 다시 실물 주행하지 않음.
 - C17은 **새 제품 AI ON 권한 발급이 아님**. C 모델 없이 `UNKNOWN`/직원 확인 대기 및 AI OFF 기본 유지.
 
@@ -35,3 +35,12 @@
 ## 5. 완료 레이블 (검증 후 최종)
 
 `C17_SAFE_ADMISSION_L0_L1_GREEN` / `C18_NEGATIVE_MODEL_CARD_PUBLISHED` / `C19_NARROW_SAFE_RELEASE` / `C20_CHANGE_REQUEST_OPEN_NOT_APPROVED` / `C_RESEARCH_PILOT_ACCEPTED=false` / `P3_TEST_NOT_OPENED` / `E_AI_ON=HOLD` / `AI_OFF=PROTECTED` / `PRODUCTION_CONTACT=HOLD`.
+
+## 6. 최종 원격 PR·브랜치 판정
+
+- [안전 출고 PR #60](https://github.com/silverbjin/samsung_AXI/pull/60): **MERGED** (`2026-11-27T01:32:39Z`), main `c997e7e7ad884928dd7fffbd01c0e28ffcfd0f6b`. 제품 로딩 gate 기본 None, 모델 카드는 **NOT_ACCEPTED**. PR change-set은 GitHub compare 기준 **10개 파일**만; A/D/E/Nav2/CM/S7/Train/Test 코드 변경 0개.
+- [기존 연구-only Draft PR #58](https://github.com/silverbjin/samsung_AXI/pull/58): **CLOSED / NOT_MERGED**, 연구 코드·Owner evidence와 브랜치 `ea0de9ce0c5b9ee1c500421b9de0feea5f68cffc`는 보존. 데이터·학습/평가 코드를 main에 일괄 출고하지 않음.
+- [C20 별도 연구 변경 요청 #59](https://github.com/silverbjin/samsung_AXI/issues/59): **OPEN / NOT_APPROVED**. 새로운 연구/재학습/물리 데이터/Test 개봉/제품 AI ON 실행 권한 미발급.
+- 원격 main 병합 확인은 PR #60 actual `merged=true` 및 main SHA를 GitHub API에서 재조회한 결과임. 본 문서 갱신은 **문서만 변경**하고 모델/AI OFF 동작을 추가 변경하지 않음.
+
+**최종 판정:** `C17_PASS / C18_COMPLETE / C19_MAIN_SAFE_RELEASE_MERGED / C20_CR_ONLY_OPEN_NOT_APPROVED`. `C_RESEARCH_PILOT_ACCEPTED=false`, `P3_TEST_NOT_OPENED`, `E_AI_ON=HOLD`, `AI_OFF=PROTECTED`, `A19=NOT_AUTHORIZED`, `PRODUCTION_CONTACT=HOLD`.
