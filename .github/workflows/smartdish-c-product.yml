@@ -1,0 +1,32 @@
+name: SmartDish C product exact inference
+on:
+  push:
+    branches: [feat/smartdish-c-product-inference]
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'src/smartdish_ai/**'
+      - '.github/workflows/smartdish-c-product.yml'
+      - 'docs/reports/smartdish/c/**'
+permissions:
+  contents: read
+jobs:
+  l0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Exact source and contract tests
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/source_sha.txt
+          PYTHONPATH=src/smartdish_ai python3 -m unittest discover -s src/smartdish_ai/test -p test_product_inference.py -v 2>&1 | tee evidence/l0.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: c-product-l0-${{ github.run_id }}
+          path: evidence/
