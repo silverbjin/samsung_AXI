@@ -92,3 +92,15 @@ def test_immutable_pin_migration_is_ancestry_checked_and_non_destructive():
     assert "E_OWNER_RUNTIME_PIN_FAST_FORWARD" in script
     assert "git reset --hard" not in script and "git clean" not in script
     assert "git checkout main" not in script
+
+
+def test_owner_tray_reliability_inherits_A13_without_changing_default():
+    import ast
+    path = ROOT / "src/smartdish_ai/smartdish_ai/stability_inference_node.py"
+    tree = ast.parse(path.read_text())
+    fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "tray_image_reliability")
+    ns = {}
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), str(path), "exec"), ns)
+    assert ns["tray_image_reliability"](True) == "RELIABLE"
+    assert ns["tray_image_reliability"](False) == "BEST_EFFORT"
+    assert ns["tray_image_reliability"]("true") == "BEST_EFFORT"

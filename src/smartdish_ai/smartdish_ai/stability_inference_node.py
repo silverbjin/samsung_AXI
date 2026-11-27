@@ -30,6 +30,11 @@ def unpack_ros_rgb(msg):
     return rgb.tobytes(), width, height
 
 
+def tray_image_reliability(owner_gazebo_integration):
+    """A13 Owner bridge offers RELIABLE; keep legacy sensor QoS otherwise."""
+    return "RELIABLE" if owner_gazebo_integration is True else "BEST_EFFORT"
+
+
 def main():
     import rclpy
     from rclpy.node import Node
@@ -77,7 +82,12 @@ def main():
                                       durability=DurabilityPolicy.VOLATILE)
             self.publisher = self.create_publisher(String, "/collection/stability", contract_qos)
             self.create_subscription(String, "/collection/ai_check_request", self.request_callback, contract_qos)
-            self.create_subscription(Image, "/smartdish/tray/image_raw", self.image_callback, qos_profile_sensor_data)
+            image_reliability = tray_image_reliability(self.get_parameter("owner_gazebo_integration").value)
+            image_qos = (QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE,
+                                    durability=DurabilityPolicy.VOLATILE)
+                         if image_reliability == "RELIABLE" else qos_profile_sensor_data)
+            self.create_subscription(Image, "/smartdish/tray/image_raw", self.image_callback, image_qos)
+            self.get_logger().info("C_TRAY_IMAGE_QOS=" + image_reliability)
             self.get_logger().info("C_STABILITY_READY optional AI ON; JSON RELIABLE VOLATILE KEEP_LAST_10")
 
         def on_threshold_parameters(self, params):
