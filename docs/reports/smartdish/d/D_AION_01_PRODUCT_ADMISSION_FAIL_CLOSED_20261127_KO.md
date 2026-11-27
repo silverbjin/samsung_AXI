@@ -10,3 +10,11 @@
 - **시험:** L0 mock 요청·env/CLI 우회 부정 테스트, L1 실제 Jazzy Manager `--ai-available true`가 fail-closed 되는지 제품 없는 DDS로 검증(주행 없음).
 - **교육:** `request_id`와 `capture_id`는 작업 연관 ID이지 인증 토큰이 아닙니다. 모델 파일의 자기보고 `model_version`도 신뢰할 수 있는 서명이 아닙니다.
 - **인수 경계:** `D_AI_ON_CONTRACT_ONLY_READY`, `PRODUCT_AI_ON_NOT_AUTHORIZED`.
+
+## 실제 GREEN CI 및 교육용 리뷰
+
+- 구현 SHA: `774a42914be6123ab89f71cee759b224ab1b72aa`.
+- [GREEN GitHub L0/L1 #45926489996](https://github.com/silverbjin/samsung_AXI/actions/runs/45926489996): **L0 총 92 PASS**, L1 **3 ROS Jazzy 패키지 빌드 및 D Manager CLI true DENIED** `D_AION_L1_D_MANAGER_CLI_TRUE_DENIED_NO_GOAL`.
+- D 상품 게이트 두 상수 `None`, C17 `None`을 반복 확인하고, 환경변수/CLI true 우회를 거부.
+- 현재 E 제품 서명 영수증 검증 방법은 아직 독립 승인받지 않았으므로 이 기능은 **AI ON을 활성화하는 개발이 아닌 AI ON을 차단하는 개발**입니다.
+- **RED/디버깅 이력:** 첫 신규 L0 #45926299277은 C 시험 의존 Pillow 미설치로 pytest 수집 단계 FAIL이며, 실제 기능 RED assertion 로그는 생성되지 않았습니다. 원본 불변 FSM 취약 경계는 D00 감사와 새 L0 규격으로 재현·수정했습니다. 수집 실패는 [D-DBG-AION-001](D_DBG_AION_001_CI_PIL_COLLECTION_20261127_KO.md)에 별도 보존했습니다.
