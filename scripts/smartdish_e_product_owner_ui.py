@@ -1,7 +1,7 @@
 """Actual Owner Tk UI. No automatic start, threshold or staff approval."""
 import json,os,time,sys
 from pathlib import Path
-from smartdish_e_product_owner_scope import require_owner
+from smartdish_e_product_owner_scope import require_owner,owner_request
 def main():
     require_owner(os.environ["SMARTDISH_E_SOURCE_SHA"],os.environ["SMARTDISH_E_OWNER_PRODUCT_RUN"])
     import tkinter as tk
@@ -24,8 +24,18 @@ def main():
         events.append(dict(event=event,steady_s=time.monotonic(),body=body))
         (out/"ui_events.json").write_text(json.dumps(events,indent=2)+"\n")
     def send(topic,body):
+        if topic=="request" and not owner_request(body):raise RuntimeError("E_OWNER_FIXED_SCENARIO")
         record(topic,body);m=String();m.data=json.dumps(body,allow_nan=False);pubs[topic].publish(m)
-    view=RecoveryView(root,read_layout(Path(get_package_share_directory("smartdish_service"))/"config/ui_layout.yaml"),send,txn.request,True)
+    class OwnerView(RecoveryView):
+        def refresh(self):
+            super().refresh()
+            self.ai_check.configure(state="disabled")
+        def start(self):
+            if not self.ai.get() or not self.threshold_confirmed or self.table_wait.get()!="10" or self.dropoff_wait.get()!="5":
+                self.settings.set("Owner 인수: AI ON, C 기준 적용, 적재 10초 / 반납 5초 필요")
+                return
+            super().start()
+    view=OwnerView(root,read_layout(Path(get_package_share_directory("smartdish_service"))/"config/ui_layout.yaml"),send,txn.request,True)
     def status(m):
         d=json.loads(m.data);view.on_status(d)
         if d.get("request_id")==view.request_id:record("status",d)

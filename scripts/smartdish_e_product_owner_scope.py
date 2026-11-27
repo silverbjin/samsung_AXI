@@ -34,3 +34,9 @@ def model_receipt(d):
     return (d.get("scope")==MODEL_SCOPE and d.get("private_model_loaded") is True and
             d.get("checkpoint_sha256")==MODEL_SHA and d.get("model_version")==MODEL_VERSION and
             d.get("test4_opened") is False and d.get("general_product_approved") is False)
+
+def owner_request(d):
+    return (d.get("schema_version")==2 and d.get("profile")=="OWNER_PRODUCT_RECOVERY" and
+            d.get("table_id")=="T03" and d.get("ai_enabled") is True and
+            type(d.get("table_wait_s")) is int and d["table_wait_s"]==10 and
+            type(d.get("dropoff_wait_s")) is int and d["dropoff_wait_s"]==5)

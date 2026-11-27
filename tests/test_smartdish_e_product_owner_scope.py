@@ -26,3 +26,10 @@ def test_owner_ui_has_no_auto_click_and_c_has_real_loader():
     assert not any(isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=="invoke" for n in ast.walk(ui))
     c=(ROOT/"scripts/smartdish_e_product_owner_c.py").read_text()
     assert "load_predictor(path,**kwargs)" in c and "self.real(rgb,w,h)" in c and "CI_DOUBLE" not in c
+
+def test_owner_request_cannot_use_ai_off_or_change_wait_scenario():
+    from smartdish_e_product_owner_scope import owner_request
+    d=dict(schema_version=2,profile="OWNER_PRODUCT_RECOVERY",table_id="T03",ai_enabled=True,table_wait_s=10,dropoff_wait_s=5)
+    assert owner_request(d)
+    for patch in (dict(ai_enabled=False),dict(table_id="T04"),dict(table_wait_s=9),dict(dropoff_wait_s=6),dict(table_wait_s=10.0)):
+        assert not owner_request(d|patch)
