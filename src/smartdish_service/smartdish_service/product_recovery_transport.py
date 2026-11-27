@@ -47,9 +47,27 @@ def make_recovery_node(*, owner_ai_requested=False):
                 self.flush()
             return receive
 
+        def adapter_ready(self):
+            return any(ep.node_name=='smartdish_navigation_adapter' for ep in
+                       self.get_subscriptions_info_by_topic('/collection/nav_goal'))
+
+        def reject(self,d,reason):
+            self.get_logger().error(reason)
+            if isinstance(d,dict) and isinstance(d.get('request_id'),str) and d.get('profile')=='OWNER_PRODUCT_RECOVERY':
+                msg=String()
+                msg.data=json.dumps(dict(schema_version=2,profile='OWNER_PRODUCT_RECOVERY',
+                    request_id=d['request_id'],state='ERROR',table_id='T03',remaining_s=None,
+                    reason=reason,stack_id=self.logic.stack_id,capture_id=None,action_allowed=False))
+                self.pubs['status'].publish(msg)
+            return False
+
         def flush(self):
             for topic,body in self.logic.drain():
                 key=topic.rsplit("/",1)[-1]
+                if key=="nav_goal" and not self.adapter_ready():
+                    self.logic.enter("SAFE_HOLD",reason="ADAPTER_DISCONNECTED_NO_GOAL")
+                    self.flush()
+                    continue
                 msg=String()
                 msg.data=json.dumps(body,allow_nan=False,separators=(",",":"))
                 self.pubs[key].publish(msg)
@@ -73,15 +91,12 @@ def make_recovery_node(*, owner_ai_requested=False):
         def request(self,d):
             if not isinstance(d,dict) or self.pending is not None or self.logic.state!="IDLE" or not self.logic.ready:
                 return False
-            if not any(ep.node_name=="smartdish_navigation_adapter" for ep in
-                       self.get_subscriptions_info_by_topic("/collection/nav_goal")):
-                self.get_logger().error("D_PRODUCT_ADAPTER_NOT_READY_NO_GOAL")
-                return False
+            if not self.adapter_ready():
+                return self.reject(d,"D_PRODUCT_ADAPTER_NOT_READY_NO_GOAL")
             if d.get("ai_enabled") is not True:
-                return self.logic.handle_request(d)
+                return self.logic.handle_request(d) or self.reject(d,"D_PRODUCT_INVALID_REQUEST_NO_GOAL")
             if not self.logic.model_version or not self.c.wait_for_services(timeout_sec=0.0):
-                self.get_logger().error("D_PRODUCT_C_NOT_READY_NO_GOAL")
-                return False
+                return self.reject(d,"D_PRODUCT_C_NOT_READY_NO_GOAL")
             # Query C at mission start; UI cannot supply the snapshot.
             f=self.c.get_parameters(["stable_confidence_min","unstable_confidence_min"])
             self.pending=(f,dict(d),self.logic.clock()+5.0)
@@ -92,7 +107,7 @@ def make_recovery_node(*, owner_ai_requested=False):
                 f,d,deadline=self.pending
                 if self.logic.clock()>=deadline:
                     self.pending=None
-                    self.get_logger().error("D_PRODUCT_THRESHOLD_GET_TIMEOUT_NO_GOAL")
+                    self.reject(d,"D_PRODUCT_THRESHOLD_GET_TIMEOUT_NO_GOAL")
                 elif f.done():
                     self.pending=None
                     try:
@@ -100,9 +115,12 @@ def make_recovery_node(*, owner_ai_requested=False):
                         if len(values)!=2 or any(v.type!=3 for v in values):
                             raise ValueError("C_THRESHOLD_TYPE")
                         self.logic.thresholds=RecoveryFSM.validate_thresholds(tuple(v.double_value for v in values))
-                        self.logic.handle_request(d)
+                        if not self.logic.handle_request(d):
+                            self.reject(d,"D_PRODUCT_INVALID_REQUEST_NO_GOAL")
                     except (ValueError,TypeError,AttributeError,RuntimeError) as exc:
-                        self.get_logger().error("D_PRODUCT_THRESHOLD_GET_FAILED_NO_GOAL "+type(exc).__name__)
+                        self.reject(d,"D_PRODUCT_THRESHOLD_GET_FAILED_NO_GOAL "+type(exc).__name__)
+            if self.logic.state=="IDLE" and self.logic.ready and self.pending is None:
+                self.logic.status()  # volatile status: late UI must see READY
             self.logic.tick()
             self.flush()
 
