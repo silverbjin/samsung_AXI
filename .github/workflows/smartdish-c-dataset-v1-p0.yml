@@ -15,6 +15,9 @@ on:
       - ai/train/owner_environment_diagnostics.py
       - scripts/smartdish_c_v1_owner_diagnostics_once.sh
       - tests/test_c_owner_environment_diagnostics.py
+      - ai/train/c15_aggregate_diagnostic.py
+      - ai/docs/C_V1_P2_AGGREGATE_EVIDENCE_LOCK.json
+      - tests/test_c15_aggregate_diagnostic.py
       - scripts/smartdish_c_v1_p3_pretest_once.sh
       - tests/test_c_p3_pretest_seal.py
       - scripts/smartdish_c_v1_p2_frozen_owner_once.sh
@@ -49,6 +52,9 @@ on:
       - ai/train/owner_environment_diagnostics.py
       - scripts/smartdish_c_v1_owner_diagnostics_once.sh
       - tests/test_c_owner_environment_diagnostics.py
+      - ai/train/c15_aggregate_diagnostic.py
+      - ai/docs/C_V1_P2_AGGREGATE_EVIDENCE_LOCK.json
+      - tests/test_c15_aggregate_diagnostic.py
       - scripts/smartdish_c_v1_p3_pretest_once.sh
       - tests/test_c_p3_pretest_seal.py
       - scripts/smartdish_c_v1_p2_frozen_owner_once.sh
@@ -82,8 +88,10 @@ jobs:
         run: python -m pip install pytest pillow numpy
       - name: Audit code-only P0 gates; no B/private/real model used
         run: |
-          python -m compileall -q ai/train/dataset_v1_gate.py ai/train/research_approval.py ai/train/p1_pretrained_inspection.py ai/train/prepare_v1_research_approval.py ai/train/p3_pretest_seal.py ai/train/owner_environment_diagnostics.py ai/train/pilot_eval_gate.py ai/train/seal_v1_research_model.py ai/train/train_classifier.py ai/train/evaluate.py src/smartdish_ai/smartdish_ai/model_runtime.py
-          python -m pytest -q tests/test_c_dataset_v1_gate.py tests/test_c_research_approval.py tests/test_c_p1_pretrained_inspection.py tests/test_c_p2_research_approval.py tests/test_c_p3_pretest_seal.py tests/test_c_owner_environment_diagnostics.py tests/test_c_cpu_venv_contract.py tests/test_c_pilot_eval_gate.py tests/test_c_research_runtime_gate.py tests/test_c_stability.py
+          python -m compileall -q ai/train/dataset_v1_gate.py ai/train/research_approval.py ai/train/p1_pretrained_inspection.py ai/train/prepare_v1_research_approval.py ai/train/p3_pretest_seal.py ai/train/owner_environment_diagnostics.py ai/train/c15_aggregate_diagnostic.py ai/train/pilot_eval_gate.py ai/train/seal_v1_research_model.py ai/train/train_classifier.py ai/train/evaluate.py src/smartdish_ai/smartdish_ai/model_runtime.py
+          python -m pytest -q tests/test_c_dataset_v1_gate.py tests/test_c_research_approval.py tests/test_c_p1_pretrained_inspection.py tests/test_c_p2_research_approval.py tests/test_c_p3_pretest_seal.py tests/test_c_owner_environment_diagnostics.py tests/test_c15_aggregate_diagnostic.py tests/test_c_cpu_venv_contract.py tests/test_c_pilot_eval_gate.py tests/test_c_research_runtime_gate.py tests/test_c_stability.py
           python -m json.tool ai/docs/C_V1_EXPERIMENT_LOCK.json > /dev/null
+          python -m json.tool ai/docs/C_V1_P2_AGGREGATE_EVIDENCE_LOCK.json > /dev/null
+          python -m ai.train.c15_aggregate_diagnostic --report /tmp/smartdish_c15_review.json
           bash -n scripts/smartdish_c_dataset_v1_owner_once.sh scripts/smartdish_c_v1_p1_pretrained_once.sh scripts/smartdish_c_v1_install_cpu_venv.sh scripts/smartdish_c_v1_p2_frozen_owner_once.sh scripts/smartdish_c_v1_p3_pretest_once.sh scripts/smartdish_c_v1_owner_diagnostics_once.sh
           echo C_V1_L0_FIXTURE_ONLY_PASS_PRIVATE_OWNER_NOT_RUN

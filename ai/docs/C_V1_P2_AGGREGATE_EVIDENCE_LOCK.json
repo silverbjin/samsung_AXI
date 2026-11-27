@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "source_scope": "OWNER_P2_PUBLIC_AGGREGATES_ONLY",
+  "source_archive": "20261127T004925Z-p2-9db90e52da30.tar.gz",
+  "source_archive_sha256": "914b9ea89c78fb1a4c3cad82c4f2d25869d422e618d477236c89f6ecd30f0516",
+  "source_summary_sha256": "945f8f4aeb3b8a8e9cb1873f4353620dbd660765b3eb9688ab234a61f97a3864",
+  "source_execution_sha": "9db90e52da3025f548faba28444d0dc777586138",
+  "experiment_lock_sha256": "9e3eb03172940ef04bdc016051e4dca2905a640bd658e1e919dd9ba70fc33019",
+  "dataset_version": "c4c429b33faf22d904db9ddf2b7aa6e27ade12d70c7ecd407dff7c5cb9422606",
+  "checkpoint_sha256": "6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c",
+  "pretest_verdict": "P3_PRETEST_CHECKPOINT_SHA_PASS_PERFORMANCE_HOLD",
+  "train": {
+    "STABLE": 8,
+    "UNSTABLE": 3
+  },
+  "val": {
+    "STABLE": 2,
+    "UNSTABLE": 1
+  },
+  "test_sealed_count": 4,
+  "threshold": 0.8,
+  "selected_epoch": 3,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train": {
+        "loss": 0.8826086087660356,
+        "accuracy": 0.2727272727272727,
+        "samples": 11
+      },
+      "val": {
+        "loss": 0.82430100440979,
+        "accuracy": 0.3333333333333333,
+        "samples": 3
+      }
+    },
+    {
+      "epoch": 2,
+      "train": {
+        "loss": 0.8110948421738364,
+        "accuracy": 0.36363636363636365,
+        "samples": 11
+      },
+      "val": {
+        "loss": 0.7778841853141785,
+        "accuracy": 0,
+        "samples": 3
+      }
+    },
+    {
+      "epoch": 3,
+      "train": {
+        "loss": 0.7492454756389965,
+        "accuracy": 0.36363636363636365,
+        "samples": 11
+      },
+      "val": {
+        "loss": 0.7452375292778015,
+        "accuracy": 0.3333333333333333,
+        "samples": 3
+      }
+    }
+  ],
+  "best_val_loss": 0.7452375292778015,
+  "test_used_for_training": false,
+  "test_opened": false,
+  "test_evaluated": false,
+  "model_accepted": false,
+  "AI_OFF": "PROTECTED",
+  "A19": "NOT_AUTHORIZED",
+  "production_contact": "HOLD",
+  "E_AI_ON": "HOLD"
+}
