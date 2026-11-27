@@ -73,11 +73,14 @@ def moving_params(p):
     behavior.update(max_rotational_vel=ANGULAR,min_rotational_vel=.15,rotational_acc_lim=ANGULAR_ACCEL)
     return p
 
-def instrument(world_path,robot_path,bridge,scene):
+def instrument(world_path,robot_path,bridge,scene,observer_plugin):
     """Add observation sensors only; retain originals and generated diff provenance."""
     roots=[ET.parse(world_path),ET.parse(robot_path)]
     world=roots[0].getroot().find("world")
     ET.SubElement(world,"plugin",filename="gz-sim-contact-system",name="gz::sim::systems::Contact")
+    require(observer_plugin is not None and Path(observer_plugin).is_file(),"ECM_OBSERVER_PLUGIN_MISSING")
+    observer=ET.SubElement(world,"plugin",filename=str(Path(observer_plugin).resolve()),name="smartdish::A04Observer")
+    ET.SubElement(observer,"output").text=str((world_path.parent.parent/"ecm").resolve())
     sources={}
     for root,models in ((roots[0],world.findall("model")),(roots[1],roots[1].getroot().findall("model"))):
         for model in models:
@@ -135,11 +138,11 @@ def dish_measure(robot,dish,i):
 
 def contact_category(source,a,b):
     names=(a,b)
-    dish=lambda s:any(n in s for n in DISH_NAMES)
+    dish=lambda s:s in {n+"::body::envelope" for n in DISH_NAMES}
     robot=lambda s:"waffle_pi" in s or "turtlebot3_waffle_pi" in s
     if not a or not b:return "UNIDENTIFIED"
     if all(dish(s) for s in names):return "DISH_DISH"
-    if any(dish(s) for s in names) and any("tray" in s for s in names) and any(robot(s) for s in names):return "TRAY_DISH"
+    if any(dish(s) for s in names) and "waffle_pi::smartdish_product_tray::platform_collision" in names:return "TRAY_DISH"
     # Contact messages from floor and wheel/caster sensors describe the same
     # physical pair in reverse order. Match exact scoped identities, not topic.
     floor="floor::body::floor_collision"
@@ -314,7 +317,12 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         guard();nav.start(request);e["navigate_to_pose_goals_sent"]+=1
         deadline=time.monotonic()+260;maxmove=0.
         while time.monotonic()<deadline:
+            before=nav.active
             pulse();guard();witness.sample();maxmove=max(maxmove,math.dist(current_xy(),start_xy))
+            if before and before.terminal_at is not None:
+                row["terminal_steady_s"]=before.terminal_at
+                if phys.stop.start is not None and phys.stop.last_at is not None:
+                    row["post_terminal_stop_dwell_s"]=max(0.,phys.stop.last_at-max(phys.stop.start,before.terminal_at))
             if nav.active is None:break
         else:raise RuntimeError("LEG_TIMEOUT")
         witness.end()
@@ -322,7 +330,7 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         p=state["amcl"].pose.pose.position;d=target[dest]
         row.update(result[0],status="SUCCEEDED",end_sim_ns=clock[-1],odom_displacement_m=maxmove,odom_samples=state["odom"]-start_odom,
                    scan_samples=state["scan"]-start_scan,amcl_error_m=math.dist((p.x,p.y),(d["x"],d["y"])))
-        require(maxmove>.25 and row["amcl_error_m"]<=.8 and row["scan_samples"]>=3 and row["odom_samples"]>=3,"ARRIVAL_EVIDENCE")
+        require(maxmove>.25 and row["amcl_error_m"]<=.8 and row["scan_samples"]>=3 and row["odom_samples"]>=3 and row.get("post_terminal_stop_dwell_s",0)>=1.-1e-9,"ARRIVAL_EVIDENCE")
         save(out/"moving_progress.json",e["moving"])
     def transfer(mission,op,dest,seconds):
         receipt=ctl.note_arrival()
@@ -358,7 +366,7 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         unload=transfer(mission,"UNLOAD","DISH_RETURN",5.)
         require(unload["entity_ids"]==load["entity_ids"],"UNLOAD_IDS")
         leg(mission,"TO_HOME","HOME",None)
-        e["moving"]["verdict"]="ACTUAL_SIX_LEGS_AND_TRANSFER_COMPLETE_CONTACT_COVERAGE_HOLD"
+        e["moving"]["verdict"]="ACTUAL_SIX_LEGS_AND_TRANSFER_COMPLETE_PENDING_ECM_REVIEW"
     except BaseException:
         witness.active=False
         if nav and nav.active:

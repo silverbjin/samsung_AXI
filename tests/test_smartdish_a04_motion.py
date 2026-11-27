@@ -41,3 +41,8 @@ def test_localization_map_does_not_project_high_only_obstacle(tmp_path):
         return a[i,j]
     assert cell(0,0)==0 # high-only obstacle absent from scan-plane AMCL map
     assert cell(2.6,2.2)==100
+
+def test_dish_platform_vs_mast():
+    dish="smartdish_product_dish_00::body::envelope"
+    assert contact_category({},dish,"waffle_pi::smartdish_product_tray::platform_collision")=="TRAY_DISH"
+    assert contact_category({},dish,"waffle_pi::smartdish_product_tray::mast_collision")=="UNEXPECTED"

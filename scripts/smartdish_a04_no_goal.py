@@ -81,6 +81,23 @@ def physical_disk_clearance(g,points,tf):
             "registration_margin_remaining_m":float(d-math.sqrt(2)*(HALF+PADDING)-.0125-REGISTRATION_MARGIN)}
 def endpoints(node,topic):
     return [{"name":x.node_name,"namespace":x.node_namespace} for x in node.get_publishers_info_by_topic(topic)]
+def shutdown_managers(node,proc,rclpy,names):
+    """Stop lifecycle-managed navigation while simulation clock still runs."""
+    from nav2_msgs.srv import ManageLifecycleNodes
+    result={}
+    for name in names:
+        client=node.create_client(ManageLifecycleNodes,"/"+name+"/manage_nodes")
+        until=time.monotonic()+3
+        while not client.service_is_ready() and time.monotonic()<until and proc.poll() is None:
+            rclpy.spin_once(node,timeout_sec=.05)
+        if not client.service_is_ready():result[name]="SERVICE_NOT_READY";continue
+        req=ManageLifecycleNodes.Request();req.command=ManageLifecycleNodes.Request.SHUTDOWN
+        future=client.call_async(req);until=time.monotonic()+15
+        while not future.done() and time.monotonic()<until and proc.poll() is None:
+            rclpy.spin_once(node,timeout_sec=.05)
+        result[name]="ACK" if future.done() and future.result() and future.result().success else "NO_ACK"
+    return result
+
 def run(a):
     require(os.environ.get("CI")=="true" and os.environ.get("GITHUB_ACTIONS")=="true" and
             os.environ.get("GZ_PARTITION","").startswith("smartdish_a04_") and not os.environ.get("WSL_DISTRO_NAME"),"CI_ONLY")
@@ -116,7 +133,8 @@ def run(a):
         if a.motion:
             from smartdish_a04_motion import instrument,moving_params,localization_map
             require(a.mode=="candidate","MOTION_REQUIRES_CANDIDATE")
-            sources=instrument(static/"world.sdf",robot,bridge,scene)
+            sources=instrument(static/"world.sdf",robot,bridge,scene,a.observer_plugin)
+            evidence["observer_plugin_sha256"]=sha(a.observer_plugin)
         bridgefile=static/"live_bridge.yaml";bridgefile.write_text(yaml.safe_dump(bridge,sort_keys=False))
         params=static/"live_nav2.yaml";config=overlay(a.params,params)
         if a.motion:
@@ -341,6 +359,12 @@ def run(a):
                 "physics_callback_error":phys.callback_error}
         save(out/"evidence.progress.json",evidence)
         if proc:
+            if a.motion and node and (not evidence.get("navigate_to_pose_goals_sent") or
+                    evidence.get("moving",{}).get("cancel_drained") is True or
+                    evidence.get("moving",{}).get("verdict")=="ACTUAL_SIX_LEGS_AND_TRANSFER_COMPLETE_PENDING_ECM_REVIEW"):
+                try:evidence["lifecycle_shutdown"]=shutdown_managers(node,proc,rclpy,
+                    ("lifecycle_manager_navigation","lifecycle_manager_localization","a04_clearance_lifecycle"))
+                except Exception as exc:evidence["lifecycle_shutdown"]={"error":repr(exc)}
             # Keep subscriptions alive until Gazebo is quiescent and launch exits.
             try:evidence["quiescence"]=quiesce_world(proc,node,rclpy,clock)
             except Exception as exc:evidence["quiescence"]={"error":repr(exc)}
@@ -351,6 +375,27 @@ def run(a):
         if node:node.destroy_node()
         if initialized and rclpy.ok():rclpy.shutdown()
         if log:log.close()
+        if a.motion and "moving" in evidence:
+            from smartdish_a04_ecm import verify_ticks,dynamics
+            from smartdish_a04_motion import contact_category
+            try:
+                ecm=verify_ticks(out/"ecm_ticks.tsv",out/"ecm_pairs.tsv",evidence["moving"]["legs"],g,contact_category)
+                save(out/"ecm_review.json",ecm)
+                evidence["moving"]["ecm_review"]=ecm
+                save(out/"motion_dynamics.json",dynamics(out/"motion_pose.jsonl"))
+                if evidence["verdict"]=="ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE":
+                    require(ecm["pass"],"ECM_ACTUAL_PHYSICAL_COVERAGE_HOLD")
+                    require(all(v=="ACK" for v in evidence.get("lifecycle_shutdown",{}).values()) and
+                            len(evidence.get("lifecycle_shutdown",{}))==3,"LIFECYCLE_SHUTDOWN_NOT_ACKED")
+                    launchlog=(out/"launch.log").read_text()
+                    require("SIGKILL" not in launchlog and "exit code -9" not in launchlog,"FORCED_CHILD_CLEANUP")
+                    require(evidence.get("quiescence",{}).get("paused") and evidence["quiescence"].get("clock_quiescent"),"WORLD_NOT_QUIESCENT")
+                    evidence["moving"]["verdict"]="A_LOADED_NAV_L2_PASS"
+                    evidence["clearance_gate"]="A_INTERNAL_L2_PASS_E_FINAL_REVIEW_REQUIRED"
+            except Exception as exc:
+                evidence["ecm_review_error"]=repr(exc)
+                if evidence.get("first_error") is None:
+                    evidence["first_error"]=repr(exc);evidence["verdict"]="FAIL"
         save(out/"evidence.json",evidence)
     require(evidence["verdict"]==("ACTUAL_A_MOTION_DIAGNOSTIC_COMPLETE" if a.motion else "ACTUAL_NO_GOAL_DIAGNOSTIC_COMPLETE"),evidence["first_error"])
 def main():
@@ -359,5 +404,6 @@ def main():
         p.add_argument("--"+k,type=Path,required=True)
     p.add_argument("--mode",choices=("original","candidate"),required=True)
     p.add_argument("--motion",action="store_true",help="explicit isolated CI only, real same-session preflight required")
+    p.add_argument("--observer-plugin",type=Path)
     run(p.parse_args())
 if __name__=="__main__":main()
