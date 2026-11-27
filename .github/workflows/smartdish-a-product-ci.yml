@@ -37,7 +37,7 @@ jobs:
           startup=true
           if [[ -n "$PRIOR" ]] && git fetch --depth=1 origin "$PRIOR"; then
             changed=$(git diff --name-only "$PRIOR" HEAD)
-            if ! grep -Eq '^(scripts/smartdish_product_(scene|robot|startup_probe|transfer_probe)[.]py|[.]github/workflows/smartdish-a-product-ci[.]yml)$' <<< "$changed"; then
+            if ! grep -Eq '^(scripts/smartdish_product_(scene|robot|startup_probe|transfer_probe)[.]py|src/smartdish_robot/smartdish_robot/product_(physics|gazebo_backend)[.]py|[.]github/workflows/smartdish-a-product-ci[.]yml)$' <<< "$changed"; then
               startup=false
             fi
           fi
