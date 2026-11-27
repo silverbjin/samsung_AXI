@@ -1,5 +1,4 @@
 """Owner recovery UI. No legacy UI changes; no self-generated A/C results."""
-import base64
 import hashlib
 import json
 import time
@@ -230,7 +229,7 @@ class RecoveryView:
         if data is None:
             return
         ppm=b"P6\n640 480\n255\n"+data
-        photo=self.tk.PhotoImage(data=base64.b64encode(ppm).decode("ascii"),format="PPM")
+        photo=self.tk.PhotoImage(data=ppm,format="PPM")
         self.photo=photo.subsample(2,2)
         self.preview.configure(image=self.photo)
         self.preview_text.set("capture="+str(self.capture_id)+"\nRGB SHA="+self.capture_ack["rgb_sha256"])
