@@ -104,3 +104,21 @@ def test_owner_tray_reliability_inherits_A13_without_changing_default():
     assert ns["tray_image_reliability"](True) == "RELIABLE"
     assert ns["tray_image_reliability"](False) == "BEST_EFFORT"
     assert ns["tray_image_reliability"]("true") == "BEST_EFFORT"
+
+
+def test_installed_origin_guard_rejects_drift(tmp_path):
+    p=ROOT/"scripts/smartdish_e_installed_origin.py"
+    spec=importlib.util.spec_from_file_location("installed_origin",p)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    a=tmp_path/"source";b=tmp_path/"installed"
+    a.write_text("exact source");b.write_text("exact source")
+    assert module.same_bytes(a,b)==module.digest(a)
+    b.write_text("old source")
+    with pytest.raises(RuntimeError,match="INSTALLED_SOURCE_MISMATCH"):module.same_bytes(b,a)
+
+def test_owner_runner_self_check_and_per_pin_build():
+    script=(ROOT/"scripts/smartdish_e_owner_aion.sh").read_text()
+    assert "316639a0a5c47121f3026c76e180efde3cea12d4" in script
+    assert "RUNNER_BYTES_MISMATCH" in script
+    assert 'STATE="$HOME/.local/state/smartdish-e-owner-aion/$PIN"' in script
+    assert script.index("smartdish_e_installed_origin.py")<script.index("E_OWNER_AION_LAUNCHING_C_D_ONLY")

@@ -7,6 +7,7 @@ MODE="${1:---preflight}"
 PIN="${SMARTDISH_E_SOURCE_SHA:-}"
 [[ "$PIN" =~ ^[0-9a-f]{40}$ ]] ||
   { echo E_OWNER_AION_BLOCKED=SOURCE_PIN_REQUIRED >&2; exit 2; }
+RUNNER_PATH="$(realpath "${BASH_SOURCE[0]}")"
 WORKDIR="$HOME/samsung_AXI_e_ai_on_v1"
 REPO="https://github.com/silverbjin/samsung_AXI.git"
 CHECKPOINT="${SMARTDISH_C_V1_CHECKPOINT:-}"
@@ -27,10 +28,11 @@ if [[ -e "$WORKDIR" ]]; then
   if [[ "$CURRENT_HEAD" != "$PIN" ]]; then
     # One-way migration ONLY from the exact accepted original Owner E PIN.
     # New caller PIN is immutable; never reset/clean or merge a moving branch.
-    if [[ "$CURRENT_HEAD" != "4dbdeca6a0a8f8120cb42a44bd589d356726eb5d" ]]; then
+    if [[ "$CURRENT_HEAD" != "4dbdeca6a0a8f8120cb42a44bd589d356726eb5d" &&
+          "$CURRENT_HEAD" != "316639a0a5c47121f3026c76e180efde3cea12d4" ]]; then
       echo E_OWNER_AION_BLOCKED=PIN_DRIFT_MANUAL_REVIEW >&2; exit 2
     fi
-    git -C "$WORKDIR" fetch --depth 16 origin "$PIN" ||
+    git -C "$WORKDIR" fetch --depth 64 origin "$PIN" ||
       { echo E_OWNER_AION_BLOCKED=PIN_FETCH_FAILED >&2; exit 2; }
     git -C "$WORKDIR" merge-base --is-ancestor "$CURRENT_HEAD" "$PIN" ||
       { echo E_OWNER_AION_BLOCKED=PIN_NOT_DESCENDANT >&2; exit 2; }
@@ -46,6 +48,10 @@ else
   git -C "$WORKDIR" checkout --detach "$PIN"
 fi
 cd "$WORKDIR"
+[[ "$(git hash-object --no-filters "$RUNNER_PATH")" == "$(git rev-parse "$PIN:scripts/smartdish_e_owner_aion.sh")" ]] &&
+  cmp -s "$RUNNER_PATH" scripts/smartdish_e_owner_aion.sh ||
+  { echo E_OWNER_AION_BLOCKED=RUNNER_BYTES_MISMATCH >&2; exit 2; }
+echo E_OWNER_RUNNER_BYTES_MATCH
 echo "E_OWNER_SOURCE_SHA=$(git rev-parse HEAD)"
 python3 scripts/smartdish_e_owner_model_preflight.py --checkpoint "$CHECKPOINT"
 [[ -f /opt/ros/jazzy/setup.bash ]] ||
@@ -76,7 +82,7 @@ echo E_OWNER_AION_PREFLIGHT_PASS_OWNER_SCOPE_NO_GOAL
 if [[ "$MODE" == --preflight ]]; then exit 0; fi
 [[ -n "${DISPLAY:-}" ]] ||
   { echo E_OWNER_AION_BLOCKED=WSLG_DISPLAY_UNAVAILABLE >&2; exit 2; }
-STATE="$HOME/.local/state/smartdish-e-owner-aion"
+STATE="$HOME/.local/state/smartdish-e-owner-aion/$PIN"
 mkdir -p "$STATE"
 colcon --log-base "$STATE/colcon_log" build --base-paths "$WORKDIR/src" \
   --packages-select smartdish_ai smartdish_service \
@@ -88,6 +94,7 @@ ros2 pkg executables smartdish_ai | grep -Fxq "smartdish_ai stability_inference_
   { echo E_OWNER_AION_BLOCKED=C_ENTRYPOINT_MISSING >&2; exit 2; }
 ros2 pkg executables smartdish_service | grep -Fxq "smartdish_service smartdish_manager" ||
   { echo E_OWNER_AION_BLOCKED=D_ENTRYPOINT_MISSING >&2; exit 2; }
+/usr/bin/python3 scripts/smartdish_e_installed_origin.py --root "$WORKDIR" --pin "$PIN" --install-base "$STATE/install" --packages smartdish_ai smartdish_service
 echo E_OWNER_AION_LAUNCHING_C_D_ONLY
 echo E_OWNER_AION_REQUIRE_A_OPERATOR_TTY_AND_NAV2_SEPARATELY
 exec ros2 launch smartdish_service smartdish_e_owner_aion.launch.py \

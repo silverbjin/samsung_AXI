@@ -12,6 +12,7 @@ on:
       - "scripts/smartdish_e_owner_model_preflight.py"
       - "scripts/smartdish_e_owner_aion.sh"
       - "scripts/smartdish_e_c_runtime_guard.py"
+      - "scripts/smartdish_e_installed_origin.py"
   pull_request:
     paths:
       - "src/smartdish_ai/**"
@@ -22,6 +23,7 @@ on:
       - "scripts/smartdish_e_owner_model_preflight.py"
       - "scripts/smartdish_e_owner_aion.sh"
       - "scripts/smartdish_e_c_runtime_guard.py"
+      - "scripts/smartdish_e_installed_origin.py"
 permissions:
   contents: read
 jobs:
@@ -38,7 +40,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml python3-pil python3-numpy
           python3 -m compileall -q src/smartdish_ai/smartdish_ai src/smartdish_service/smartdish_service
           bash -n scripts/smartdish_e_owner_aion.sh
-          python3 -m py_compile scripts/smartdish_e_c_runtime_guard.py
+          python3 -m py_compile scripts/smartdish_e_c_runtime_guard.py scripts/smartdish_e_installed_origin.py
           # Expected failure has non-zero exit; do NOT lose it to pipefail.
           if owner_out="$(env -u SMARTDISH_E_SOURCE_SHA bash scripts/smartdish_e_owner_aion.sh --preflight 2>&1)"; then
             echo E_OWNER_BOOTSTRAP_FAIL_OPEN >&2
@@ -85,6 +87,7 @@ jobs:
           set +u
           source install/setup.bash
           set -u
+          /usr/bin/python3 scripts/smartdish_e_installed_origin.py --root "$PWD" --pin "$(git rev-parse HEAD)" --install-base "$PWD/install" --packages smartdish_ai smartdish_service smartdish_robot
           ros2 pkg executables smartdish_service | grep -F "smartdish_service smartdish_manager"
           ros2 pkg executables smartdish_service | grep -F "smartdish_service smartdish_ui"
           ros2 pkg executables smartdish_ai | grep -F "smartdish_ai stability_inference_node"
