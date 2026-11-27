@@ -243,7 +243,30 @@ def replay(p,e,rc,floor,obs,out,aid):
         rr["max_registration_m"]=float(reg.max())
         ts=np.array([x["robot_world"]["sim_ns"] for x in rs]);rr["registration_samples"]=len(rs)
         rr["max_pose_odom_skew_ns"]=int(max(abs(x["robot_world"]["sim_ns"]-x["odom_stamp_ns"]) for x in rs))
-        rr["max_pose_scan_skew_ns"]=int(max(abs(x["robot_world"]["sim_ns"]-x["scan"]["stamp_ns"]) for x in rs))
+        scans=[x for x in rs if "scan" in x]
+        need(scans,"SCAN_SAMPLE_MISSING")
+        rr["scan_snapshot_count"]=len(scans)
+        rr["pose_rows_without_scan"]=len(rs)-len(scans)
+        rr["max_pose_scan_skew_ns"]=int(max(abs(x["robot_world"]["sim_ns"]-x["scan"]["stamp_ns"]) for x in scans))
+        rr["scan_coverage_scope"]="SAMPLED_ONLY_NOT_FULL_DDS_TRACE"
+        errors=[]
+        for x in rs:
+            m,o,z=x["map_to_odom"],x["odom_to_base"],x["map_to_base"]
+            if m["stamp_ns"]!=o["stamp_ns"] or o["stamp_ns"]!=z["stamp_ns"]:continue
+            pred=Rotation.from_quat(m["q"]).apply(o["xyz"])+m["xyz"]
+            errors.append(float(np.linalg.norm(pred-z["xyz"])))
+        rr["tf_same_stamp_samples"]=len(errors)
+        rr["tf_translation_residual_max_m"]=max(errors) if errors else None
+        leg=next(l for l in legs if l["mission"]+"_"+l["leg"]==rr["phase"])
+        post=[x for x in rs if x["robot_world"]["steady_s"]>=leg["terminal_steady_s"]]
+        bad=max((i for i,x in enumerate(post) if abs(x["odom_linear_mps"])>.01 or abs(x["odom_angular_radps"])>.02),default=-1)
+        tail=post[bad+1:]
+        rr["sampled_stop_tail_s"]=tail[-1]["robot_world"]["steady_s"]-tail[0]["robot_world"]["steady_s"] if tail else 0.
+        rr["stop_scope"]="RECEIPT_PLUS_DECIMATED_ODOM_NOT_CONTINUOUS_RAW_DWELL"
+        pd.DataFrame(dict(sim_ns=ts,registration_m=reg,phase=rr["phase"],
+                          linear_mps=[x["odom_linear_mps"] for x in rs],
+                          angular_radps=[x["odom_angular_radps"] for x in rs],
+                          clearance_m=[x["clearance_m"] for x in rs])).to_csv(out/f"{aid}_{rr['phase']}_ros.csv",index=False)
         vel=np.array([[x["odom_stamp_ns"],x["odom_linear_mps"],x["odom_angular_radps"]] for x in rs]);keep=np.r_[True,np.diff(vel[:,0])>0];vel=vel[keep]
         rr["max_linear_mps"]=float(vel[:,1].max());rr["max_angular_radps"]=float(vel[:,2].max());rr["max_linear_accel_mps2"]=float(np.max(np.abs(np.diff(vel[:,1])/np.diff(vel[:,0])*1e9)))
         rr["max_angular_accel_radps2"]=float(np.max(np.abs(np.diff(vel[:,2])/np.diff(vel[:,0])*1e9)))
@@ -257,6 +280,24 @@ def replay(p,e,rc,floor,obs,out,aid):
             for ident,g in s.groupby("dish"):ax.plot(g.sim_ns/1e9,g[metric],label=str(ident))
             ax.axhline(limit,linestyle="--",label="contract");ax.set(xlabel="simulation seconds",ylabel=unit,title=f"{aid} {metric} / {e['source_sha'][:12]}")
             ax.legend();fig.savefig(out/f"{aid}_{metric}.png",dpi=140);plt.close(fig)
+    # ROS journal exact-stamp matches are a positive subset, not full DDS coverage.
+    from collections import Counter
+    contact_counts=Counter(); matched=Counter(); unknown=Counter()
+    pair_strings=a.pairs.to_numpy()
+    for line in (p/"contacts.jsonl").open():
+        x=json.loads(line)
+        phase=x["phase"]; t0=x["sim_ns"]; category=pair_kind(x["collision1"],x["collision2"])
+        contact_counts[(phase,category)]+=1
+        ix=int(np.searchsorted(t,t0))
+        if ix<len(t) and t[ix]==t0:
+            key=":".join(map(str,sorted((x["collision1_id"],x["collision2_id"]))))
+            if key in str(pair_strings[ix]).split(";"):matched[(phase,category)]+=1
+            else:unknown[(phase,category)]+=1
+    for rr in rec:
+        phase=rr["phase"]
+        rr["ros_contact_events"]={c:v for (p0,c),v in contact_counts.items() if p0==phase}
+        rr["ros_contact_exact_ecm_matches"]={c:v for (p0,c),v in matched.items() if p0==phase}
+        rr["ros_contact_exact_stamp_unmatched"]={c:v for (p0,c),v in unknown.items() if p0==phase}
     return rec
 def transfers(p,e,full):
     m=e["moving"];j=js(p/"product_receipts/transfers/transfer_journal.json");need(j["locked"] is False,"JOURNAL_LOCK")
@@ -270,12 +311,13 @@ def transfers(p,e,full):
         require_session(v,e["source_sha"],a["stack_id"].split(":")[0])
         need(v["event_sim_ns"]==a["event_sim_ns"] if "event_sim_ns" in v else v["observation"]["event_sim_ns"]==a["event_sim_ns"],"TRANSFER_TIME")
         need(sha(p/"product_receipts"/v["service_receipt_dir"]/"gazebo_service_calls.jsonl")==v["service_calls_sha256"],"SERVICE_HASH")
-        wait=next(w for w in m["transfer_waits"] if w["operation"]==op)
-        need(wait["continuous_wait_s"]>=(10 if op=="LOAD" else 5) and wait["goal_uuid"]==v["navigation"]["goal_uuid"],"WAIT")
+        wait=next((w for w in m.get("transfer_waits",[]) if w["operation"]==op),None)
+        if full or wait is not None:
+            need(wait is not None and wait["continuous_wait_s"]>=(10 if op=="LOAD" else 5) and wait["goal_uuid"]==v["navigation"]["goal_uuid"],"WAIT")
         if op=="UNLOAD":need(v["observation"]["method"]=="ACTUAL_REMOVE_RECEIPT" and v["observation"]["removed_entity_ids"]==IDS,"REMOVE")
         else:
             rgb(p,m["loaded_rgb"],"loaded");need(m["loaded_rgb"]["stamp_ns"]>a["event_sim_ns"],"RGB_STALE")
-        out.append(dict(operation=op,elapsed_s=x["elapsed_wall_s"],wait_s=wait["continuous_wait_s"],sim_ns=a["event_sim_ns"],ids=IDS,receipt_sha256=h,method=v["observation"].get("method","LOAD")))
+        out.append(dict(operation=op,elapsed_s=x["elapsed_wall_s"],wait_s=wait["continuous_wait_s"] if wait is not None else None,sim_ns=a["event_sim_ns"],ids=IDS,receipt_sha256=h,method=v["observation"].get("method","LOAD")))
     need([x["operation"] for x in out]==(["LOAD","UNLOAD"] if full else ["LOAD"]),"TRANSFER_SEQUENCE")
     return out
 def shutdown(p,e):
@@ -317,7 +359,7 @@ def main():
             # Receipt-only boundaries remain explicit; C input is outside A artifacts.
             report["verdict"]="HOLD"
             report["first_error"]="B_FULL_SCOPE_REVIEW_REQUIRED"
-            report["limitations"]=["A receipt fields are not independent raw stop dwell samples","ROS contact JSONL not exhaustively cross-correlated with ECM","C input/AI outside A scope","E single-session product required"]
+            report["limitations"]=["A receipt fields are not independent raw stop dwell samples","ROS contact exact-stamp matching is positive subset, not full DDS coverage","C input/AI outside A scope","E single-session product required"]
             pd.DataFrame([dict(run_id=s["run_id"],**{k:v for k,v in p.items() if k!="dishes" and not isinstance(v,dict)}) for s in report["sessions"] for p in s["phases"]]).to_csv(a.out/"phases.csv",index=False)
     except Exception as e:
         report.update(verdict="FAIL",first_error=f"{type(e).__name__}: {e}")
