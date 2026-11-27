@@ -11,6 +11,7 @@ on:
       - "scripts/smartdish_e_owner_aion_ros_probe.py"
       - "scripts/smartdish_e_owner_model_preflight.py"
       - "scripts/smartdish_e_owner_aion.sh"
+      - "scripts/smartdish_e_c_runtime_guard.py"
   pull_request:
     paths:
       - "src/smartdish_ai/**"
@@ -20,6 +21,7 @@ on:
       - "scripts/smartdish_e_owner_aion_ros_probe.py"
       - "scripts/smartdish_e_owner_model_preflight.py"
       - "scripts/smartdish_e_owner_aion.sh"
+      - "scripts/smartdish_e_c_runtime_guard.py"
 permissions:
   contents: read
 jobs:
@@ -36,6 +38,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml python3-pil python3-numpy
           python3 -m compileall -q src/smartdish_ai/smartdish_ai src/smartdish_service/smartdish_service
           bash -n scripts/smartdish_e_owner_aion.sh
+          python3 -m py_compile scripts/smartdish_e_c_runtime_guard.py
           # Expected failure has non-zero exit; do NOT lose it to pipefail.
           if owner_out="$(env -u SMARTDISH_E_SOURCE_SHA bash scripts/smartdish_e_owner_aion.sh --preflight 2>&1)"; then
             echo E_OWNER_BOOTSTRAP_FAIL_OPEN >&2
@@ -49,6 +52,7 @@ jobs:
             tests/test_smartdish_e_owner_fsm.py \
             tests/test_smartdish_e_aion_ui_control.py \
             tests/test_smartdish_e_owner_preflight.py \
+            tests/test_smartdish_e_c_runtime_contract.py \
             tests/test_smartdish_d_aion.py \
             tests/test_smartdish_d_service.py \
             tests/test_smartdish_d_ui.py \

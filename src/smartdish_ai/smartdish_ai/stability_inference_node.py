@@ -60,6 +60,9 @@ def main():
                          else "PRODUCT"))
                 except Exception as exc:
                     self.get_logger().error(f"C_MODEL_UNAVAILABLE {type(exc).__name__}: {exc}")
+                    if self.get_parameter("owner_gazebo_integration").value is True:
+                        # Owner requested actual bytes; UNKNOWN-only is not READY.
+                        raise RuntimeError("E_OWNER_C_MODEL_LOAD_FAILED") from exc
             else:
                 self.get_logger().warn("C_MODEL_UNAVAILABLE path not configured; safe UNKNOWN mode")
             self.core = InferenceCore(

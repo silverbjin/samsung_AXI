@@ -44,6 +44,19 @@ colcon list --base-paths "$WORKDIR/src" --names-only |
   grep -Fxq smartdish_ai || { echo E_OWNER_AION_BLOCKED=C_PACKAGE_NOT_FOUND >&2; exit 2; }
 colcon list --base-paths "$WORKDIR/src" --names-only |
   grep -Fxq smartdish_service || { echo E_OWNER_AION_BLOCKED=D_PACKAGE_NOT_FOUND >&2; exit 2; }
+# E consumes the already-installed C P2 CPU runtime. Never reinstall torch.
+C_VENV="$HOME/.venvs/smartdish-c-v1-py312-cpu"
+[[ -x "$C_VENV/bin/python" ]] ||
+  { echo E_OWNER_C_RUNTIME_BLOCKED=EXISTING_C_VENV_NOT_FOUND >&2; exit 2; }
+command -v flock >/dev/null ||
+  { echo E_OWNER_C_RUNTIME_BLOCKED=FLOCK_REQUIRED >&2; exit 2; }
+exec 8>"$HOME/.venvs/.smartdish-c-v1.install.lock"
+flock -n -s 8 ||
+  { echo E_OWNER_C_RUNTIME_BLOCKED=C_VENV_UPDATE_IN_PROGRESS >&2; exit 2; }
+python3 scripts/smartdish_e_c_runtime_guard.py \
+  --c-venv "$C_VENV" --ros-python /usr/bin/python3 ||
+  { echo E_OWNER_AION_BLOCKED=C_RUNTIME_CONTRACT_NOT_MET >&2; exit 2; }
+export SMARTDISH_E_C_SITE_PACKAGES="$C_VENV/lib/python3.12/site-packages"
 echo E_OWNER_AION_PREFLIGHT_PASS_OWNER_SCOPE_NO_GOAL
 if [[ "$MODE" == --preflight ]]; then exit 0; fi
 [[ -n "${DISPLAY:-}" ]] ||
