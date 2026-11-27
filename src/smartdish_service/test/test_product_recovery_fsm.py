@@ -19,7 +19,7 @@ class RecoveryTest(unittest.TestCase):
         self.request["ai_enabled"] = ai
         self.assertTrue(self.fsm.handle_request(self.request))
     def nav(self, leg):
-        return self.fsm.on_nav_result(self.body(leg=leg, goal_uuid="0123456789abcdef0123456789abcdef",
+        return self.fsm.on_nav_result(self.body(leg=leg, goal_uuid={"TO_TABLE":"1"*32,"TO_RETURN":"2"*32,"TO_HOME":"3"*32}[leg],
                            result="SUCCEEDED", terminal_status="SUCCEEDED", stop_verified=True))
     def load(self):
         self.start()
@@ -98,5 +98,35 @@ class RecoveryTest(unittest.TestCase):
         self.fsm.tick()
         self.assertEqual(self.fsm.state,"LOADING")
         self.assertFalse(any(t=="/collection/ai_check_request" for t,d in self.fsm.drain()))
+
+    def test_cancel_exact_uuid_and_stop(self):
+        self.start()
+        self.assertTrue(self.fsm.bind_goal_uuid("TO_TABLE","1"*32))
+        self.clock.now+=120
+        self.fsm.tick()
+        self.assertEqual(self.fsm.state,"CANCELING")
+        cancel=[d for t,d in self.fsm.drain() if t=="/collection/nav_cancel_request"]
+        self.assertEqual(len(cancel),1)
+        self.assertEqual(cancel[0]["goal_uuid"],"1"*32)
+        self.assertFalse(self.fsm.on_cancel(self.body(leg="TO_TABLE",goal_uuid="2"*32,status="ACK",terminal_status="CANCELED",stop_verified=True)))
+        self.assertTrue(self.fsm.on_cancel(self.body(leg="TO_TABLE",goal_uuid="1"*32,status="ACK",terminal_status="CANCELED",stop_verified=True)))
+        self.assertEqual(self.fsm.state,"ABORTED")
+    def test_reused_goal_uuid_rejected(self):
+        self.assertTrue(self.fsm.on_stability(self.inference()))
+        self.assertTrue(self.fsm.on_staff(self.body(stack_id="stack-01",capture_id=self.fsm.capture_id,action="APPROVE_CONTINUE")))
+        self.assertFalse(self.fsm.on_nav_result(self.body(leg="TO_RETURN",goal_uuid="1"*32,result="SUCCEEDED",terminal_status="SUCCEEDED",stop_verified=True)))
+    def test_snapshot_mismatch(self):
+        data=self.inference()
+        self.assertFalse(self.fsm.on_stability(dict(data,stable_confidence_min=0.5)))
+        self.assertEqual(self.fsm.state,"SAFE_HOLD")
+    def test_stale_capture(self):
+        data=self.capture()
+        self.assertFalse(self.fsm.on_capture(dict(data,image_stamp_ns=100)))
+        self.assertEqual(self.fsm.state,"SAFE_HOLD")
+    def test_no_rearm_after_unverified_motion(self):
+        self.start()
+        self.clock.now+=120
+        self.fsm.tick()
+        self.assertFalse(self.fsm.arm("new-stack",(0,0)))
 
 if __name__=="__main__": unittest.main()
