@@ -44,6 +44,7 @@ class RecoveryFSM:
         self.ai_enabled=False
         self.ready=False
         self.used=set()
+        self.used_goals=set()
         self.events=[]
         self.wait=(10,5)
 
@@ -62,6 +63,7 @@ class RecoveryFSM:
         self.thresholds=self.validate_thresholds(thresholds)
         self.stack_id=stack_id
         self.ready=True
+        self.status()
         return True
 
     def drain(self):
@@ -151,18 +153,22 @@ class RecoveryFSM:
             return False
         if self.goal_uuid is not None:
             return self.goal_uuid==value
+        if value.replace('-','') in self.used_goals:
+            return False
         self.goal_uuid=value
         return True
 
     def on_nav_result(self,d):
         if (self.expired() or self.state not in LEGS or not self.matches(d)
                 or d.get("leg")!=self.leg or not goal_id(d.get("goal_uuid"))
+                or d["goal_uuid"].replace("-","") in self.used_goals
                 or (self.goal_uuid is not None and self.goal_uuid!=d["goal_uuid"])):
             return False
         if d.get("result")!="SUCCEEDED" or d.get("terminal_status")!="SUCCEEDED" or d.get("stop_verified") is not True:
             self.goal_uuid=d["goal_uuid"]
             self.fail("NAV_FAILED_OR_NOT_STOPPED")
             return False
+        self.used_goals.add(d['goal_uuid'].replace('-',''))
         leg=self.leg
         self.leg=self.goal_uuid=None
         if leg=="TO_TABLE":
@@ -260,7 +266,7 @@ class RecoveryFSM:
     def on_staff(self,d):
         if self.expired() or self.state in TERMINAL or self.state=="IDLE" or not self.stack_matches(d):
             return False
-        if d.get("capture_id")!=self.capture_id:
+        if "capture_id" not in d or d.get("capture_id")!=self.capture_id:
             return False
         if d.get("action")=="ABORT":
             self.fail("STAFF_ABORT")
