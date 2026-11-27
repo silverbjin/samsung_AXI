@@ -90,6 +90,30 @@ jobs:
           ros2 pkg executables smartdish_ai | grep -F "smartdish_ai stability_inference_node"
           python3 -m py_compile src/smartdish_service/launch/smartdish_e_owner_aion.launch.py
           ros2 launch smartdish_service smartdish_e_owner_aion.launch.py --show-args
+          # A manually invoked owner AI ON launch without verified C venv
+          # must fail before any node starts. Never accept UNKNOWN as model PASS.
+          if launch_out="$(timeout 12s ros2 launch smartdish_service smartdish_e_owner_aion.launch.py \
+                owner_gazebo_integration:=true ai_available:=true \
+                model_path:=/private/missing-model.pt 2>&1)"; then
+            echo E_OWNER_DIRECT_LAUNCH_FAIL_OPEN >&2
+            exit 2
+          fi
+          echo "$launch_out" | grep -F E_OWNER_C_RUNTIME_CONTRACT_NOT_VERIFIED
+          echo E_OWNER_DIRECT_LAUNCH_GUARD_PASS_NO_GOAL
+          # C with explicit Owner model and nonexistent weights must exit
+          # nonzero rather than announce STABILITY_READY (model-less fallback).
+          if model_out="$(timeout 12s ros2 run smartdish_ai stability_inference_node \
+                --ros-args -p owner_gazebo_integration:=true \
+                -p model_path:=/private/missing-model.pt 2>&1)"; then
+            echo E_OWNER_C_MODEL_FAIL_OPEN >&2
+            exit 2
+          fi
+          echo "$model_out" | grep -F E_OWNER_C_MODEL_LOAD_FAILED
+          if echo "$model_out" | grep -Fq C_STABILITY_READY; then
+            echo E_OWNER_C_FALSE_READY >&2
+            exit 2
+          fi
+          echo E_OWNER_C_MODEL_REQUIRED_FAIL_CLOSED_PASS
           echo E_OWNER_AION_L1_3PKGS_BUILD_PASS
           timeout 45s python3 scripts/smartdish_e_owner_aion_ros_probe.py
           echo E_OWNER_AION_L1_DDS_PARAMETER_ACK_PASS_NO_NAV2
