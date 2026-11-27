@@ -7,3 +7,11 @@
 - **fixture 한정 테스트:** `approved_model_sha256="a"*64`는 순수 Python FSM L0에서만 사용하며 실제 C 승인값/제품 증거가 아니고 운영 Manager에 주입되지 않습니다.
 - 실제 제품 모델 인수·공급자 인증·ROS 2 신뢰 경계는 E 승인 별도 요구. 악의적 ROS publisher 진본성 검증이 코드상 완성됐다고 주장하지 않습니다.
 - 미수행: 모델 다운로드/torch.load/학습/Test4/Gazebo/WSL2, 실물 접촉 검증.
+
+## 실제 회귀 결과 및 신뢰 경계
+
+- 구현 SHA: `774a42914be6123ab89f71cee759b224ab1b72aa`.
+- [L0 92 PASS #45926489996](https://github.com/silverbjin/samsung_AXI/actions/runs/45926489996): 위조 model_version, confidence None/0/0.1/0.799999/NaN/Inf/bool, 다른 capture/request, deadline 5.1초 이후 STABLE 수신 차단.
+- 같은 L0에서 **승인 SHA 대신 합성 64-hex 픽스처**를 명시적으로 전달할 때만 정상 0.80 STABLE의 상태 머신 전이 규칙을 검증. 해당 fixture는 실제 ROS Manager 경로에서 사용되지 않고 E 제품 승인을 뜻하지 않습니다.
+- C 기존 `test_c_stability.py`로 영상 TTL 2초/중복/낮은 confidence→UNKNOWN 규칙 회귀. 실제 프레임·추론 가중치 사용하지 않음.
+- 주의: `model_version` 문자열만 검사한다고 ROS Publisher가 암호학적으로 인증되지는 않습니다. 현재 제품 게이트가 닫혀 있으므로 물리 Goal을 유발할 수 없으며, 미래 실제 모델 출고 전에 E가 공급자 신뢰/릴리스 영수증을 별도 검증해야 합니다.
