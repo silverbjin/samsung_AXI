@@ -45,3 +45,12 @@
 - 오류 원인 분류 최소 수정 코드 `9a1f7bb46c91ab7f27727d5ba02bd1db9278a113`; [C 전용 CI #45916029495](https://github.com/silverbjin/samsung_AXI/actions/runs/45916029495) **70 passed**. 공개 fixture-only, Owner의 P1 환경 설치·가중치 인수 PASS가 아님.
 - [문제 진단](../reports/issues/2026-11-27_C_V1_ISSUE_02_P1_DEPENDENCY_IMPORT_HOLD_KO.md), [C09 교육 보고](../reports/tasks/2026-11-27_C09_P1_OWNER_DEPENDENCY_HOLD_EDU_KO.md) 참조.
 - 현재 상태 **`C_P0_CONTRACT_PASS_HUMAN_REVIEW_REQUIRED / C_P1_HOLD_DEPENDENCY_IMPORT / P2_NOT_RUN / P3_TEST_NOT_OPENED / P4_NO_MODEL / E_AI_ON_HOLD`**. Data Freeze, AI OFF, A19 금지, Production Contact HOLD 지속.
+
+## 2026-11-27 C10 — 다른 WSL2 개발과 독립된 CPU venv 설치·자동 활성화
+
+- 사용자 환경 조회: system Python `torch`/ `torchvision` 모두 **NOT_INSTALLED**, `Pillow=10.2.0`. 기존 P1 `C_V1_TORCH_OR_TORCHVISION_MISSING` 차단 원인 구체화; **P0 42/42 PASS에는 영향 없음**.
+- C 전용 설치기 `scripts/smartdish_c_v1_install_cpu_venv.sh`: `~/.venvs/smartdish-c-v1-py312-cpu` 전용, Python3.12, 공식 CPU wheel `torch2.5.1`/`torchvision0.20.1`, `Pillow10.2.0`/`numpy1.26.4`; 잠금/완료 표식/버전검증/설치 TAR+SHA. 시스템 Python/ROS 2를 변경하지 않음.
+- `scripts/smartdish_c_v1_p1_pretrained_once.sh` 원샷이 위 **전용 가상환경을 내부에서 자동 활성화**. `TORCH_HOME=~/.cache/smartdish-c-v1/torch`로 공유 캐시와 분리; 미설치·다른 CPU 버전·동시 설치는 fail-fast. 원샷 자체는 install/download 실행 금지.
+- 설치 기본값은 wheel만 설치. `--with-weights`는 명시적으로 요청할 때만 공식 `ResNet18_Weights.IMAGENET1K_V1` 가중치를 전용 Torch 캐시에 다운로드·SHA-prefix+full SHA 확인. **가중치 사용권 승인이나 모델 학습 GO가 아님**.
+- 개발 코드 SHA `683a682bc1ecf2f6c959b82dd8fda998be8b706f`. CI는 공개 fixture-only이며 **Owner 실제 WSL2 CPU wheel 설치/P1 재검은 NOT_RUN**. [C10 교육 보고서](../tasks/2026-11-27_C10_VENV_AUTO_ACTIVATION_EDU_KO.md).
+- 상태 유지: `P0_PASS / P1_HOLD_ENV_INSTALL_NOT_RUN / P2_TRAIN_NOT_RUN / P3_TEST_NOT_OPENED / P4_NO_CHECKPOINT / AI_OFF_PROTECTED / A19_NOT_AUTHORIZED / PRODUCTION_CONTACT_HOLD`.
