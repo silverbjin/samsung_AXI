@@ -1,0 +1,85 @@
+name: SmartDish E R4 / real Nav2 and live independent tray station (CI model double)
+on:
+  push:
+    branches: [feat/smartdish-e-v1-owner-ai-integration]
+    paths:
+      - 'scripts/smartdish_e_ci_station_nav_probe.py'
+      - '.github/workflows/smartdish-e-r4-station-nav-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  nav-station:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 58
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      ROS_DOMAIN_ID: '191'
+      GZ_PARTITION: smartdish_e_nav_${{ github.run_id }}_${{ github.run_attempt }}
+      RESTAURANT_ROOT: ${{ github.workspace }}
+      TURTLEBOT3_MODEL: waffle_pi
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install reviewed Gazebo Harmonic and Nav2 runtime (no private model)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-colcon-common-extensions python3-yaml python3-pil python3-numpy xvfb xauth mesa-utils libgl1-mesa-dri ros-jazzy-ros-base ros-jazzy-ros-gz ros-jazzy-ros-gz-image ros-jazzy-nav2-bringup ros-jazzy-navigation2 ros-jazzy-slam-toolbox ros-jazzy-robot-state-publisher ros-jazzy-tf2-ros
+      - name: Reuse official A upstream PIN and released map / Nav2 overlays
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p src/upstream
+          git clone -q --depth 1 -b jazzy https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git src/upstream/turtlebot3_simulations
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          if [[ "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" != "$PIN" ]]; then
+            git -C src/upstream/turtlebot3_simulations fetch -q --depth 1 origin "$PIN"
+            git -C src/upstream/turtlebot3_simulations checkout -q --detach "$PIN"
+          fi
+          test "$(git -C src/upstream/turtlebot3_simulations rev-parse HEAD)" = "$PIN"
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          python3 -m py_compile scripts/smartdish_e_ci_station_nav_probe.py
+          colcon build --packages-up-to restaurant_world restaurant_bringup restaurant_delivery smartdish_robot smartdish_ai smartdish_service --symlink-install
+          set +u
+          source install/setup.bash
+          set -u
+          mkdir -p generated/smartdish_e_r4_inputs
+          python3 scripts/prepare_waffle_rgbd.py --source "$(ros2 pkg prefix turtlebot3_gazebo)/share/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf" --out generated/smartdish_e_r4_inputs/waffle.sdf --rgbd-rate-hz 2
+          python3 scripts/prepare_nav2_params.py --source "$(ros2 pkg prefix nav2_bringup)/share/nav2_bringup/params/nav2_params.yaml" --out generated/smartdish_e_r4_inputs/nav2.yaml --auto-initial-pose --s6-bt-ack-ms 200
+      - name: Actual A Nav2 + separate live A tray / C DDS double + D staff approval
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set -u
+          xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=90s 2100s python3 -u scripts/smartdish_e_ci_station_nav_probe.py --pin "$GITHUB_SHA" --robot-sdf generated/smartdish_e_r4_inputs/waffle.sdf --params generated/smartdish_e_r4_inputs/nav2.yaml --out generated/smartdish_e_r4
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('generated/smartdish_e_r4/result.json').read_text())
+          assert d['verdict']=='E_R4_REAL_NAV2_STATION_CI_TEST_DOUBLE_PASS'
+          assert len(d['legs'])==len(d['action_status'])==3
+          assert not d['private_model_loaded'] and not d['robot_mounted_tray_verified']
+          print('E_R4_EVIDENCE_VERIFIED_STATION_SCOPE_ONLY')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-e-r4-evidence-${{ github.run_id }}
+          path: |
+            generated/smartdish_e_r4/
+            generated/smartdish_e_r4_inputs/
+          if-no-files-found: warn
+          retention-days: 14
