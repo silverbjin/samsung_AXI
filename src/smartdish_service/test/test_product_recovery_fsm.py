@@ -129,4 +129,28 @@ class RecoveryTest(unittest.TestCase):
         self.fsm.tick()
         self.assertFalse(self.fsm.arm("new-stack",(0,0)))
 
+    def test_abort_at_unload_wait_deadline_no_transfer(self):
+        self.assertTrue(self.fsm.on_stability(self.inference()))
+        staff=self.body(stack_id="stack-01",capture_id=self.fsm.capture_id,action="APPROVE_CONTINUE")
+        self.assertTrue(self.fsm.on_staff(staff))
+        self.assertTrue(self.nav("TO_RETURN"))
+        self.fsm.drain()
+        self.clock.now+=5
+        self.assertTrue(self.fsm.on_staff(dict(staff,action="ABORT")))
+        self.assertEqual(self.fsm.state,"SAFE_HOLD")
+        self.assertFalse(any(t=="/collection/dish_transfer_request" for t,d in self.fsm.drain()))
+    def test_threshold_unknown_requires_staff(self):
+        data=self.inference()
+        self.fsm.thresholds=(1.0,0.0)
+        self.assertTrue(self.fsm.on_stability(dict(data,stable_confidence_min=1.0,status="UNKNOWN",confidence=None)))
+        self.assertEqual(self.fsm.state,"NEEDS_CONFIRMATION")
+    def test_cancel_unverified_stop_lockout(self):
+        self.start()
+        self.assertTrue(self.fsm.bind_goal_uuid("TO_TABLE","1"*32))
+        self.clock.now+=120
+        self.fsm.tick()
+        self.assertFalse(self.fsm.on_cancel(self.body(leg="TO_TABLE",goal_uuid="1"*32,status="ACK",
+                         terminal_status="CANCELED",stop_verified=False)))
+        self.assertEqual(self.fsm.state,"SAFE_HOLD_UNVERIFIED")
+
 if __name__=="__main__": unittest.main()
