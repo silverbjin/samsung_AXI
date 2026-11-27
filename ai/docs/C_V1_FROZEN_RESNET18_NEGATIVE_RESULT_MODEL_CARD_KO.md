@@ -70,7 +70,7 @@ P0/P1 증거를 재사용하며 **최초 P2 1회만 학습**. 원샷 P2 SHA `9db
 - C16: `C16_FIRST_RESEARCH_PASS_CLOSED_NEGATIVE_VALIDATION_RESULT`.
 - `P3_TEST_OPEN_NOT_APPROVED`; 파일럿 `HOLD_NOT_ACCEPTED`; D/E AI OFF **이미 L3 PASS**, 추가 WSL2 재실행하지 않음.
 - 제품 및 파일럿 checkpoint 배포 **금지**. 사람의 명시적 승인 없는 fine-tune, 추가 P2 학습, A19 신규 물리 데이터 생산, Test 개봉, AI ON은 하지 않음.
-- 향후 **C20 GitHub Change Request #59**에서 새 실험의 데이터/GT·시점·평가 프로토콜을 사전 설계하고 별도 승인. **C20 이슈 생성 자체는 연구 GO가 아님.**
+- 향후 **C20 GitHub CHANGE REQUEST #59**에서 새 실험의 데이터/GT·시점·평가 프로토콜을 사전 설계하고 별도 승인. **C20 이슈 생성 자체는 연구 GO가 아님.**
 
 ## 8. 추적 참조
 
