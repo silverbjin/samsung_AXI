@@ -6,6 +6,7 @@ only logical T03 requests and explicit staff confirmations.
 import argparse
 import json
 import uuid
+import math
 from pathlib import Path
 
 from .product_admission import product_ai_on_authorized
@@ -367,8 +368,8 @@ def main(argv=None):
                     return
                 try:
                     values = (float(stable.get()), float(unstable.get()))
-                    from smartdish_ai.inference_core import InferenceCore
-                    if not all(InferenceCore._valid_threshold(v) for v in values):
+                    if not all(math.isfinite(v) and 0.50 <= v <= 1.00
+                               for v in values):
                         raise ValueError("0.50~1.00 범위의 실수만 입력하세요")
                 except (ValueError, TypeError) as exc:
                     message.set("입력 오류: " + str(exc))
