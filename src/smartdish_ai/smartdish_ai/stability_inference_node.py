@@ -38,6 +38,7 @@ def tray_image_reliability(owner_gazebo_integration):
 def main():
     import rclpy
     from rclpy.node import Node
+    from rclpy.executors import ExternalShutdownException
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data
     from sensor_msgs.msg import Image
     from std_msgs.msg import String
@@ -138,12 +139,17 @@ def main():
                  result["model_version"], *self.core.decision_thresholds()))
 
     rclpy.init()
-    node = StabilityInferenceNode()
+    node = None
     try:
+        node = StabilityInferenceNode()
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node is not None:
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":
