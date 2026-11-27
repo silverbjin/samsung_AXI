@@ -1,0 +1,43 @@
+name: SmartDish E R3c / real D DDS staff guard (synthetic A/C only)
+on:
+  push:
+    branches: [feat/smartdish-e-v1-owner-ai-integration]
+    paths:
+      - 'scripts/smartdish_e_ci_staff_dds_probe.py'
+      - '.github/workflows/smartdish-e-r3c-staff-dds-ci.yml'
+      - 'src/smartdish_service/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  staff-dds:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DOMAIN_ID: '190'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Real ROS D manager and isolated fixture endpoints
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-yaml
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          python3 -m py_compile scripts/smartdish_e_ci_staff_dds_probe.py
+          colcon build --packages-select smartdish_ai smartdish_service --symlink-install
+          set +u
+          source install/local_setup.bash
+          set -u
+          timeout --signal=INT --kill-after=10s 120s python3 -u scripts/smartdish_e_ci_staff_dds_probe.py --pin "$GITHUB_SHA" --out generated/smartdish_e_r3c
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-e-r3c-evidence-${{ github.run_id }}
+          path: generated/smartdish_e_r3c/
+          if-no-files-found: warn
+          retention-days: 14
