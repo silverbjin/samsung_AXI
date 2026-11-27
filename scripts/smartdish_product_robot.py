@@ -4,7 +4,6 @@ import argparse
 from copy import deepcopy
 import hashlib
 import json
-import math
 from pathlib import Path
 from xml.etree import ElementTree as ET
 import yaml
@@ -48,8 +47,8 @@ def build_robot(original):
     # Rigid tray, side mast and crossbar. Nominal simulation mass, not HW data.
     parts = [
         ("platform", TRAY_SIZE, (0., 0., 0.), .35),
-        ("mast", (.025, .025, .70), (-.255, 0., .35), .08),
-        ("crossbar", (.255, .025, .025), (-.1275, 0., .70), .04),
+        ("mast", (.015, .025, .70), (-.26, 0., .35), .08),
+        ("crossbar", (.26, .025, .025), (-.13, 0., .70), .04),
     ]
     total = sum(p[3] for p in parts)
     center = [sum(p[2][i]*p[3] for p in parts)/total for i in range(3)]
