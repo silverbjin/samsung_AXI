@@ -10,6 +10,7 @@ import importlib.metadata
 import importlib.util
 import json
 import platform
+import sys
 from pathlib import Path
 
 from ai.train.dataset_v1_gate import VERSION, SPLIT_SHA, IntakeHold, require, sha_file
@@ -89,6 +90,12 @@ def inspect(p0_path: Path, plan_path: Path) -> dict:
     import torchvision
     from PIL import __version__ as pillow_version
     from torchvision.models import ResNet18_Weights
+    require(sys.prefix != sys.base_prefix,
+            "C_V1_P1_VENV_REQUIRED")
+    require(torch.__version__.split("+")[0] == "2.5.1" and
+            torchvision.__version__.split("+")[0] == "0.20.1" and
+            pillow_version == "10.2.0" and torch.version.cuda is None,
+            "C_V1_P1_CPU_DEPENDENCY_VERSION_MISMATCH")
     enum = ResNet18_Weights.IMAGENET1K_V1
     cache_path = Path(torch.hub.get_dir()) / "checkpoints" / enum.url.rsplit("/", 1)[-1]
     require(cache_path.is_file(), "C_V1_PRETRAINED_CACHE_MISSING")

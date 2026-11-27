@@ -65,6 +65,10 @@ git -C "$WORK/repo" checkout --quiet --detach "$PIN"
 printf 'C_V1_P1_CHECKOUT_SHA=%s\nC_V1_P1_CLEAN=1\n' "$PIN" > "$OUT/checkout.log"
 git --version > "$OUT/environment.log"
 python3 --version >> "$OUT/environment.log" 2>&1
+# Avoid reading a partly updated CPU-only venv during parallel WSL2 development.
+command -v flock >/dev/null || { echo C_V1_P1_FLOCK_REQUIRED >&2; exit 2; }
+exec 8>"$HOME/.venvs/.smartdish-c-v1.install.lock"
+flock -n -s 8 || { echo C_V1_P1_INSTALL_IN_PROGRESS >&2; exit 2; }
 # Do not install packages from this immutable P1 runner: separate installer only.
 if [[ ! -f "$VENV/.smartdish_c_v1_environment.json" ||
       ! -f "$VENV/bin/activate" || ! -x "$VENV/bin/python" ]]; then

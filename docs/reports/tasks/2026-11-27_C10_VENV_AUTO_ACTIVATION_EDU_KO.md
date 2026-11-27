@@ -40,3 +40,9 @@ P1 성공은 `P1_WEIGHT_BYTES_READY_C_APPROVAL_REQUIRED`로, **학습 허가가 
 - P0 42/42 Owner 검사 PASS, B Dataset v1 freeze 승인18/제외2/Family 11/3/4 유지. **P0/B QA06/A19 재실행 없음**.
 - P1 사용권/가중치 SHA/연구 승인 미확정, P2 train·P3 Test·P4 model `NOT_RUN`.
 - Production Contact `HOLD`, AI OFF `PROTECTED`, E AI ON `HOLD`. 반복실험 금지.
+
+## 최종 코드 검토 반영
+
+- Python P1의 `inspect()`는 venv 내부인지와 `torch 2.5.1` / `torchvision 0.20.1` / Pillow `10.2.0` / **CPU-only**인지 재확인합니다. 다른 설치자가 C 전용 디렉터리를 변경한 경우 `C_V1_P1_CPU_DEPENDENCY_VERSION_MISMATCH`로 HOLD합니다.
+- P1 원샷은 설치 스크립트와 **동일한 설치 잠금 파일의 shared lock**을 nonblocking 방식으로 취득합니다. 설치 중이라면 `C_V1_P1_INSTALL_IN_PROGRESS`로 fail-fast, 설치 중간 상태를 인수 증거로 사용하지 않습니다.
+- PyTorch 전체 wheel 실제 다운로드·설치 및 WSL2 P1 Owner 검증은 사용자 머신에서만 수행할 수 있으므로 GitHub의 fixture-only CI 결과와 구분합니다.
