@@ -73,3 +73,11 @@ Data Freeze A15 4+A16 8+A18 8 =20 independent layout/6 family; 승인18/5 family
 - Python3.12.3 / `torch2.5.1+cpu` / `torchvision0.20.1+cpu` / Pillow10.2.0; 공식 ResNet18 V1 가중치 46,830,571 bytes, SHA256 `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec` Owner 보고서 수령. P0 report hash `56951cab0e6f69f99d71b249cac53c555add5e2322d4b1febc04f369cfd3f3f0`; 사전 P1 계획 hash `9e3eb03172940ef04bdc016051e4dca2905a640bd658e1e919dd9ba70fc33019`.
 - 기술적 결과 **`P1_WEIGHT_BYTES_READY_C_APPROVAL_REQUIRED`**. `pretrained_license_reviewed=false`, `C_research_approval_issued=false`, `training_permitted=false` 지속. P0 42/42 PASS 보존, P1 재설치/재검수 필요 없음.
 - [실제 검수/교육 상세](../reports/acceptance/SMARTDISH_C_V1_P1_OWNER_TECH_ACCEPTANCE_20261127_KO.md). **P2 학습·P3 Test·P4 모델 미실행**, E AI ON HOLD, A19 금지, Production Contact HOLD, AI OFF 유지.
+
+## 2026-11-27 C12 — Owner 명시 연구 학습 승인 / P2 one-shot 출고 대기
+
+- **Owner 권한:** 대화에서 연구 학습 명시 승인. 연구·교육 목적 한정, 상업/가중치·checkpoint 재배포/제품 AI ON은 허가 안 됨. 실행 시 명시적인 비상업 내부 연구·교육 scope attestation 필요.
+- **P0/P1 재사용:** P0 Owner private42/42, P1 venv+pretrained SHA `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec`, P1 lock `9e3eb03172940ef04bdc016051e4dca2905a640bd658e1e919dd9ba70fc33019`, Plan 변경 없음. 권리/출처 검토 [문서](../reports/acceptance/SMARTDISH_C_V1_RESEARCH_TRAINING_APPROVAL_POLICY_20261127_KO.md).
+- P2 전용 `scripts/smartdish_c_v1_p2_frozen_owner_once.sh` SHA 고정 실행기: 기존 C 전용 CPU venv 자동 활성, 원본데이터는 train11/val3만 사용, frozen-head epoch3 batch4 seed42 CPU AdamW1e-4, validation min-CE checkpoint1. 디버깅 TAR/sidecar 자동 생성. 두 번째 학습·Test 평가/원본 재생산 금지.
+- Owner의 명시 승인과 WSL2에 생성될 private 승인 JSON은 구별합니다. **P2 학습 아직 NOT_RUN, Test4 밀봉, P4 체크포인트 연구 인수 아직 NOT_RUN**. GitHub fixture-only CI PASS ≠ 실물 학습 PASS. Data Freeze/A19 금지, Production Contact HOLD, AI OFF 그대로.
+- [교육 보고](../reports/tasks/2026-11-27_C12_P2_RESEARCH_FROZEN_EDU_KO.md).

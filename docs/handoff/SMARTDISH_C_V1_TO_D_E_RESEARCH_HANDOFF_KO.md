@@ -61,3 +61,9 @@
 - torch2.5.1+cpu / torchvision0.20.1+cpu / Pillow10.2.0 / ResNet18 pretrained SHA `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec`. 계획 SHA `9e3eb03172940ef04bdc016051e4dca2905a640bd658e1e919dd9ba70fc33019`.
 - P0 42/42 + P1 weights/runtime **기술 PASS**, 그러나 C human research approval/weights license 미승인: `training_permitted=false`. **P2 train, P3 Test, P4 model release NOT_RUN**, D/E AI ON HOLD, AI OFF protected.
 - [P1 상세 검토](../reports/acceptance/SMARTDISH_C_V1_P1_OWNER_TECH_ACCEPTANCE_20261127_KO.md). 기존 P0/과거 P1 HOLD 설명은 당시 이력이며 현행 우선 판정이 아님.
+
+## 2026-11-27 C12 — 연구 학습 승인, 제품 인계 불변
+
+- Owner가 연구 모델 **학습 실행**을 명시 승인. P0/P1 PASS 재사용, private P2 frozen-head 1회 원샷 인수 준비. [scope/rights 검토](../reports/acceptance/SMARTDISH_C_V1_RESEARCH_TRAINING_APPROVAL_POLICY_20261127_KO.md).
+- 아직 **checkpoint/성능/검증 Test 증거 없음**. E에게 연구용 모델·AI ON 제품 인수 자료라고 홍보하거나 병합하지 않음. D/E는 UNKNOWN/직원 확인 계약과 AI OFF 3구간 유지.
+- Test 4개는 P3 별도 승인·단일 checkpoint/0.80 threshold 봉인 전 열지 않음, A19 금지/Production Contact HOLD/AI OFF 보호 지속.
