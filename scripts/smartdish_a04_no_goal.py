@@ -81,22 +81,59 @@ def physical_disk_clearance(g,points,tf):
             "registration_margin_remaining_m":float(d-math.sqrt(2)*(HALF+PADDING)-.0125-REGISTRATION_MARGIN)}
 def endpoints(node,topic):
     return [{"name":x.node_name,"namespace":x.node_namespace} for x in node.get_publishers_info_by_topic(topic)]
-def shutdown_managers(node,proc,rclpy,names):
-    """Stop lifecycle-managed navigation while simulation clock still runs."""
+def make_manager_clients(node,names):
     from nav2_msgs.srv import ManageLifecycleNodes
+    from std_srvs.srv import Trigger
+    return {name:(node.create_client(ManageLifecycleNodes,"/"+name+"/manage_nodes"),
+                  node.create_client(Trigger,"/"+name+"/is_active")) for name in names}
+
+def manager_response(node,proc,rclpy,client,request,seconds):
+    """Bounded real service response; preserve discovery/timeout/exception distinctions."""
+    start=time.monotonic()
+    deadline=start+seconds
+    while not client.service_is_ready() and time.monotonic()<deadline and proc.poll() is None:
+        rclpy.spin_once(node,timeout_sec=.05)
+    if not client.service_is_ready():return {"status":"SERVICE_NOT_READY","elapsed_s":time.monotonic()-start}
+    f=client.call_async(request)
+    while not f.done() and time.monotonic()<deadline and proc.poll() is None:
+        rclpy.spin_once(node,timeout_sec=.05)
+    row={"status":"TIMEOUT","elapsed_s":time.monotonic()-start}
+    if f.done():
+        try:
+            response=f.result()
+            row.update(status="RESPONSE",success=bool(response.success))
+            if hasattr(response,"message"):row["message"]=response.message
+        except Exception as exc:row.update(status="EXCEPTION",error=repr(exc))
+    else:
+        # Avoid orphaned future; no second shutdown if actual outcome uncertain.
+        client.remove_pending_request(f)
+    return row
+
+def verify_manager_ready(node,proc,rclpy,manager_clients):
+    from std_srvs.srv import Trigger
     result={}
-    for name in names:
-        client=node.create_client(ManageLifecycleNodes,"/"+name+"/manage_nodes")
-        until=time.monotonic()+3
-        while not client.service_is_ready() and time.monotonic()<until and proc.poll() is None:
-            rclpy.spin_once(node,timeout_sec=.05)
-        if not client.service_is_ready():result[name]="SERVICE_NOT_READY";continue
+    for name,(manage,active) in manager_clients.items():
+        row=manager_response(node,proc,rclpy,active,Trigger.Request(),8.)
+        row["manage_service_ready"]=manage.service_is_ready()
+        result[name]=row
+    return result
+
+def shutdown_managers(node,proc,rclpy,manager_clients,detail):
+    """Use startup-discovered clients, real is_active response, then exact SHUTDOWN."""
+    from nav2_msgs.srv import ManageLifecycleNodes
+    from std_srvs.srv import Trigger
+    result={}
+    for name,(manage,active) in manager_clients.items():
+        row=detail.setdefault(name,{})
+        row["before"]=manager_response(node,proc,rclpy,active,Trigger.Request(),8.)
         req=ManageLifecycleNodes.Request();req.command=ManageLifecycleNodes.Request.SHUTDOWN
-        future=client.call_async(req);until=time.monotonic()+15
-        while not future.done() and time.monotonic()<until and proc.poll() is None:
-            rclpy.spin_once(node,timeout_sec=.05)
-        result[name]="ACK" if future.done() and future.result() and future.result().success else "NO_ACK"
-        node.destroy_client(client)
+        row["command"]=int(req.command)
+        row["response"]=manager_response(node,proc,rclpy,manage,req,40.)
+        response=row["response"]
+        result[name]="ACK" if response.get("status")=="RESPONSE" and response.get("success") is True else "NO_ACK"
+        row["after"]=manager_response(node,proc,rclpy,active,Trigger.Request(),5.)
+        if result[name]=="ACK" and not (row["after"].get("status")=="RESPONSE" and row["after"].get("success") is False):
+            result[name]="POST_SHUTDOWN_STATE_UNPROVEN"
     return result
 
 def run(a):
@@ -107,7 +144,7 @@ def run(a):
               "source_sha":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),
               "run_id":os.environ["GITHUB_RUN_ID"],"navigate_to_pose_goals_sent":0,
               "velocity_commands_published":0,"first_error":None,"motion_authorized":False,"paths":[]}
-    proc=node=None;log=None;initialized=False;clock=deque(maxlen=4096)
+    proc=node=None;log=None;initialized=False;clock=deque(maxlen=4096);manager_clients={}
     import rclpy
     from rclpy.qos import QoSProfile,ReliabilityPolicy,DurabilityPolicy,qos_profile_sensor_data
     from rclpy.parameter import Parameter
@@ -160,6 +197,7 @@ def run(a):
         rclpy.init(domain_id=int(os.environ["ROS_DOMAIN_ID"]));initialized=True
         node=rclpy.create_node("smartdish_a04_no_goal",parameter_overrides=[Parameter("use_sim_time",value=True)])
         phys.attach(node,clock)
+        if a.motion:manager_clients=make_manager_clients(node,("lifecycle_manager_navigation","lifecycle_manager_localization","a04_clearance_lifecycle"))
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE)
         latched=QoSProfile(depth=1,reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.TRANSIENT_LOCAL)
         state={"scan":0,"odom":0,"amcl":None,"footprints":{},"map":None,"odom_first":None,"odom_max":0.,"cmd_nonzero":0,"times":{}}
@@ -232,6 +270,9 @@ def run(a):
             spin()
         else:raise RuntimeError("TIMEOUT_ALL_LIFECYCLES_ACTIVE")
         evidence["lifecycle"]=all_states
+        if a.motion:
+            evidence["manager_startup"]=verify_manager_ready(node,proc,rclpy,manager_clients)
+            require(all(v.get("status")=="RESPONSE" and v.get("success") is True and v.get("manage_service_ready") for v in evidence["manager_startup"].values()),"MANAGER_STARTUP_RESPONSE_NOT_READY")
         for name in ("global_costmap","local_costmap"):
             client=AsyncParameterClient(node,"/"+name+"/"+name)
             wait(client.services_are_ready,10,"PARAM_"+name)
@@ -371,8 +412,9 @@ def run(a):
             if a.motion and node and (not evidence.get("navigate_to_pose_goals_sent") or
                     evidence.get("moving",{}).get("cancel_drained") is True or
                     evidence.get("moving",{}).get("nav_quiescent") is True):
-                try:evidence["lifecycle_shutdown"]=shutdown_managers(node,proc,rclpy,
-                    ("lifecycle_manager_navigation","lifecycle_manager_localization","a04_clearance_lifecycle"))
+                try:
+                    evidence["lifecycle_shutdown_detail"]={}
+                    evidence["lifecycle_shutdown"]=shutdown_managers(node,proc,rclpy,manager_clients,evidence["lifecycle_shutdown_detail"])
                 except Exception as exc:evidence["lifecycle_shutdown"]={"error":repr(exc)}
             # Keep subscriptions alive until Gazebo is quiescent and launch exits.
             try:evidence["quiescence"]=quiesce_world(proc,node,rclpy,clock)
@@ -399,8 +441,8 @@ def run(a):
                     launchlog=(out/"launch.log").read_text()
                     require("SIGKILL" not in launchlog and "exit code -9" not in launchlog,"FORCED_CHILD_CLEANUP")
                     require(evidence.get("quiescence",{}).get("paused") and evidence["quiescence"].get("clock_quiescent"),"WORLD_NOT_QUIESCENT")
-                    evidence["moving"]["verdict"]="A_LOADED_NAV_L2_PASS" if a.mission=="both" else "A_LOADED_MISSION_L2_PASS_WITH_REUSED_EMPTY_EVIDENCE"
-                    evidence["clearance_gate"]="A_INTERNAL_L2_PASS_E_FINAL_REVIEW_REQUIRED"
+                    evidence["moving"]["verdict"]=("A_SHUTDOWN_FOCUSED_L2_PASS" if a.mission=="shutdown" else "A_LOADED_NAV_L2_PASS" if a.mission=="both" else "A_LOADED_MISSION_L2_PASS_WITH_REUSED_EMPTY_EVIDENCE")
+                    evidence["clearance_gate"]="A_SHUTDOWN_FOCUSED_PASS_REVIEW_REFERENCED_MISSION" if a.mission=="shutdown" else "A_INTERNAL_L2_PASS_E_FINAL_REVIEW_REQUIRED"
             except Exception as exc:
                 evidence["ecm_review_error"]=repr(exc)
                 if evidence.get("first_error") is None:
@@ -414,6 +456,6 @@ def main():
     p.add_argument("--mode",choices=("original","candidate"),required=True)
     p.add_argument("--motion",action="store_true",help="explicit isolated CI only, real same-session preflight required")
     p.add_argument("--observer-plugin",type=Path)
-    p.add_argument("--mission",choices=("both","loaded"),default="both")
+    p.add_argument("--mission",choices=("both","loaded","shutdown"),default="both")
     run(p.parse_args())
 if __name__=="__main__":main()

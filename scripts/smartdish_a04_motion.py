@@ -306,13 +306,23 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
     from smartdish_a04_no_goal import endpoints
     gate_paths(e)
     e["motion_authorized"]="CI_ISOLATED_DIAGNOSTIC_ONLY"
-    require(mission_mode in ("both","loaded"),"A04_MISSION_MODE")
+    require(mission_mode in ("both","loaded","shutdown"),"A04_MISSION_MODE")
     e["moving"]={"legs":[],"transfers":[],"accepted":[],"cancel_results":[],"mission_mode":mission_mode}
-    if mission_mode=="loaded":
+    if mission_mode in ("loaded","shutdown"):
         e["moving"]["reused_empty_reference"]={"source_sha":"e48778e6825a022c8fd249a5c501095b7daa83e3",
             "run_id":45967974937,"artifact_id":15184188608,
             "tar_sha256":"50dd17ad17061ababe1624bb7f92441e8eff1855ff6810721ccbdbf4fd179b89",
             "scope":"THREE_EMPTY_LEGS_ACTUAL_ECM_PASS_NOT_SAME_SESSION"}
+    if mission_mode=="shutdown":
+        e["moving"]["reused_loaded_reference"]={"source_sha":"247db79e239d7694406a23e77d5c9e5e9acc58fb",
+            "run_id":45970380453,"artifact_id":15185112687,
+            "tar_sha256":"c79f6e56d2638aeee84bc2945fd400714bc229024b5480ff4486769ff0cdbaf9",
+            "scope":"ACTUAL_COMPLETE_LOADED_MISSION_AND_ECM_PASS_SHUTDOWN_ACK_RED",
+            "params_sha256":"11f812d3caec21148f0aec41e493dfabc0e459c59a71cfe20b2fef5e51c50dcc",
+            "localization_map_sha256":"f796cd4571f032c493c750b8ccff1f13ddb480210b8cfec963ef5c50c041e15b",
+            "map_sha256":"b73920d77e7e40577958b672dbf6a6fcc5e3bb1bcaeb4b018663bc5d101ef87a"}
+        for k in ("params_sha256","localization_map_sha256","map_sha256"):
+            require(e[k]==e["moving"]["reused_loaded_reference"][k],"SHUTDOWN_REFERENCE_CONFIG_DRIFT_"+k)
     result=[];accepted=e["moving"]["accepted"];cancel=e["moving"]["cancel_results"]
     witness=Witness(node,out,phys,g,sources,buffer,state,clock)
     nav=None;start_xy=None
@@ -401,6 +411,12 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
         save(out/"moving_progress.json",e["moving"]);return ack
     try:
         ctl.arm_verified()
+        if mission_mode=="shutdown":
+            leg("a04-shutdown","TO_TABLE","T03",None)
+            e["moving"]["verdict"]="ACTUAL_FOCUSED_GOAL_AND_STOP_COMPLETE"
+            e["moving"]["nav_quiescent"]=nav.active is None and phys.stop.verified(time.monotonic())
+            require(e["moving"]["nav_quiescent"],"SHUTDOWN_FOCUSED_STOP_NOT_PROVEN")
+            return
         if mission_mode=="both":
             for label,dest in LEGS:leg("a04-empty",label,dest,None)
         # New request_id, same actual world/fixture and empty tray.
