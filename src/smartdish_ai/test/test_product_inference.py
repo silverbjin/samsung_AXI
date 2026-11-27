@@ -103,5 +103,40 @@ class ProductTests(unittest.TestCase):
             self.assertEqual(out["reason"], reason)
             self.assertIsNone(out["raw_confidence"])
 
+    def test_mission_lock_before_capture_and_release(self):
+        self.c.mission_status(dict(ids(), state="WAIT_LOADING"))
+        with self.assertRaises(ValueError):
+            self.c.set_thresholds(.5, .5)
+        self.c.mission_status(dict(ids(), state="COMPLETED"))
+        self.assertEqual(self.c.set_thresholds(.5, .5), (.5, .5))
+        self.assertEqual(self.c.request(ids(), 2), [])
+        self.assertEqual(self.calls, [])
+
+    def test_stale_hash_and_capacity(self):
+        self.frame()
+        self.c.capture(ack(), 3.1)
+        out = self.c.request(ids(), 3.1)[0]
+        self.assertEqual(out["reason"], "FRAME_INVALID")
+        self.assertEqual(self.calls, [])
+        self.setUp()
+        self.frame(rgb=bytes(len(RGB)))
+        self.c.capture(ack(), 1)
+        self.assertEqual(self.c.request(ids(), 1.1)[0]["reason"], "FRAME_INVALID")
+        self.assertEqual(self.calls, [])
+        self.setUp()
+        for stamp in range(1, 21):
+            self.frame(stamp=stamp)
+        self.assertEqual(len(self.c.frames), 16)
+
+    def test_invalid_profile_and_hold(self):
+        self.frame()
+        self.assertEqual(self.c.request(dict(ids(), profile="PRODUCT"), 1), [])
+        self.c.mission_status(dict(ids(), state="WAIT_LOADING"))
+        self.c.mission_status(dict(ids(), state="SAFE_HOLD_UNVERIFIED"))
+        with self.assertRaises(ValueError):
+            self.c.set_thresholds(0, 0)
+        self.assertEqual(self.c.request(ids(req="other"), 1), [])
+        self.assertEqual(self.calls, [])
+
 if __name__ == "__main__":
     unittest.main()
