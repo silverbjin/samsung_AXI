@@ -6,6 +6,7 @@ only logical T03 requests and explicit staff confirmations.
 import argparse
 import json
 import uuid
+import math
 from pathlib import Path
 
 from .product_admission import product_ai_on_authorized
@@ -55,12 +56,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="SmartDish Tkinter UI")
     parser.add_argument("--ai-available", choices=("true", "false"), default="false")
     parser.add_argument("--layout", default=None)
+    parser.add_argument("--owner-gazebo-integration", action="store_true",
+                        help="internal Owner-authorized Gazebo demo only")
+    parser.add_argument("--owner-station-acceptance", action="store_true", help="Internal final acceptance, AI ON T03 10/5 only")
     args, ros_args = parser.parse_known_args(argv)
+    if args.owner_station_acceptance and (not args.owner_gazebo_integration or args.ai_available!="true"):
+        parser.error("Owner station acceptance requires explicit AI ON")
 
     import tkinter as tk
     from tkinter import messagebox
     import rclpy
     from rclpy.node import Node
+    from rclpy.parameter import Parameter
+    from rclpy.parameter_client import AsyncParameterClient
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
     from std_msgs.msg import String
     from ament_index_python.packages import get_package_share_directory
@@ -83,6 +91,23 @@ def main(argv=None):
             self.staff_pub = self.create_publisher(String, "/collection/staff_confirm", qos)
             self.callback = None
             self.create_subscription(String, "/collection/status", self.on_status, qos)
+            self.threshold_client = AsyncParameterClient(
+                self, "/smartdish_stability_inference")
+
+        def set_class_thresholds(self, stable, unstable):
+            """Atomically configure C without extra /collection topics."""
+            if not self.threshold_client.wait_for_services(timeout_sec=0.0):
+                return None
+            return self.threshold_client.set_parameters_atomically([
+                Parameter("stable_confidence_min", value=float(stable)),
+                Parameter("unstable_confidence_min", value=float(unstable)),
+            ])
+
+        def read_class_thresholds(self):
+            if not self.threshold_client.wait_for_services(timeout_sec=0.0):
+                return None
+            return self.threshold_client.get_parameters([
+                "stable_confidence_min", "unstable_confidence_min"])
 
         def on_status(self, msg):
             try:
@@ -117,7 +142,10 @@ def main(argv=None):
             self.active_request = None
             self.active_state = "IDLE"
             self.ai_available = product_ai_on_authorized(
-                args.ai_available == "true")
+                args.ai_available == "true",
+                owner_gazebo_integration=args.owner_gazebo_integration)
+            self.threshold_stable = 0.80
+            self.threshold_unstable = 0.80
             self.ai_var = tk.BooleanVar(value=False)
             self.table_wait = tk.StringVar(value="10")
             self.dropoff_wait = tk.StringVar(value="5")
@@ -198,12 +226,19 @@ def main(argv=None):
                 fg="white", bg=self.TEAL, activebackground="#086d79",
                 font=("DejaVu Sans", 13, "bold"), height=2, bd=0)
             self.start_button.pack(fill="x", padx=18, pady=(18, 8))
-            ai_text = "AI 검사: 준비됨 (선택)" if self.ai_available else "AI 검사: OFF (준비 중)"
+            ai_text = ("AI 검사: Owner Gazebo 실험 (직원 승인 필수)"
+                       if self.ai_available else "AI 검사: OFF (준비 중)")
             self.ai_button = tk.Checkbutton(
                 right, text=ai_text, variable=self.ai_var, onvalue=True, offvalue=False,
                 state="normal" if self.ai_available else "disabled",
                 bg="#eaf0f3", anchor="w", font=("DejaVu Sans", 11))
             self.ai_button.pack(fill="x", padx=18, pady=4)
+            if self.ai_available:
+                self.threshold_button = tk.Button(
+                    right, text="STABLE / UNSTABLE 판정 기준 설정",
+                    command=self.open_threshold_dialog, bg="#eaf4f4",
+                    fg=self.INK, font=("DejaVu Sans", 10), bd=1)
+                self.threshold_button.pack(fill="x", padx=18, pady=(2, 4))
             self.confirm_frame = tk.Frame(right, bg=self.PANEL)
             tk.Button(self.confirm_frame, text="직원 승인 · 계속", command=lambda:
                       self.confirm("APPROVE_CONTINUE"), bg="#cde9de").pack(
@@ -267,6 +302,103 @@ def main(argv=None):
                               font=("DejaVu Sans", 13, "bold"),
                               fill="#006c78" if key == "HOME" else "#77629e")
 
+
+        def open_threshold_dialog(self):
+            """Owner-only live confidence limits, with ROS param ACK."""
+            if not self.ai_available:
+                return
+            popup = tk.Toplevel(self.root)
+            popup.title("AI 테스트 판정 기준 — 제품 안전성 기준 아님")
+            popup.geometry("410x290")
+            popup.resizable(False, False)
+            popup.configure(bg=self.PANEL)
+            tk.Label(popup, text="C ResNet18 클래스별 최소 신뢰도",
+                     bg=self.PANEL, fg=self.INK,
+                     font=("DejaVu Sans", 13, "bold")).pack(pady=(14, 6))
+            tk.Label(popup, text="0.50~1.00 · 기준 미달은 UNKNOWN · 재학습 없음",
+                     bg=self.PANEL, fg=self.MUTED).pack()
+            area = tk.Frame(popup, bg=self.PANEL)
+            area.pack(fill="x", padx=24, pady=12)
+            stable = tk.StringVar(value=f"{self.threshold_stable:.2f}")
+            unstable = tk.StringVar(value=f"{self.threshold_unstable:.2f}")
+            for row, (name, var) in enumerate((
+                    ("STABLE 최소 신뢰도", stable),
+                    ("UNSTABLE 최소 신뢰도", unstable))):
+                tk.Label(area, text=name, anchor="w", bg=self.PANEL,
+                         fg=self.INK).grid(row=row, column=0, sticky="w", pady=7)
+                tk.Spinbox(area, from_=0.50, to=1.00, increment=0.05,
+                           format="%.2f", width=8, textvariable=var,
+                           justify="center").grid(row=row, column=1, padx=(12, 0))
+            area.grid_columnconfigure(0, weight=1)
+            message = tk.StringVar(value="C ROS 2 노드에서 현재 설정 조회 중")
+            tk.Label(popup, textvariable=message, wraplength=366,
+                     bg=self.PANEL, fg=self.MUTED).pack(padx=14, pady=4)
+
+            def observe(future, callback):
+                def check():
+                    if not popup.winfo_exists():
+                        return
+                    if future.done():
+                        try:
+                            callback(future.result())
+                        except Exception as exc:
+                            message.set("ROS 설정 실패: " + str(exc)[:125])
+                        return
+                    popup.after(75, check)
+                popup.after(75, check)
+
+            current = self.node.read_class_thresholds()
+            if current is None:
+                message.set("C 추론 노드가 연결되지 않았습니다 · 적용 불가")
+            else:
+                def show_current(resp):
+                    if len(resp.values) != 2:
+                        message.set("C 설정 응답 누락")
+                        return
+                    values = [v.double_value for v in resp.values]
+                    if not all(0.50 <= v <= 1.00 for v in values):
+                        message.set("C 설정 값이 범위를 벗어났습니다")
+                        return
+                    self.threshold_stable, self.threshold_unstable = values
+                    stable.set(f"{values[0]:.2f}")
+                    unstable.set(f"{values[1]:.2f}")
+                    message.set("C 현재 설정 조회 완료")
+                observe(current, show_current)
+
+            def apply():
+                if self.active_state not in {"IDLE", "COMPLETED", "ERROR", "CANCELED"}:
+                    message.set("진행 중인 임무에서는 기준을 바꿀 수 없습니다")
+                    return
+                try:
+                    values = (float(stable.get()), float(unstable.get()))
+                    if not all(math.isfinite(v) and 0.50 <= v <= 1.00
+                               for v in values):
+                        raise ValueError("0.50~1.00 범위의 실수만 입력하세요")
+                except (ValueError, TypeError) as exc:
+                    message.set("입력 오류: " + str(exc))
+                    return
+                future = self.node.set_class_thresholds(*values)
+                if future is None:
+                    message.set("C ROS 파라미터 서비스 미연결 · 변경 없음")
+                    return
+                apply_button.configure(state="disabled")
+                message.set("C ROS 파라미터 응답 확인 중 ...")
+
+                def finished(resp):
+                    apply_button.configure(state="normal")
+                    if not resp.result.successful:
+                        message.set("거부됨: " + resp.result.reason)
+                        return
+                    self.threshold_stable, self.threshold_unstable = values
+                    print("E_OWNER_DYNAMIC_AI_CRITERIA_ACK stable=%.3f unstable=%.3f" %
+                          values, flush=True)
+                    message.set("적용 완료: STABLE %.2f / UNSTABLE %.2f" % values)
+                observe(future, finished)
+
+            apply_button = tk.Button(popup, text="ROS 2 판정 기준 적용",
+                                     command=apply, bg=self.TEAL, fg="white")
+            apply_button.pack(fill="x", padx=24, pady=5)
+
         def select_t03(self):
             if self.active_state in {
                     "TO_TABLE", "WAIT_LOADING", "AI_CHECK", "NEEDS_CONFIRMATION",
@@ -295,6 +427,9 @@ def main(argv=None):
                 dropoff = self._seconds(self.dropoff_wait.get(), 60)
             except ValueError as exc:
                 messagebox.showerror("입력 오류", str(exc))
+                return
+            if args.owner_station_acceptance and (not self.ai_available or not self.ai_var.get() or wait!=10 or dropoff!=5):
+                messagebox.showwarning("AI ON 인수", "AI 검사를 체크하고 적재 10초, 반납 5초를 선택하십시오.")
                 return
             if self.node.request_pub.get_subscription_count() == 0:
                 self.reason_var.set("Mission Manager 연결 안 됨 · 요청 미발행")
@@ -333,6 +468,7 @@ def main(argv=None):
         def confirm(self, action):
             if self.active_state != "NEEDS_CONFIRMATION" or not self.active_request:
                 return
+            print("SMARTDISH_D_UI_STAFF_CLICK request_id="+self.active_request+" action="+action,flush=True)
             self.node.send(self.node.staff_pub, {
                 "request_id": self.active_request, "action": action})
             self.confirm_frame.pack_forget()

@@ -5,7 +5,9 @@ Optional AI ON only. Missing camera/model => UNKNOWN, never navigates or sends c
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import time
 from pathlib import Path
 
@@ -30,72 +32,157 @@ def unpack_ros_rgb(msg):
     return rgb.tobytes(), width, height
 
 
+def tray_image_reliability(owner_gazebo_integration):
+    """A13 Owner bridge offers RELIABLE; keep legacy sensor QoS otherwise."""
+    return "RELIABLE" if owner_gazebo_integration is True else "BEST_EFFORT"
+
+
 def main():
     import rclpy
     from rclpy.node import Node
+    from rclpy.executors import ExternalShutdownException
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data
     from sensor_msgs.msg import Image
     from std_msgs.msg import String
+    from rcl_interfaces.msg import SetParametersResult
 
     class StabilityInferenceNode(Node):
         def __init__(self):
             super().__init__("smartdish_stability_inference")
             self.declare_parameter("model_path", "")
+            self.declare_parameter("owner_gazebo_integration", False)
             self.declare_parameter("confidence_min", 0.80)
+            self.declare_parameter("stable_confidence_min", 0.80)
+            self.declare_parameter("unstable_confidence_min", 0.80)
             self.declare_parameter("max_image_age_s", 2.0)
             model_path = str(self.get_parameter("model_path").value).strip()
             predictor, version = None, "none"
             if model_path:
                 try:
-                    predictor, version = load_predictor(Path(model_path))
-                    self.get_logger().info(f"C_MODEL_LOADED version={version}")
+                    owner_scope = self.get_parameter("owner_gazebo_integration").value
+                    predictor, version = load_predictor(
+                        Path(model_path), owner_gazebo_integration=owner_scope is True)
+                    self.get_logger().info(
+                        "C_MODEL_LOADED version=%s scope=%s" %
+                        (version, "OWNER_GAZEBO_INTEGRATION_ONLY" if owner_scope
+                         else "PRODUCT"))
                 except Exception as exc:
                     self.get_logger().error(f"C_MODEL_UNAVAILABLE {type(exc).__name__}: {exc}")
+                    if self.get_parameter("owner_gazebo_integration").value is True:
+                        # Owner requested actual bytes; UNKNOWN-only is not READY.
+                        raise RuntimeError("E_OWNER_C_MODEL_LOAD_FAILED") from exc
             else:
                 self.get_logger().warn("C_MODEL_UNAVAILABLE path not configured; safe UNKNOWN mode")
+            self.owner_mode = self.get_parameter("owner_gazebo_integration").value is True
+            self._frame_meta = None
+            self._frame_log_at = -100.0
+            self._successful_input = None
+            if predictor is not None and self.owner_mode:
+                actual_predictor = predictor
+                def witnessed_predictor(rgb, width, height):
+                    answer = actual_predictor(rgb, width, height)
+                    label, confidence = answer
+                    if (self._frame_meta is not None and label in ("STABLE","UNSTABLE")
+                            and type(confidence) in (float,int) and math.isfinite(confidence)
+                            and 0 <= confidence <= 1):
+                        self._successful_input = dict(self._frame_meta,
+                            predictor_sha256=hashlib.sha256(rgb).hexdigest(),
+                            width=width,height=height,raw_status=label,raw_confidence=confidence)
+                    return answer
+                predictor = witnessed_predictor
             self.core = InferenceCore(
                 predictor, version,
                 float(self.get_parameter("confidence_min").value),
-                float(self.get_parameter("max_image_age_s").value))
+                float(self.get_parameter("max_image_age_s").value),
+                stable_confidence_min=self.get_parameter("stable_confidence_min").value,
+                unstable_confidence_min=self.get_parameter("unstable_confidence_min").value)
+            self.add_on_set_parameters_callback(self.on_threshold_parameters)
             contract_qos = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10,
                                       reliability=ReliabilityPolicy.RELIABLE,
                                       durability=DurabilityPolicy.VOLATILE)
             self.publisher = self.create_publisher(String, "/collection/stability", contract_qos)
             self.create_subscription(String, "/collection/ai_check_request", self.request_callback, contract_qos)
-            self.create_subscription(Image, "/smartdish/tray/image_raw", self.image_callback, qos_profile_sensor_data)
+            image_reliability = tray_image_reliability(self.get_parameter("owner_gazebo_integration").value)
+            image_qos = (QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE,
+                                    durability=DurabilityPolicy.VOLATILE)
+                         if image_reliability == "RELIABLE" else qos_profile_sensor_data)
+            self.create_subscription(Image, "/smartdish/tray/image_raw", self.image_callback, image_qos)
+            self.get_logger().info("C_TRAY_IMAGE_QOS=" + image_reliability)
             self.get_logger().info("C_STABILITY_READY optional AI ON; JSON RELIABLE VOLATILE KEEP_LAST_10")
+
+        def on_threshold_parameters(self, params):
+            """Atomic ROS 2 parameter update, without restart/retraining."""
+            incoming = {p.name: p.value for p in params}
+            watched = {"stable_confidence_min", "unstable_confidence_min"}
+            if not watched.intersection(incoming):
+                return SetParametersResult(successful=True)
+            stable = incoming.get("stable_confidence_min",
+                                  self.core.stable_confidence_min)
+            unstable = incoming.get("unstable_confidence_min",
+                                    self.core.unstable_confidence_min)
+            try:
+                self.core.set_decision_thresholds(stable, unstable)
+            except ValueError as exc:
+                self.get_logger().warning(str(exc))
+                return SetParametersResult(successful=False, reason=str(exc))
+            self.get_logger().info(
+                "C_DYNAMIC_THRESHOLD_APPLIED stable=%.3f unstable=%.3f" %
+                self.core.decision_thresholds())
+            return SetParametersResult(successful=True)
 
         def image_callback(self, msg):
             try:
                 rgb, width, height = unpack_ros_rgb(msg)
                 stamp = int(msg.header.stamp.sec) * 1_000_000_000 + int(msg.header.stamp.nanosec)
                 # No ROS timestamp: use receipt-age TTL; nonzero stamp rejects replay.
+                received_at=time.monotonic()
                 accepted = self.core.cache_rgb(rgb, width, height,
-                                               received_at=time.monotonic(),
+                                               received_at=received_at,
                                                stamp_ns=stamp if stamp else None)
                 if not accepted:
                     self.get_logger().warn("C_FRAME_REJECTED_DUPLICATE_OR_INVALID")
+                elif self.owner_mode:
+                    # Log only metadata/hash, never raw pixels or private weights.
+                    self._frame_meta={"stamp_ns":stamp,"received_at":received_at,
+                                      "width":width,"height":height}
+                    if received_at-self._frame_log_at>=1.0:
+                        self._frame_log_at=received_at
+                        self.get_logger().info("C_OWNER_FRAME_ACCEPTED="+json.dumps(
+                            dict(self._frame_meta,rgb_sha256=hashlib.sha256(rgb).hexdigest())))
             except Exception as exc:
                 self.get_logger().warn(f"C_FRAME_REJECTED {type(exc).__name__}: {exc}")
 
         def request_callback(self, msg):
+            self._successful_input = None
             result = self.core.handle_request(msg.data)
             if result is None:
                 self.get_logger().warn("C_REQUEST_INVALID_OR_DUPLICATE")
                 return
+            if self._successful_input is not None:
+                self.get_logger().info("C_OWNER_INFERENCE_INPUT="+json.dumps(dict(
+                    self._successful_input,request_id=result["request_id"],capture_id=result["capture_id"],
+                    model_version=result["model_version"],result_status=result["status"])))
             out = String()
             out.data = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
             self.publisher.publish(out)
-            self.get_logger().info("C_STABILITY_RESULT request_id=%s capture_id=%s status=%s model_version=%s" %
-                                   (result["request_id"], result["capture_id"], result["status"], result["model_version"]))
+            self.get_logger().info(
+                "C_STABILITY_RESULT request_id=%s capture_id=%s status=%s model_version=%s "
+                "stable_min=%.3f unstable_min=%.3f" %
+                (result["request_id"], result["capture_id"], result["status"],
+                 result["model_version"], *self.core.decision_thresholds()))
 
     rclpy.init()
-    node = StabilityInferenceNode()
+    node = None
     try:
+        node = StabilityInferenceNode()
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node is not None:
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

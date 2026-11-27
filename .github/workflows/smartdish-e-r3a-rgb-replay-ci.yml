@@ -1,0 +1,72 @@
+name: SmartDish E R3a / real Gazebo capture + C DDS replay (test double only)
+on:
+  push:
+    branches: [feat/smartdish-e-v1-owner-ai-integration]
+    paths:
+      - 'scripts/smartdish_e_ci_rgb_replay_probe.py'
+      - '.github/workflows/smartdish-e-r3a-rgb-replay-ci.yml'
+      - 'src/smartdish_ai/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  gazebo-rgb-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      ROS_DISTRO: jazzy
+      ROS_DOMAIN_ID: '189'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      GZ_SIM_RENDER_ENGINE: ogre2
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: smartdish-e-r3a-evidence-45935476236
+          run-id: 45935476236
+          github-token: ${{ github.token }}
+          path: generated
+      - name: Build C against existing verified Gazebo capture (no private model)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-pil python3-numpy python3-colcon-common-extensions
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          python3 -m py_compile scripts/smartdish_e_ci_rgb_replay_probe.py
+          colcon build --packages-select smartdish_ai --symlink-install
+          # Prior artifact also contains RED diagnostics: preserve but don't overwrite.
+          mv generated/smartdish_e_r3a generated/smartdish_e_r3a_red
+      - name: Replay verified Gazebo PNG through installed C ROS node
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          source install/local_setup.bash
+          set -u
+          shopt -s nullglob
+          roots=(generated/smartdish_tray/run_*)
+          test "${#roots[@]}" -eq 1
+          timeout --signal=INT --kill-after=10s 90s python3 -u scripts/smartdish_e_ci_rgb_replay_probe.py --root "${roots[0]}" --pin "$GITHUB_SHA" --capture-pin fe69077ff05358ace738b7a6bdf4128b43cbe3f4 --png-sha 1ee9c9a2b029adc5b7c581547fe1b42195b885ab2f5082835c91f7c1d6c57ab3 --out generated/smartdish_e_r3a
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smartdish-e-r3a-evidence-${{ github.run_id }}
+          path: |
+            generated/smartdish_e_r3a/
+            generated/smartdish_tray/run_*/summary.json
+            generated/smartdish_tray/run_*/trial_*/trial_summary.json
+            generated/smartdish_tray/run_*/trial_*/tray_rgb.png
+            generated/smartdish_tray/run_*/failure_context.json
+            generated/smartdish_tray/run_*/logs/
+          if-no-files-found: warn
+          retention-days: 14

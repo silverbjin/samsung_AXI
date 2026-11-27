@@ -30,7 +30,7 @@ class MissionManager:
     """
 
     def __init__(self, clock=None, ai_available=False, ai_timeout_s=5.0,
-                 approved_model_sha256=None):
+                 approved_model_sha256=None, owner_manual_confirm_ai=False):
         self.clock = clock if clock is not None else time.monotonic
         self.ai_available = bool(ai_available)
         # Pure-FSM synthetic tests may inject a fixture digest. The deployed
@@ -42,6 +42,9 @@ class MissionManager:
             else None
         )
         self.ai_timeout_s = float(ai_timeout_s)
+        # For weak v1 integration evidence, STABLE never issues the next Goal
+        # without a human confirmation; default AI OFF and fixture FSM intact.
+        self.owner_manual_confirm_ai = (owner_manual_confirm_ai is True)
         self.state = "IDLE"
         self.request_id = ""
         self.table_id = ""
@@ -228,11 +231,18 @@ class MissionManager:
             # A correlated ROS message is NOT an authorized model signature.
             # Product admission must inject a reviewed SHA, and the C response
             # must match its published model version and confidence floor.
-            if (confidence is None or confidence < 0.80
+            # Owner integration can lower C's per-class minimum to 0.50.
+            # D still verifies model identity, while EVERY accepted STABLE
+            # requires staff confirmation before sending another Goal.
+            confidence_floor = 0.50 if self.owner_manual_confirm_ai else 0.80
+            if (confidence is None or confidence < confidence_floor
                     or self.approved_model_sha256 is None
                     or model != "resnet18-" + self.approved_model_sha256[:12]):
                 return False
-            self._begin_leg("TO_RETURN")
+            if self.owner_manual_confirm_ai:
+                self._needs_confirmation("AI_STABLE_STAFF_CONFIRM_REQUIRED")
+            else:
+                self._begin_leg("TO_RETURN")
         else:
             self._needs_confirmation(f"AI_{status}")
         return True
