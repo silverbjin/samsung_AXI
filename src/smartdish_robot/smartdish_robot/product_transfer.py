@@ -2,7 +2,7 @@
 
 Call from A's dedicated runtime loop, NOT from a ROS subscription callback.
 No new public topics or fake Nav2 result. E supplies the approved wiring
-and timing; the default five-second deadline remains fail-closed.
+and timing; the approved twenty-second physical deadline remains fail-closed.
 """
 from pathlib import Path
 import time
@@ -14,7 +14,7 @@ from .product_gazebo_backend import GazeboEntityServices, DISH_NAMES
 
 class ProductTransferController:
     def __init__(self,nav,physics,scene,world_dir,evidence_dir,source_sha,
-                 *,timeout_s=5.,clock=time.monotonic,run_id=None):
+                 *,timeout_s=20.,clock=time.monotonic,run_id=None):
         require(type(timeout_s) in (int,float) and 0<timeout_s<=30.,"TRANSFER_TIMEOUT_INVALID")
         require(isinstance(source_sha,str) and len(source_sha)==40 and
                 all(c in "0123456789abcdef" for c in source_sha),"SOURCE_SHA")

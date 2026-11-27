@@ -16,7 +16,7 @@ from .product_transfer import ProductTransferController
 
 class ProductRuntime:
     def __init__(self,node,poses,scene,world_dir,evidence_dir,source_sha,
-                 *,accepted_hook,cm_active,transfer_timeout=5.):
+                 *,accepted_hook,cm_active,transfer_timeout=20.):
         from rclpy.qos import QoSProfile,ReliabilityPolicy,DurabilityPolicy,qos_profile_sensor_data
         from rosgraph_msgs.msg import Clock
         from nav_msgs.msg import Odometry
@@ -29,6 +29,7 @@ class ProductRuntime:
         self.odom_xy=None;self.odom_n=0;self.odom_at=None;self.scan_n=0;self.scan_at=None
         self.amcl=None;self.amcl_at=None;self.motion=None;self.pending=None;self.armed=False
         self.clock_fault=False;self.current_request_id=None;self.nav_fault_logged=False
+        self.closed_requests=set()
         self.physics.attach(node,self.clock)
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE,durability=DurabilityPolicy.VOLATILE)
         self.pubs={key:node.create_publisher(String,"/collection/"+key,qos)
@@ -129,7 +130,7 @@ class ProductRuntime:
 
     def on_goal(self,d):
         d=validate_goal(d)
-        require(self.armed and self.pending is None and self.nav.active is None and self.transfer.can_start_leg(d),
+        require(d["request_id"] not in self.closed_requests and self.armed and self.pending is None and self.nav.active is None and self.transfer.can_start_leg(d),
                 "PRODUCT_LEG_NOT_AUTHORIZED")
         require(self.odom_xy is not None,"ODOM_MISSING")
         self.motion={"start":self.odom_xy,"odom_n":self.odom_n,"scan_n":self.scan_n,"max_m":0.}
@@ -152,8 +153,11 @@ class ProductRuntime:
     def on_status(self,d):
         # D's existing status topic; no new UUID or READY public schema.
         if d.get("schema_version")!=2 or d.get("profile")!=PROFILE:return
-        if self.current_request_id is None or d.get("request_id")!=self.current_request_id:return
-        if d.get("state") in ("SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ERROR","ABORTED"):
+        if d.get("state") not in ("SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ERROR","ABORTED","CANCELED","CANCELING"):return
+        rid=d.get("request_id")
+        if not isinstance(rid,str) or not rid:return
+        self.closed_requests.add(rid)
+        if rid==self.current_request_id:
             self.nav.abort_pending()
             self.transfer.locked=True
 
@@ -178,7 +182,7 @@ class ProductRuntime:
                 self.event("TRANSFER_UNVERIFIED_NO_ACK",{"reason":str(exc)})
 
 def make_product_runtime(*,approved=False,poses,scene,world_dir,evidence_dir,source_sha,
-                         accepted_hook,cm_active,transfer_timeout=5.):
+                         accepted_hook,cm_active,transfer_timeout=20.):
     require(approved is True,"E_PRODUCT_LAUNCH_APPROVAL_REQUIRED")
     from rclpy.node import Node
     from rclpy.parameter import Parameter

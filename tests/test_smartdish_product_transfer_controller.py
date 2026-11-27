@@ -64,11 +64,35 @@ def test_before_wait_no_mutation_and_lock(tmp_path):
     assert not ctl.can_start_leg(dict(LOAD,leg="TO_RETURN"))
 def test_deadline_after_partial_effect_no_ack(tmp_path):
     ctl,nav,phy,now=make(tmp_path)
-    phy.delay=6.
+    phy.delay=20.
     a=ctl.run(LOAD)
     assert a["status"]=="FAILED" and "TRANSFER_DEADLINE" in a["reason"]
     assert phy.calls==["LOAD"] and ctl.locked and ctl.journal.locked
     with pytest.raises(ContractError):ctl.run(LOAD)
+def test_measured_transfer_within_approved_deadline(tmp_path):
+    ctl,nav,phy,now=make(tmp_path)
+    phy.delay=9.79
+    a=ctl.run(LOAD)
+    assert ctl.timeout==20. and a["status"]=="ACK"
+    nav.last_receipt=arrival("DISH_RETURN",now[0],"2"*32)
+    ctl.note_arrival()
+    now[0]+=5.
+    phy.delay=7.20
+    b=ctl.run(UNLOAD)
+    assert b["status"]=="ACK" and b["entity_ids"]==a["entity_ids"]
+
+def test_pre_uuid_terminal_reordering_blocks_new_goal():
+    from smartdish_robot.product_runtime import ProductRuntime
+    runtime=ProductRuntime.__new__(ProductRuntime)
+    runtime.closed_requests=set()
+    runtime.current_request_id=None
+    runtime.on_status(dict(schema_version=2,profile=PROFILE,request_id="fixture",
+                           state="SAFE_HOLD_UNVERIFIED"))
+    assert "fixture" in runtime.closed_requests
+    with pytest.raises(ContractError,match="PRODUCT_LEG_NOT_AUTHORIZED"):
+        runtime.on_goal(dict(schema_version=2,profile=PROFILE,request_id="fixture",
+                             leg="TO_TABLE",destination_id="T03"))
+
 def test_active_nav_no_mutation(tmp_path):
     ctl,nav,phy,now=make(tmp_path)
     nav.active=object()
