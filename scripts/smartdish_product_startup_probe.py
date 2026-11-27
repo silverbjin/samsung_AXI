@@ -80,7 +80,7 @@ def stop(proc):
         os.killpg(proc.pid,signal.SIGKILL)
         return {"exit":proc.wait(timeout=10),"forced":True}
 
-def run(a):
+def run(a,extension=None):
     if os.environ.get("GITHUB_ACTIONS")!="true" or os.environ.get("CI")!="true" or os.environ.get("WSL_DISTRO_NAME") or not os.environ.get("GZ_PARTITION","").startswith("smartdish_a_product_"):
         raise RuntimeError("CI_ONLY")
     import rclpy
@@ -97,11 +97,13 @@ def run(a):
     bridge=yaml.safe_load((out/"overlay/bridge.yaml").read_text())
     bridge.append(dict(ros_topic_name=TABLE_TOPIC,gz_topic_name=TABLE_TOPIC,
                        ros_type_name="sensor_msgs/msg/Image",gz_type_name="gz.msgs.Image",direction="GZ_TO_ROS"))
+    robot_path=out/"overlay/robot.sdf"
+    if extension:robot_path,bridge=extension.prepare(out,robot_path,bridge)
     (out/"witness_bridge.yaml").write_text(yaml.safe_dump(bridge,sort_keys=False))
     evidence={"source_sha":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),
               "run_id":os.environ["GITHUB_RUN_ID"],"scenario":a.scenario,
               "world_id":"restaurant","generated_world_sha256":scene["world_sha256"],
-              "ci_world_sha256":sha(out/"witness_world.sdf"),"robot_sha256":robot["robot_sha256"],
+              "ci_world_sha256":sha(out/"witness_world.sdf"),"robot_sha256":sha(robot_path),"base_overlay_sha256":robot["robot_sha256"],
               "bridge_sha256":sha(out/"witness_bridge.yaml"),"stack_id":scene["stack_id"],
               "scope":"ACTUAL_NO_GOAL_STARTUP_WITH_SAME_WORLD_CI_TABLE_WITNESS",
               "verdict":"NOT_RUN","first_error":None}
@@ -142,14 +144,15 @@ def run(a):
         if want:
             evidence["fixture_entity_id"]=models["s6_stacked_dishes"]["id"]
         evidence["initial_fixture_count"]=int(want)
-        sp=spawn("robot_spawn",["ros2","run","ros_gz_sim","create","-world","restaurant","-name","waffle_pi","-file",str(out/"overlay/robot.sdf"),"-x","-2.60","-y","-2.20","-z","0.02"])
+        sp=spawn("robot_spawn",["ros2","run","ros_gz_sim","create","-world","restaurant","-name","waffle_pi","-file",str(robot_path),"-x","-2.60","-y","-2.20","-z","0.02"])
         if sp.wait(timeout=90)!=0:raise RuntimeError("ROBOT_SPAWN_FAILED")
         bridge_proc=spawn("bridge",["ros2","run","ros_gz_bridge","parameter_bridge","--ros-args","-p","config_file:="+str((out/"witness_bridge.yaml").resolve())])
-        rclpy.init()
+        rclpy.init(domain_id=int(os.environ["ROS_DOMAIN_ID"]))
         node=rclpy.create_node("a_product_startup_witness")
         qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE)
         for topic in frames:node.create_subscription(Image,topic,lambda m,t=topic:image_cb(t,m),qos)
         node.create_subscription(Clock,"/clock",lambda m:clock.append(m.clock.sec*10**9+m.clock.nanosec),qos)
+        if extension:extension.attach(node,clock)
         until=time.monotonic()+150
         while time.monotonic()<until:
             if gz.poll() is not None or bridge_proc.poll() is not None:raise RuntimeError("RUNTIME_EARLY_EXIT")
@@ -174,6 +177,9 @@ def run(a):
             evidence["frames"][name]={"stamp_ns":stamps[-1],"stamps":stamps,
                 "rgb_sha256":hashlib.sha256(data).hexdigest(),"png_sha256":sha(png),
                 "width":640,"height":480}
+        if extension:
+            result=extension.execute(out,scene)
+            evidence["transfer_witness_verdict"]=result["verdict"]
         evidence["verdict"]="ACTUAL_STARTUP_AND_ROBOT_RGB_NO_GOAL_PASS"
     except BaseException as exc:
         evidence["first_error"]=repr(exc)
@@ -195,6 +201,12 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for key in ("world","robot","bridge","out"):p.add_argument("--"+key,type=Path,required=True)
     p.add_argument("--scenario",choices=["stacked","empty"],required=True)
-    run(p.parse_args())
+    p.add_argument("--exercise-transfer",action="store_true")
+    a=p.parse_args()
+    extension=None
+    if a.exercise_transfer:
+        from smartdish_product_transfer_probe import TransferProbe
+        extension=TransferProbe()
+    run(a,extension)
 
 if __name__=="__main__":main()
