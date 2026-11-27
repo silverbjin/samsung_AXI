@@ -227,8 +227,26 @@ def main():
         wait(all_active,90,"NAV2_LIFECYCLE_ACTIVE")
         result["cm_active_start"]=True
         result["bt_active_start"]=True
+        def graph_endpoints():
+            snapshot={}
+            for topic in ("/cmd_vel","/cmd_vel_nav","/cmd_vel_smoothed","/cmd_vel_teleop"):
+                for direction, query in (("publishers",node.get_publishers_info_by_topic),
+                                         ("subscribers",node.get_subscriptions_info_by_topic)):
+                    snapshot[topic+"_"+direction]=sorted([
+                        {"node":e.node_name,"namespace":e.node_namespace,"type":e.topic_type,
+                         "gid":list(e.endpoint_gid)} for e in query(topic)],
+                        key=lambda e:(e["namespace"],e["node"],e["gid"]))
+            return snapshot
+        result["velocity_graph_transitions"]=[]
         def cm_sole():
-            return [ep.node_name for ep in node.get_publishers_info_by_topic("/cmd_vel")]==["collision_monitor"]
+            g=graph_endpoints()
+            if not result["velocity_graph_transitions"] or result["velocity_graph_transitions"][-1]["graph"]!=g:
+                result["velocity_graph_transitions"].append({"t":time.monotonic(),"graph":g})
+                print("E_R4_VELOCITY_GRAPH="+json.dumps(g),flush=True)
+            return [e["node"] for e in g["/cmd_vel_publishers"]]==["collision_monitor"]
+        from ament_index_python.packages import get_package_share_directory
+        installed_launch=Path(get_package_share_directory("nav2_bringup"))/"launch"/"navigation_launch.py"
+        (out/"installed_nav2_navigation_launch.py").write_bytes(installed_launch.read_bytes())
         wait(cm_sole,15,"CM_SOLE_CMD_VEL")
         result["cm_sole_cmd_vel_start"]=True
         assert not rows("nav_goal") and not result["action_status"]
