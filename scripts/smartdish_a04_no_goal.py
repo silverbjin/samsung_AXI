@@ -208,10 +208,25 @@ def run(a):
             require(all(abs(v-2*(HALF+PADDING))<.02 for v in sides),"LIVE_PADDED_FOOTPRINT_SIZE")
             evidence.setdefault("footprints",{})[name]={"parameter":fp,"padding":pad,"published_frame":m.header.frame_id,
                 "published_stamp_ns":stamp(m.header.stamp),"published_points":pts,"edge_m":sides}
-        graph={k:endpoints(node,k) for k in ("/clock","/cmd_vel","/cmd_vel_smoothed","/smartdish/tray/image_raw")}
-        require(len(graph["/clock"])==len(graph["/cmd_vel"])==len(graph["/cmd_vel_smoothed"])==len(graph["/smartdish/tray/image_raw"])==1,"GRAPH_PUBLISHER_COUNT")
-        require(graph["/cmd_vel"][0]["name"]=="collision_monitor" and graph["/cmd_vel_smoothed"][0]["name"]=="velocity_smoother","GRAPH_CM_CHAIN")
-        evidence["publishers"]=graph
+        # Preserve the failing graph before asserting; discovery can lag lifecycle.
+        topics=("/clock","/cmd_vel","/cmd_vel_smoothed","/cmd_vel_nav","/smartdish/tray/image_raw")
+        evidence["graph_history"]=[]
+        deadline=time.monotonic()+20
+        stable_since=None
+        while time.monotonic()<deadline:
+            graph={k:endpoints(node,k) for k in topics}
+            evidence["publishers"]=graph
+            evidence["subscribers"]={k:[{"name":x.node_name,"namespace":x.node_namespace,"type":x.topic_type}
+                for x in node.get_subscriptions_info_by_topic(k)] for k in topics}
+            evidence["graph_history"].append({"steady_s":time.monotonic(),"publishers":graph})
+            valid=(all(len(graph[k])==1 for k in ("/clock","/cmd_vel","/cmd_vel_smoothed","/smartdish/tray/image_raw"))
+                and graph["/cmd_vel"][0]["name"]=="collision_monitor"
+                and graph["/cmd_vel_smoothed"][0]["name"]=="velocity_smoother")
+            stable_since=(stable_since or time.monotonic()) if valid else None
+            if stable_since is not None and time.monotonic()-stable_since>=3.:break
+            spin()
+            time.sleep(.1)
+        else:raise RuntimeError("GRAPH_PUBLISHER_OR_CHAIN:"+json.dumps(graph,sort_keys=True))
         service=GazeboEntityServices(out/"actual_scene",timeout_s=2.)
         models=service.scene()
         require(FIXTURE in models and ROBOT in models and not any(n.startswith("smartdish_product_dish_") for n in models),"INITIAL_ENTITIES")
