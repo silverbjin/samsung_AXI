@@ -14,7 +14,7 @@ from PIL import Image
 
 PROFILE = "OWNER_PRODUCT_RECOVERY"
 FILES = {"evidence.json", "manifest.json", "frame.png", "frame.rgb",
-         "c_input.rgb", "load.json", "capture.json", "inference.json", "unload.json"}
+         "c_input.rgb", "ros_frame.bin", "load.json", "capture.json", "inference.json", "unload.json"}
 HEX = re.compile(r"[0-9a-f]{64}")
 MAX_ARCHIVE = 32 * 1024 * 1024
 MAX_FILE = 8 * 1024 * 1024
@@ -159,6 +159,18 @@ def verify(m, f, expected):
          cap["width"]==640 and cap["height"]==480 and cap["encoding"] in ("rgb8","bgr8"), "B_FRAME")
     raw=f["frame.rgb"]
     need(len(raw)==640*480*3 and cap["rgb_sha256"]==digest(raw), "B_RGB_HASH")
+    step=m["ros_step"]
+    original=f["ros_frame.bin"]
+    need(type(step) is int and 640*3<=step<=640*3+4096 and len(original)==step*480,
+         "B_ROS_STRIDE")
+    packed=b"".join(original[y*step:y*step+640*3] for y in range(480))
+    if cap["encoding"]=="bgr8":
+        swapped=bytearray(len(packed))
+        swapped[0::3]=packed[2::3]
+        swapped[1::3]=packed[1::3]
+        swapped[2::3]=packed[0::3]
+        packed=bytes(swapped)
+    need(packed==raw, "B_ROS_RGB_MISMATCH")
     need(m["png_sha256"]==digest(f["frame.png"]), "B_PNG_HASH")
     with Image.open(io.BytesIO(f["frame.png"])) as im:
         need(im.format=="PNG" and im.mode=="RGB" and im.size==(640,480), "B_PNG_FORMAT")
