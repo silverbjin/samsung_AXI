@@ -35,6 +35,8 @@ class FrameCache:
         if stamp in self.frames and self.frames[stamp][0]!=value[0]:
             self.frames.pop(stamp)
             return False
+        if stamp in self.frames:
+            return True  # identical replay must not renew freshness
         self.frames[stamp]=value
         while len(self.frames)>16:
             self.frames.popitem(last=False)
@@ -124,6 +126,8 @@ class RecoveryView:
         self.threshold_button.pack(anchor="w")
         ttk.Label(body,textvariable=self.settings,wraplength=370).pack(anchor="w")
         self.threshold_confirmed=False
+        for var in (self.stable,self.unstable):
+            var.trace_add("write",self.threshold_changed)
         self.start_button=ttk.Button(body,text="T03 식기 회수 시작",command=self.start)
         self.start_button.pack(anchor="w",pady=4)
         buttons=ttk.Frame(body)
@@ -137,6 +141,9 @@ class RecoveryView:
         ttk.Label(body,textvariable=self.preview_text,wraplength=370).pack(anchor="w")
         self.refresh()
 
+    def threshold_changed(self,*_args):
+        self.threshold_confirmed=False
+        self.refresh()
     def select(self):
         if self.state=="IDLE":
             self.selected=True
@@ -149,7 +156,7 @@ class RecoveryView:
         state(self.ai_check,idle and self.ai_available)
         state(self.threshold_button,idle and self.ai_available)
         for w in self.threshold_widgets: state(w,idle and self.ai_available)
-        state(self.approve,self.state=="NEEDS_CONFIRMATION" and getattr(self,"approval_allowed",False))
+        state(self.approve,self.state=="NEEDS_CONFIRMATION" and getattr(self,"approval_allowed",False) and self.photo is not None)
         state(self.abort,self.state not in {"IDLE","COMPLETED","SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ABORTED","ERROR","CANCELED","CANCELING"} and bool(self.capture_id))
     def apply_thresholds(self):
         if self.state!="IDLE" or self.pending or not self.ai_available:
@@ -159,12 +166,14 @@ class RecoveryView:
         except ValueError:
             self.settings.set("입력 오류: 0.00~1.00 유한 실수")
             return
+        submitted=(self.stable.get(),self.unstable.get())
         self.pending=True
         self.threshold_confirmed=False
         self.refresh()
         def done(ok,actual):
             self.pending=False
-            self.threshold_confirmed=bool(ok and actual==values)
+            self.threshold_confirmed=bool(ok and actual==values and
+                (self.stable.get(),self.unstable.get())==submitted)
             self.settings.set("C set/get ACK "+str(actual) if self.threshold_confirmed else "C 기준 적용/재조회 실패")
             self.refresh()
         self.request_thresholds(values,done)
@@ -225,8 +234,9 @@ class RecoveryView:
         self.photo=photo.subsample(2,2)
         self.preview.configure(image=self.photo)
         self.preview_text.set("capture="+str(self.capture_id)+"\nRGB SHA="+self.capture_ack["rgb_sha256"])
+        self.refresh()
     def staff(self,action):
-        if action=="APPROVE_CONTINUE" and not (self.state=="NEEDS_CONFIRMATION" and getattr(self,"approval_allowed",False)):
+        if action=="APPROVE_CONTINUE" and not (self.state=="NEEDS_CONFIRMATION" and getattr(self,"approval_allowed",False) and self.photo is not None):
             return
         if not self.capture_id or not self.request_id or self.state in {"IDLE","CANCELING","COMPLETED","SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ABORTED","ERROR","CANCELED"}:
             return
