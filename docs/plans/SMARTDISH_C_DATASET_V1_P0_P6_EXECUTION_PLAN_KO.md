@@ -1,3 +1,5 @@
+> **최신 상태 2026-11-27 C15→C16 완료 (이하 2026-11-26 계획의 과거 NOT_RUN 판정보다 우선):** 실제 C P0 42/42·P1 pretrained CPU·P2 frozen 최초 1회·P3 pretest checkpoint 원본 SHA 기술 PASS. C15 집계 실패 원인 분석 완료, C16 첫 Frozen 연구의 **부정적·불충분한 Validation 결과를 기술적으로 결산**. `C_RESEARCH_PILOT_ACCEPTED=false`, `P3_TEST_NOT_AUTHORIZED_NOT_OPENED`, `P4_MODEL_HOLD`, `E_AI_ON_HOLD`. 재학습·A19·데이터 수정·가중치 공개·제품 AI ON 금지. [C15](../reports/tasks/2026-11-27_C15_P2_FAILURE_FORENSIC_EDU_KO.md), [C16](../reports/tasks/2026-11-27_C16_RESEARCH_FIRST_PASS_DECISION_EDU_KO.md), [CI #45921792047](https://github.com/silverbjin/samsung_AXI/actions/runs/45921792047) 184 PASS. **사용자 WSL2 추가 작업 없음.**
+
 > **2026-11-26 C Owner 독립 P0 증거 수령 후 상태 갱신:** [C_OWNER_P0_EVIDENCE_REVIEW_20261126_KO.md](../reports/acceptance/SMARTDISH_C_DATASET_V1_OWNER_P0_EVIDENCE_REVIEW_20261126_KO.md) 참고. C 원샷 실제 `exit0`, SHA 고정·clean, 42/42 해시 검사 실행 결과 확인. 기존 `HOLD_PRIVATE_42_RECHECK`는 제출 이전의 **과거 상태**입니다. 현재 **`C_P0_CONTRACT_PASS_HUMAN_REVIEW_REQUIRED`**, `training_permitted=false`, **P1 사람 승인·pretrained full SHA/사용권 미완료**, P2/P3/P4 NOT_RUN, Production Contact HOLD, A19 금지, AI OFF 보호 유지.
 
 # SmartDish C — Dataset v1 P0~P6 독립 실행 및 Data Freeze 관리 계획

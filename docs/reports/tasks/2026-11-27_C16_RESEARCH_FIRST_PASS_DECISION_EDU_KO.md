@@ -49,3 +49,9 @@ C15/C16 완료라고 전체 SmartDish C Dataset v1 P0~P6나 E AI ON이 모두 �
 - `tests/test_c16_research_disposition.py`: altered checkpoint/Validation/Test/A19/Contact/AI OFF에 fail-closed.
 - 결과문 `C16_FIRST_RESEARCH_PASS_CLOSED_NEGATIVE_VALIDATION_RESULT`는 연구의 부정적 관찰을 기록한 **기술 권고 판정**이지 제품 출시, 데이터/모델 가중치 공개, Test 실행 허가가 아님. 별도 사람이 직접 승인해야 하는 권한을 코드가 대체하지 않습니다.
 - [교육용 이슈 OPEN](../issues/2026-11-27_C15_ISSUE_03_FROZEN_HEAD_PERFORMANCE_HOLD_KO.md) 유지: 해결됐다는 뜻 아님.
+
+## CI actual result and verification boundary (2026-11-27)
+
+- C15 commit `f3b3e874c6e7476cbbcbe75f9ed18db22f7052d8`: [Dataset v1 public contract #45921692273](https://github.com/silverbjin/samsung_AXI/actions/runs/45921692273) **172 passed**, [C L0 #45921692265](https://github.com/silverbjin/samsung_AXI/actions/runs/45921692265) SUCCESS, B CI SUCCESS.
+- C16 commit `b57645574595d1f9742aff514d45ca7f596a6c12`: [Dataset v1 public contract #45921792047](https://github.com/silverbjin/samsung_AXI/actions/runs/45921792047) **184 passed**. C15/C16 pure stdlib `--report` generated in GitHub fixture-only CI. [B dataset contract #45921792073](https://github.com/silverbjin/samsung_AXI/actions/runs/45921792073) SUCCESS.
+- These results mean **static aggregate evidence-review/contract-only CI PASS**. Private original PNG, WSL2 owner training, checkpoint inference and Test4 **NOT_RUN here**; reuse previous owner P0/P1/P2/pretest technical PASS. Model performance and C research pilot acceptance remain HOLD.

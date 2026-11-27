@@ -49,3 +49,9 @@
 문제는 코드 예외가 아니라 **성공한 학습 실행의 부정적인 성능 근거**였습니다. 먼저 이미 통과한 설치·원본 SHA를 재검하지 않고, checkpoint나 private RGB가 불필요한 집계 분석으로 진단 범위를 제한했습니다. 이 방식은 Test4를 소비하는 사후 튜닝을 방지하며, 원인 가설을 확정된 장애로 오해하지 않게 합니다.
 
 추가 실험을 하고 싶다면 기존 v1 frozen 1회 계약을 수정하는 대신 독립 계획·PM Change Request·권리 검토 및 새 사전 등록이 필요합니다. **현재 C15은 실험 반복을 승인하지 않습니다.**
+
+## CI actual result and verification boundary (2026-11-27)
+
+- C15 commit `f3b3e874c6e7476cbbcbe75f9ed18db22f7052d8`: [Dataset v1 public contract #45921692273](https://github.com/silverbjin/samsung_AXI/actions/runs/45921692273) **172 passed**, [C L0 #45921692265](https://github.com/silverbjin/samsung_AXI/actions/runs/45921692265) SUCCESS, B CI SUCCESS.
+- C16 commit `b57645574595d1f9742aff514d45ca7f596a6c12`: [Dataset v1 public contract #45921792047](https://github.com/silverbjin/samsung_AXI/actions/runs/45921792047) **184 passed**. C15/C16 pure stdlib `--report` generated in GitHub fixture-only CI. [B dataset contract #45921792073](https://github.com/silverbjin/samsung_AXI/actions/runs/45921792073) SUCCESS.
+- These results mean **static aggregate evidence-review/contract-only CI PASS**. Private original PNG, WSL2 owner training, checkpoint inference and Test4 **NOT_RUN here**; reuse previous owner P0/P1/P2/pretest technical PASS. Model performance and C research pilot acceptance remain HOLD.

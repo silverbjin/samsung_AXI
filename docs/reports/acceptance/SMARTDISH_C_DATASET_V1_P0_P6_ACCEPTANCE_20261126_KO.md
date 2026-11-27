@@ -102,3 +102,9 @@ Data Freeze A15 4+A16 8+A18 8 =20 independent layout/6 family; 승인18/5 family
 - P2 원본 집계 SHA `945f8f4aeb3b8a8e9cb1873f4353620dbd660765b3eb9688ab234a61f97a3864`를 재사용한 C15 [실패 원인 분석](../tasks/2026-11-27_C15_P2_FAILURE_FORENSIC_EDU_KO.md): Val 1/3=33.3% < STABLE majority2/3=66.7%; frozen 1,026 trainable head params/총 9 optimizer steps, 이전 t0 RGB의 미래 physics label 예측 여부 미입증. **근본 단일 원인 단정 불가**.
 - C16 [기술적 연구 종료/의사결정](../tasks/2026-11-27_C16_RESEARCH_FIRST_PASS_DECISION_EDU_KO.md): `C16_FIRST_RESEARCH_PASS_CLOSED_NEGATIVE_VALIDATION_RESULT`. 첫 Frozen 연구 pass의 **부정적 결과 보존**. `C_RESEARCH_PILOT_ACCEPTED=false`, `P3_TEST_NOT_APPROVED_NOT_OPENED`, `P4_MODEL_HOLD`, `E_AI_ON_HOLD`.
 - 다른 실험·데이터 생산·A19·재학습은 신규 PM Change Request + 별도 승인 전 금지. 현재 사용자 WSL2 **추가 작업 없음**. P0/P1/P2/P3-pretest 기술 PASS 보존, Test4 봉인·AI OFF·Contact HOLD 지속.
+
+## 2026-11-27 C15→C16 CI 검증 및 연구 종료 기술 판정 확정
+
+- `C15_EVIDENCE_DIAGNOSIS_COMPLETE_PERFORMANCE_HOLD` / `C16_FIRST_RESEARCH_PASS_CLOSED_NEGATIVE_VALIDATION_RESULT`; 출고 증거와 가설을 분리했고 첫 Frozen 연구의 부정적 결론만 기록. model acceptance **false**, P3 Test **NOT_APPROVED_NOT_OPENED**.
+- C15 fixture-only [#45921692273](https://github.com/silverbjin/samsung_AXI/actions/runs/45921692273) **172 PASS**, C16 [#45921792047](https://github.com/silverbjin/samsung_AXI/actions/runs/45921792047) **184 PASS**, B dataset CI success. 실제 private data/model/WSL2 실행을 대체하지 않는 공개 계약 CI.
+- [C15 보고](../tasks/2026-11-27_C15_P2_FAILURE_FORENSIC_EDU_KO.md), [C16 보고](../tasks/2026-11-27_C16_RESEARCH_FIRST_PASS_DECISION_EDU_KO.md). 기존 P0/P1/P2/P3-pretest owner PASS 보존, 재학습·A19 금지, AI OFF PROTECTED 및 Production Contact HOLD 유지.
