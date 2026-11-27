@@ -1,0 +1,57 @@
+name: SmartDish D AI ON contract-only L0 L1 (NO_GOAL, no model)
+on:
+  push:
+    branches: [feat/smartdish-d-ai-on-contract-only]
+  pull_request:
+    paths:
+      - "src/smartdish_service/**"
+      - "tests/test_smartdish_d_aion.py"
+      - "scripts/smartdish_d_aion_ros_probe.py"
+      - ".github/workflows/smartdish-d-aion-ci.yml"
+permissions:
+  contents: read
+jobs:
+  l0-aion:
+    name: D-AION L0 / synthetic admission, FSM, C unknown + E AI OFF regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pure-Python dependencies and validate (NO_GOAL)
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pytest python3-yaml
+          python3 -m pytest -q tests/test_smartdish_d_aion.py tests/test_smartdish_d_service.py tests/test_smartdish_d_ui.py tests/test_smartdish_e_contract.py tests/test_c17_product_model_admission.py tests/test_c_stability.py
+          echo D_AION_L0_PASS_CONTRACT_ONLY_NO_GOAL
+  l1-aion:
+    name: D-AION L1 / Jazzy D+C+A build and model-less ROS contract
+    runs-on: ubuntu-24.04
+    needs: l0-aion
+    timeout-minutes: 20
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      ROS_DOMAIN_ID: '189'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build existing service/C/A packages without Nav2 or models
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-yaml python3-numpy python3-pytest
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          colcon build --packages-select smartdish_service smartdish_ai smartdish_robot --symlink-install
+          set +u
+          source install/setup.bash
+          set -u
+          ros2 pkg executables smartdish_service | grep smartdish_manager
+          ros2 pkg executables smartdish_service | grep smartdish_ui
+          ros2 pkg executables smartdish_ai | grep stability_inference
+          echo D_AION_L1_BUILD_PASS_NO_GOAL
+          test -f scripts/smartdish_d_aion_ros_probe.py
+          timeout 35s python3 scripts/smartdish_d_aion_ros_probe.py
+          echo D_AION_L1_MODEL_LESS_DDS_PASS_NO_GOAL
