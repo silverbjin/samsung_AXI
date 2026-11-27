@@ -49,11 +49,12 @@ class NavigationBoundary:
     """
     def __init__(self,client,build_goal,stop_monitor,accepted,result,cancel_result,
                  clock=time.monotonic,timeout=120.,stop_timeout=3.,cancel_timeout=10.,
-                 preflight=lambda:False):
+                 preflight=lambda:False,arrival_verified=lambda _:False):
         self.client=client;self.build_goal=build_goal;self.stop=stop_monitor
         self.accepted=accepted;self.result=result;self.cancel_result=cancel_result
         self.clock=clock;self.timeout=timeout;self.stop_timeout=stop_timeout
         self.cancel_timeout=cancel_timeout;self.preflight=preflight
+        self.arrival_verified=arrival_verified
         self.active=None;self.locked=False;self.last_receipt=None
         self.used=set();self.used_uuids=set()
 
@@ -138,11 +139,12 @@ class NavigationBoundary:
                     if a.cancel_requested:
                         self.cancel_result(data|{"status":"ACK","reason":""})
                     else:
-                        success=a.terminal=="SUCCEEDED"
+                        success=a.terminal=="SUCCEEDED" and self.arrival_verified(a.request) is True
+                        if success:self.last_receipt=data|{"destination_id":a.request["destination_id"],"stop_steady_s":now}
+                        else:self.locked=True
+                        self.active=None
                         self.result(data|{"result":"SUCCEEDED" if success else "FAILED",
                                           "reason":"" if success else "NAV_FAILED"})
-                        if success:self.last_receipt=data|{"destination_id":a.request["destination_id"]}
-                        else:self.locked=True
                     self.active=None
                 elif now>=a.stop_deadline:
                     self.locked=True
@@ -161,7 +163,7 @@ class NavigationBoundary:
                 except Exception:pass
             raise
 
-def make_nav_client(node,poses,stop_monitor,accepted,result,cancel_result,preflight):
+def make_nav_client(node,poses,stop_monitor,accepted,result,cancel_result,preflight,arrival_verified):
     from rclpy.action import ActionClient
     from nav2_msgs.action import NavigateToPose
     from .contract import resolve_pose
@@ -176,4 +178,4 @@ def make_nav_client(node,poses,stop_monitor,accepted,result,cancel_result,prefli
         g=NavigateToPose.Goal();g.pose=p
         return g
     return NavigationBoundary(client,build,stop_monitor,accepted,result,cancel_result,
-                              preflight=preflight)
+                              preflight=preflight,arrival_verified=arrival_verified)

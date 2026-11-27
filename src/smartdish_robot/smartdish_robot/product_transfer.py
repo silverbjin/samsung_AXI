@@ -54,7 +54,8 @@ class ProductTransferController:
                 and receipt["stop_verified"] is True and self.nav.active is None,
                 "NAV_TERMINAL_STOP_NOT_PROVEN")
         if self.arrival_uuid!=receipt["goal_uuid"]:
-            self.arrival_uuid=receipt["goal_uuid"];self.arrival_at=self.clock()
+            self.arrival_uuid=receipt["goal_uuid"];self.arrival_at=receipt["stop_steady_s"]
+            require(self.arrival_at<=self.clock(),"ARRIVAL_CLOCK_INVALID")
         return receipt
 
     def can_start_leg(self,request):
@@ -69,7 +70,7 @@ class ProductTransferController:
 
     def run(self,request):
         req=parse_transfer(canonical_json(request))
-        require(not self.active,"TRANSFER_BUSY")
+        require(not self.active and not self.locked,"TRANSFER_BUSY_OR_LOCKED")
         require(req["stack_id"]==self.scene["stack_id"],"STACK_ID_MISMATCH")
         # Duplicate ACK/FAILED replay does not repeat any physical operation.
         old=self.journal.begin(req)

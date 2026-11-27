@@ -16,8 +16,8 @@ from .product_contract import ContractError, FrameCache, TransactionJournal, par
 from .product_capture import CaptureStore
 
 class TrayCaptureNode(Node):
-    def __init__(self):
-        super().__init__("smartdish_product_tray_capture")
+    def __init__(self, *, parameter_overrides=None):
+        super().__init__("smartdish_product_tray_capture",parameter_overrides=parameter_overrides)
         self.declare_parameter("enabled",False)
         self.declare_parameter("evidence_dir","")
         if not self.get_parameter("enabled").value:
