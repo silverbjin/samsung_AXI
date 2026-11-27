@@ -5,7 +5,7 @@ in-process adapter methods; no new public topic or invented readiness.
 This module is not a standalone launcher until that boundary is approved.
 """
 import json
-from .product_recovery_fsm import RecoveryFSM, LEGS
+from .product_recovery_fsm import RecoveryFSM, LEGS, PROFILE, identifier
 from .product_admission import approved_model_sha256
 
 def make_recovery_node(*, owner_ai_requested=False):
@@ -29,10 +29,11 @@ def make_recovery_node(*, owner_ai_requested=False):
             for topic,fn in (("request",self.request),("nav_result",self.logic.on_nav_result),
                              ("dish_transfer_result",self.logic.on_transfer),
                              ("capture_result",self.logic.on_capture),("stability",self.logic.on_stability),
-                             ("staff_confirm",self.logic.on_staff),("nav_cancel_result",self.logic.on_cancel)):
+                             ("staff_confirm",self.staff),("nav_cancel_result",self.logic.on_cancel)):
                 self.subs.append(self.create_subscription(String,"/collection/"+topic,self.callback(fn),qos))
             self.c=AsyncParameterClient(self,"/smartdish_stability_inference")
             self.pending=None
+            self.aborted_before_dispatch=set()
             self.timer=self.create_timer(0.2,self.on_timer,clock=Clock(clock_type=ClockType.STEADY_TIME))
 
         def callback(self,fn):
@@ -88,9 +89,25 @@ def make_recovery_node(*, owner_ai_requested=False):
             self.flush()
             return result
 
+        def staff(self,d):
+            # ABORT can arrive before request or while the actual C snapshot is pending.
+            if (isinstance(d,dict) and d.get("schema_version")==2 and d.get("profile")==PROFILE
+                    and d.get("action")=="ABORT" and "capture_id" in d and d["capture_id"] is None
+                    and self.logic.state=="IDLE" and self.logic.ready
+                    and d.get("stack_id")==self.logic.stack_id and identifier(d.get("request_id"))):
+                rid=d["request_id"]
+                self.aborted_before_dispatch.add(rid)
+                if self.pending is not None and self.pending[1].get("request_id")==rid:
+                    self.pending=None
+                self.reject(d,"D_PRODUCT_ABORT_BEFORE_DISPATCH_NO_GOAL")
+                return True
+            return self.logic.on_staff(d)
+
         def request(self,d):
             if not isinstance(d,dict) or self.pending is not None or self.logic.state!="IDLE" or not self.logic.ready:
                 return False
+            if d.get("request_id") in self.aborted_before_dispatch:
+                return self.reject(d,"D_PRODUCT_ABORT_BEFORE_DISPATCH_NO_GOAL")
             if not self.adapter_ready():
                 return self.reject(d,"D_PRODUCT_ADAPTER_NOT_READY_NO_GOAL")
             if d.get("ai_enabled") is not True:

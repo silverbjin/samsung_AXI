@@ -156,7 +156,7 @@ class RecoveryView:
         state(self.threshold_button,idle and self.ai_available)
         for w in self.threshold_widgets: state(w,idle and self.ai_available)
         state(self.approve,self.state=="NEEDS_CONFIRMATION" and getattr(self,"approval_allowed",False) and self.photo is not None)
-        state(self.abort,self.state not in {"IDLE","COMPLETED","SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ABORTED","ERROR","CANCELED","CANCELING"} and bool(self.capture_id))
+        state(self.abort,self.state not in {"IDLE","COMPLETED","SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ABORTED","ERROR","CANCELED","CANCELING"} and bool(self.request_id and self.stack_id))
     def apply_thresholds(self):
         if self.state!="IDLE" or self.pending or not self.ai_available:
             return
@@ -237,7 +237,7 @@ class RecoveryView:
     def staff(self,action):
         if action=="APPROVE_CONTINUE" and not (self.state=="NEEDS_CONFIRMATION" and getattr(self,"approval_allowed",False) and self.photo is not None):
             return
-        if not self.capture_id or not self.request_id or self.state in {"IDLE","CANCELING","COMPLETED","SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ABORTED","ERROR","CANCELED"}:
+        if not self.request_id or not self.stack_id or self.state in {"IDLE","CANCELING","COMPLETED","SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ABORTED","ERROR","CANCELED"}:
             return
         self.send("staff_confirm",dict(schema_version=2,profile=PROFILE,request_id=self.request_id,
                   capture_id=self.capture_id,stack_id=self.stack_id,action=action))

@@ -32,6 +32,23 @@ class UiTest(unittest.TestCase):
         now[0]=3.0
         c.add(frame())
         self.assertIsNone(c.selected(ack("r")))
+    def test_pre_capture_abort_ui_null(self):
+        root=tk.Tk()
+        try:
+            sent=[]
+            view=RecoveryView(root,LAYOUT,lambda topic,body:sent.append((topic,body)),
+                              lambda *_:None,False)
+            view.on_status(dict(schema_version=2,profile=PROFILE,request_id="",state="IDLE",stack_id="stack-1"))
+            view.select()
+            view.start_button.invoke()
+            self.assertEqual(sent[-1][0],"request")
+            self.assertEqual(str(view.abort.cget("state")),"normal")
+            view.abort.invoke()
+            self.assertEqual(sent[-1][0],"staff_confirm")
+            self.assertIsNone(sent[-1][1]["capture_id"])
+            self.assertEqual(sent[-1][1]["action"],"ABORT")
+        finally:
+            root.destroy()
     def test_actual_buttons_and_selected_preview(self):
         root=tk.Tk()
         try:

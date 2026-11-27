@@ -8,8 +8,8 @@ import uuid
 
 PROFILE = "OWNER_PRODUCT_RECOVERY"
 LEGS = {"TO_TABLE":"T03", "TO_RETURN":"DISH_RETURN", "TO_HOME":"HOME"}
-DEADLINES = {"LOADING":5, "UNLOADING":5, "CAPTURING":5, "AI_CHECK":5,
-             "NEEDS_CONFIRMATION":60, "CANCELING":5}
+DEADLINES = {"LOADING":20, "UNLOADING":20, "CAPTURING":5, "AI_CHECK":5,
+             "NEEDS_CONFIRMATION":60, "CANCELING":15}
 TERMINAL = {"COMPLETED","SAFE_HOLD","SAFE_HOLD_UNVERIFIED","ABORTED"}
 SHA = re.compile(r"[a-f0-9]{64}")
 def identifier(x):
@@ -163,11 +163,14 @@ class RecoveryFSM:
         if (self.expired() or self.state not in LEGS or not self.matches(d)
                 or d.get("leg")!=self.leg or not goal_id(d.get("goal_uuid"))
                 or d["goal_uuid"].replace("-","") in self.used_goals
-                or (self.goal_uuid is not None and self.goal_uuid!=d["goal_uuid"])):
+                or (self.goal_uuid is None or self.goal_uuid!=d["goal_uuid"])):
             return False
         if d.get("result")!="SUCCEEDED" or d.get("terminal_status")!="SUCCEEDED" or d.get("stop_verified") is not True:
-            self.goal_uuid=d["goal_uuid"]
-            self.fail("NAV_FAILED_OR_NOT_STOPPED")
+            if d.get("terminal_status") in {"SUCCEEDED","CANCELED","ABORTED"}:
+                self.enter("SAFE_HOLD" if d.get("stop_verified") is True else "SAFE_HOLD_UNVERIFIED",
+                           reason="NAV_FAILED_OR_NOT_STOPPED")
+            else:
+                self.fail("NAV_FAILED_OR_NOT_STOPPED")
             return False
         self.used_goals.add(d['goal_uuid'].replace('-',''))
         leg=self.leg
@@ -182,7 +185,8 @@ class RecoveryFSM:
 
     def transfer(self,operation):
         self.transfer_id=uuid.uuid4().hex
-        self.enter("LOADING" if operation=="LOAD" else "UNLOADING",5)
+        state="LOADING" if operation=="LOAD" else "UNLOADING"
+        self.enter(state,DEADLINES[state])
         self.emit("dish_transfer_request",stack_id=self.stack_id,transfer_id=self.transfer_id,
                   operation=operation,destination_id="T03" if operation=="LOAD" else "DISH_RETURN")
 
@@ -267,12 +271,12 @@ class RecoveryFSM:
     def on_staff(self,d):
         if self.expired() or self.state in TERMINAL or self.state=="IDLE" or not self.stack_matches(d):
             return False
-        if not identifier(d.get("capture_id")) or d.get("capture_id")!=self.capture_id:
+        if "capture_id" not in d or d["capture_id"]!=self.capture_id:
             return False
-        if d.get("action")=="ABORT":
+        if d.get("action")=="ABORT" and (self.capture_id is None or identifier(self.capture_id)):
             self.fail("STAFF_ABORT")
             return True
-        if d.get("action")=="APPROVE_CONTINUE" and self.state=="NEEDS_CONFIRMATION":
+        if d.get("action")=="APPROVE_CONTINUE" and identifier(self.capture_id) and self.state=="NEEDS_CONFIRMATION":
             self.begin_leg("TO_RETURN")
             return True
         return False

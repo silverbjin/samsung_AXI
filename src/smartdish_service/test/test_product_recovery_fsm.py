@@ -19,7 +19,9 @@ class RecoveryTest(unittest.TestCase):
         self.request["ai_enabled"] = ai
         self.assertTrue(self.fsm.handle_request(self.request))
     def nav(self, leg):
-        return self.fsm.on_nav_result(self.body(leg=leg, goal_uuid={"TO_TABLE":"1"*32,"TO_RETURN":"2"*32,"TO_HOME":"3"*32}[leg],
+        identity={"TO_TABLE":"1"*32,"TO_RETURN":"2"*32,"TO_HOME":"3"*32}[leg]
+        self.assertTrue(self.fsm.bind_goal_uuid(leg,identity))
+        return self.fsm.on_nav_result(self.body(leg=leg, goal_uuid=identity,
                            result="SUCCEEDED", terminal_status="SUCCEEDED", stop_verified=True))
     def load(self):
         self.start()
@@ -152,5 +154,39 @@ class RecoveryTest(unittest.TestCase):
         self.assertFalse(self.fsm.on_cancel(self.body(leg="TO_TABLE",goal_uuid="1"*32,status="ACK",
                          terminal_status="CANCELED",stop_verified=False)))
         self.assertEqual(self.fsm.state,"SAFE_HOLD_UNVERIFIED")
+
+    def test_unbound_terminal_rejected(self):
+        self.start()
+        self.assertFalse(self.fsm.on_nav_result(self.body(leg="TO_TABLE",goal_uuid="1"*32,
+            result="SUCCEEDED",terminal_status="SUCCEEDED",stop_verified=True)))
+        self.assertEqual(self.fsm.state,"TO_TABLE")
+
+    def test_pre_capture_abort_exact_null(self):
+        self.start(False)
+        self.assertFalse(self.fsm.on_staff(self.body(stack_id="stack-01",action="ABORT")))
+        self.assertFalse(self.fsm.on_staff(self.body(stack_id="stack-01",capture_id="wrong",action="ABORT")))
+        self.assertTrue(self.fsm.on_staff(self.body(stack_id="stack-01",capture_id=None,action="ABORT")))
+        self.assertEqual(self.fsm.state,"SAFE_HOLD_UNVERIFIED")
+        self.assertFalse(self.fsm.bind_goal_uuid("TO_TABLE","1"*32))
+
+    def test_measured_load_before_deadline(self):
+        data=self.load()
+        self.clock.now+=9.79
+        self.assertTrue(self.fsm.on_transfer(data))
+
+    def test_late_load_ack_still_rejected(self):
+        data=self.load()
+        self.clock.now+=20.
+        self.assertFalse(self.fsm.on_transfer(data))
+        self.assertEqual(self.fsm.state,"SAFE_HOLD")
+
+    def test_cancel_budget_includes_terminal_stop(self):
+        self.start(False)
+        self.assertTrue(self.fsm.bind_goal_uuid("TO_TABLE","1"*32))
+        self.assertTrue(self.fsm.on_staff(self.body(stack_id="stack-01",capture_id=None,action="ABORT")))
+        self.clock.now+=13.
+        self.assertTrue(self.fsm.on_cancel(self.body(leg="TO_TABLE",goal_uuid="1"*32,status="ACK",
+            terminal_status="CANCELED",stop_verified=True)))
+        self.assertEqual(self.fsm.state,"ABORTED")
 
 if __name__=="__main__": unittest.main()
