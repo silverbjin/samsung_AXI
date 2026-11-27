@@ -272,6 +272,7 @@ def run(a):
         for u,v in zip(TARGETS,(*TARGETS[1:],TARGETS[0])):
             row={"from":u,"to":v,"start_kind":"EXPLICIT_CONFIGURED_POSE","status":"NOT_RUN"}
             evidence["paths"].append(row)
+            save(out/"evidence.progress.json",evidence)
             req=ComputePathToPose.Goal();req.start=msg(target[u]);req.goal=msg(target[v]);req.use_start=True
             req.planner_id=config["planner_server"]["ros__parameters"]["planner_plugins"][0]
             handle=future(action.send_goal_async(req),10,"PLAN_ACCEPT_"+u)
@@ -302,6 +303,7 @@ def run(a):
             row["live_costmap_all_yaw_clearance_m"]=map_disk_clearance(cc,np.where(cgrid>=254,100,0),dense)
             np.save(out/("global_costmap_"+u+".npy"),cgrid)
             row["live_costmap_geometry"]=cc
+            save(out/"evidence.progress.json",evidence)
         evidence["stationary"]={"odom_count":state["odom"],"scan_count":state["scan"],"max_displacement_m":state["odom_max"],
             "cmd_nonzero_count":state["cmd_nonzero"],"stop_verified":phys.stop.verified(time.monotonic())}
         require(evidence["stationary"]["stop_verified"],"FINAL_STOP_NOT_PROVEN")
@@ -321,11 +323,13 @@ def run(a):
                 "footprint_topics":list(state["footprints"]),"clock_samples":len(clock),
                 "odom_max_displacement_m":state["odom_max"],"nonzero_cmd_count":state["cmd_nonzero"],
                 "physics_callback_error":phys.callback_error}
+        save(out/"evidence.progress.json",evidence)
         if proc:
             # Keep subscriptions alive until Gazebo is quiescent and launch exits.
             try:evidence["quiescence"]=quiesce_world(proc,node,rclpy,clock)
             except Exception as exc:evidence["quiescence"]={"error":repr(exc)}
             evidence["cleanup"]=stop(proc)
+            save(out/"evidence.progress.json",evidence)
             if evidence["cleanup"]["forced"] or evidence["cleanup"]["exit"]!=0:
                 evidence["first_error"]=evidence["first_error"] or "LAUNCH_CLEANUP_FAILED";evidence["verdict"]="FAIL"
         if node:node.destroy_node()

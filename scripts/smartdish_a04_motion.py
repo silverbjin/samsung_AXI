@@ -49,6 +49,12 @@ def instrument(world_path,robot_path,bridge,scene):
         for model in models:
             for link in model.findall("link"):
                 for col in link.findall("collision"):
+                    # The floor and every static obstacle already observe
+                    # wheel/caster pairs. Avoid redundant high-rate streams
+                    # (actual RED: 4 duplicate support topics ~2600 callbacks).
+                    if model.get("name")=="turtlebot3_waffle_pi" and link.get("name") in (
+                        "wheel_left_link","wheel_right_link","caster_back_left_link","caster_back_right_link"):
+                        continue
                     key="c%03d"%len(sources)
                     topic="/smartdish/a04/contact/"+key
                     sensor=ET.SubElement(link,"sensor",name="a04_"+key,type="contact")
@@ -78,8 +84,8 @@ def clearance_world(geom,xy,tilt):
         lo,hi=c["lo"],c["hi"]
         bounds.append((c["model"]+"/"+c["collision"],math.hypot(max(lo[0]-x,x-hi[0],0),max(lo[1]-y,y-hi[1],0))))
     name,d=min(bounds,key=lambda v:v[1])
-    # 1.15m vertical envelope plus 25mm between samples allowance.
-    return name,d-math.sqrt(2)*(HALF+PADDING)-1.15*math.sin(abs(tilt))-.025
+    # 1.15m vertical envelope plus 50mm between samples allowance (0.25m/s × 0.25s / 2 plus margin).
+    return name,d-math.sqrt(2)*(HALF+PADDING)-1.15*math.sin(abs(tilt))-.05
 
 def tilt(q):
     r=Rotation.from_quat(q)
@@ -100,7 +106,16 @@ def contact_category(source,a,b):
     if not a or not b:return "UNIDENTIFIED"
     if all(dish(s) for s in names):return "DISH_DISH"
     if any(dish(s) for s in names) and any("tray" in s for s in names) and any(robot(s) for s in names):return "TRAY_DISH"
-    if source["model"]=="floor" and any(robot(s) and ("wheel" in s or "caster" in s) for s in names) and not any(dish(s) for s in names):return "GROUND_SUPPORT"
+    # Contact messages from floor and wheel/caster sensors describe the same
+    # physical pair in reverse order. Match exact scoped identities, not topic.
+    floor="floor::body::floor_collision"
+    support={
+        "waffle_pi::wheel_left_link::wheel_left_collision",
+        "waffle_pi::wheel_right_link::wheel_right_collision",
+        "waffle_pi::caster_back_right_link::collision",
+        "waffle_pi::caster_back_left_link::collision",
+    }
+    if floor in names and any(s in support for s in names):return "GROUND_SUPPORT"
     if all(robot(s) for s in names):return "ROBOT_INTERNAL"
     if any(dish(s) or robot(s) for s in names):return "UNEXPECTED"
     return "ENVIRONMENT_OTHER"
@@ -184,7 +199,11 @@ class Witness:
             dg=max(p["sim_ns"]-q["sim_ns"] for p,q in zip(dishes,self.last_dishes))
             s["max_dish_gap_ns"]=max(s["max_dish_gap_ns"],dg)
             require(dg<=MAX_POSE_GAP_NS,"DISH_POSE_GAP")
-        t=self.buffer.lookup_transform("map","base_footprint",Time(nanoseconds=robot["sim_ns"]))
+        query=Time(nanoseconds=robot["sim_ns"])
+        if not self.buffer.can_transform("map","base_footprint",query):
+            require(not self.last or robot["sim_ns"]-self.last["sim_ns"]<=MAX_POSE_GAP_NS,"POSE_TF_SYNC_GAP")
+            return
+        t=self.buffer.lookup_transform("map","base_footprint",query)
         mapxy=[t.transform.translation.x,t.transform.translation.y]
         reg=math.dist(robot["xyz"][:2],[mapxy[0]+NOMINAL[0],mapxy[1]+NOMINAL[1]])
         rt=tilt(robot["q"]);obstacle,clear=clearance_world(self.geom,robot["xyz"][:2],rt)

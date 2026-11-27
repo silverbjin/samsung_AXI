@@ -13,7 +13,17 @@ def test_relative_measure():
     m=dish_measure(r,d,0)
     assert m["center_m"]==0 and m["z_error_m"]<1e-9 and m["tilt_rad"]==0
 def test_contact_classification():
-    assert contact_category({"model":"floor"},"waffle_pi::wheel_left::collision","floor::collision")=="GROUND_SUPPORT"
-    assert contact_category({"model":"floor"},"smartdish_product_dish_00::body::envelope","floor::collision")=="UNEXPECTED"
+    assert contact_category({"model":"floor"},"waffle_pi::wheel_left_link::wheel_left_collision","floor::body::floor_collision")=="GROUND_SUPPORT"
+    assert contact_category({"model":"floor"},"smartdish_product_dish_00::body::envelope","floor::body::floor_collision")=="UNEXPECTED"
 def test_no_path_no_motion():
     with pytest.raises(RuntimeError,match="ACTUAL_PATH_CLEARANCE_GATE"):gate_paths({"paths":[]})
+
+@pytest.mark.parametrize("wheel",["wheel_left_link::wheel_left_collision","wheel_right_link::wheel_right_collision",
+                                "caster_back_left_link::collision","caster_back_right_link::collision"])
+def test_actual_support_pair_symmetric(wheel):
+    a="waffle_pi::"+wheel;b="floor::body::floor_collision"
+    assert contact_category({"model":"floor"},b,a)=="GROUND_SUPPORT"
+    assert contact_category({"model":"turtlebot3_waffle_pi"},a,b)=="GROUND_SUPPORT"
+    assert contact_category({"model":"table_3"},a,"table_3::body::table_3_collision")=="UNEXPECTED"
+def test_base_floor_is_not_allowed_support():
+    assert contact_category({"model":"floor"},"waffle_pi::base_link::base_collision","floor::body::floor_collision")=="UNEXPECTED"
