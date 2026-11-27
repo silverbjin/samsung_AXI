@@ -38,3 +38,9 @@ bash "$HOME/smartdish_c_v1_p2_frozen_owner_once.sh"
 *동일한 108개 코드 테스트 PASS가 있어도 실제 Tiny Dataset의 성능을 예측하거나 Owner가 재현할 것을 보장하지는 않습니다.* P0/P1 파일·실행환경·권리 범위·학습 실험·Test·제품 AI ON은 모두 별도 게이트로 남겨야 합니다.
 
 상세 사용권 검토: [승인 정책 원장](../acceptance/SMARTDISH_C_V1_RESEARCH_TRAINING_APPROVAL_POLICY_20261127_KO.md).
+
+## 2026-11-27 Owner P2 실제 학습 결과 (이 문서의 이전 NOT_RUN 설명보다 최신)
+
+- C source `9db90e52da3025f548faba28444d0dc777586138`, `exit0`, pretrained SHA/plan SHA 일치, private Train11/Val3 1회 성공, Test 사용/개봉 false.
+- Epoch1→3 Validation loss `0.8243010→0.7778842→0.7452375`, 정확도 `1/3→0/3→1/3`. best epoch=3은 predeclared CE에 따라 맞으나 다수 클래스 기준선 Val2/3 대비 미달, 성능 HOLD.
+- C13 [실제 원본 증거 인수](../acceptance/SMARTDISH_C_V1_P2_OWNER_ACCEPTANCE_20261127_KO.md) 참고. 연구 모델·제품 AI ON 미승인, P3 Test4 별도 판단 전 접근 금지.

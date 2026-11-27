@@ -67,3 +67,9 @@
 - Owner가 연구 모델 **학습 실행**을 명시 승인. P0/P1 PASS 재사용, private P2 frozen-head 1회 원샷 인수 준비. [scope/rights 검토](../reports/acceptance/SMARTDISH_C_V1_RESEARCH_TRAINING_APPROVAL_POLICY_20261127_KO.md).
 - 아직 **checkpoint/성능/검증 Test 증거 없음**. E에게 연구용 모델·AI ON 제품 인수 자료라고 홍보하거나 병합하지 않음. D/E는 UNKNOWN/직원 확인 계약과 AI OFF 3구간 유지.
 - Test 4개는 P3 별도 승인·단일 checkpoint/0.80 threshold 봉인 전 열지 않음, A19 금지/Production Contact HOLD/AI OFF 보호 지속.
+
+## 2026-11-27 C13 P2 실제 학습 인수 (기존 P2 NOT_RUN 이력보다 최신)
+
+- User WSL2 `9db90e52da3025f548faba28444d0dc777586138` pinned frozen ResNet18 1회 성공. Evidence TAR SHA `914b9ea89c78fb1a4c3cad82c4f2d25869d422e618d477236c89f6ecd30f0516`. Train11/Val3, checkpoint reported SHA `6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c`; checkpoint 바이트 미첨부.
+- Val 마지막 `1/3=33.3%` 및 Train `4/11=36.4%`로 모델 성능 HOLD; majority STABLE 비교 기준선 Val2/3=66.7%보다 낮음. 기존 한 번의 실행은 `C_P2_EXECUTION_ACCEPTED_RESEARCH_ONLY`; **연구 모델 인수/제품 AI ON 승인 아님**.
+- Test4 **한 번도 열지 않음**. P3 별도 명시 승인/체크포인트 원본 봉인 필요; 모델 미탑재 UNKNOWN + 직원 승인과 AI OFF 3-leg 보존. 상세 [C13 P2 리뷰](../reports/acceptance/SMARTDISH_C_V1_P2_OWNER_ACCEPTANCE_20261127_KO.md).

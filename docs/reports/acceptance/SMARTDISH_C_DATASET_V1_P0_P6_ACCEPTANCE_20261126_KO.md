@@ -81,3 +81,11 @@ Data Freeze A15 4+A16 8+A18 8 =20 independent layout/6 family; 승인18/5 family
 - P2 전용 `scripts/smartdish_c_v1_p2_frozen_owner_once.sh` SHA 고정 실행기: 기존 C 전용 CPU venv 자동 활성, 원본데이터는 train11/val3만 사용, frozen-head epoch3 batch4 seed42 CPU AdamW1e-4, validation min-CE checkpoint1. 디버깅 TAR/sidecar 자동 생성. 두 번째 학습·Test 평가/원본 재생산 금지.
 - Owner의 명시 승인과 WSL2에 생성될 private 승인 JSON은 구별합니다. **P2 학습 아직 NOT_RUN, Test4 밀봉, P4 체크포인트 연구 인수 아직 NOT_RUN**. GitHub fixture-only CI PASS ≠ 실물 학습 PASS. Data Freeze/A19 금지, Production Contact HOLD, AI OFF 그대로.
 - [교육 보고](../reports/tasks/2026-11-27_C12_P2_RESEARCH_FROZEN_EDU_KO.md).
+
+## 2026-11-27 C13 최신 P2 Owner 학습 인수 (과거 NOT_RUN 상태보다 우선)
+
+- WSL2 Owner P2 제출 TAR `20261127T004925Z-p2-9db90e52da30.tar.gz`의 SHA256 `914b9ea89c78fb1a4c3cad82c4f2d25869d422e618d477236c89f6ecd30f0516` 및 sidecar 일치. C source `9db90e52da3025f548faba28444d0dc777586138`, checkout clean, `exit0`, stdout `C_FROZEN_TRAINED`, stderr 비어 있음.
+- **P2 학습 실행 인수 PASS**: frozen Train11/Val3, Test 미개봉, seed42, Epoch3 `val_loss=0.7452375292778015` 최소 기준 선택, 체크포인트 **Owner 보고 SHA** `6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c`. 실제 checkpoint 바이트는 본 TAR 미포함; 별도 WSL2 read-only 봉인 전 직접 SHA 재검 아님.
+- **모델 성능 HOLD**: 마지막 Train 4/11=36.4%, Val 1/3=33.3%; STABLE 다수 기준선 Train8/11=72.7%, Val2/3=66.7% 미달. 분류 경향/UNSTABLE 검출 성능·confidence는 집계만으로 판단 불가.
+- **P3 Test4 개봉 명시 승인 미발급**. `C_P2_EXECUTION_ACCEPTED_RESEARCH_ONLY`, `C_P2_MODEL_PERFORMANCE_HOLD`, `P3_TEST_OPEN_NOT_APPROVED`, `C_RESEARCH_PILOT_ACCEPTED=false`, `E_AI_ON_HOLD`.
+- [C13 증거 기반 인수 보고서](SMARTDISH_C_V1_P2_OWNER_ACCEPTANCE_20261127_KO.md). P2 재학습/재분할/Test 기반 튜닝/A19 금지, Production Contact HOLD, AI OFF 유지.
