@@ -20,5 +20,6 @@ setup(
     license="Apache-2.0",
     entry_points={"console_scripts": [
         "navigation_adapter = smartdish_robot.navigation_adapter:main",
+        "product_capture_node = smartdish_robot.product_capture_node:main",
     ]},
 )

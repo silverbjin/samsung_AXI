@@ -1,0 +1,78 @@
+name: SmartDish A04 geometry and clearance
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_a04_*.py'
+      - 'tests/test_smartdish_a04_*.py'
+      - '.github/workflows/smartdish-a04-clearance.yml'
+  push:
+    branches: [feat/smartdish-a-product-collection]
+    paths:
+      - 'scripts/smartdish_a04_*.py'
+      - 'tests/test_smartdish_a04_*.py'
+      - '.github/workflows/smartdish-a04-clearance.yml'
+permissions:
+  contents: read
+jobs:
+  scope:
+    if: github.head_ref == 'feat/smartdish-a-product-collection' || github.ref_name == 'feat/smartdish-a-product-collection'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    outputs:
+      run: ${{ steps.scope.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - id: scope
+        env:
+          BEFORE: ${{ github.event.before || github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -Eeuo pipefail
+          python3 tests/test_smartdish_a04_ci_scope.py
+          args=()
+          if [[ "$EVENT" == workflow_dispatch ]]; then args+=(--force); fi
+          python3 scripts/smartdish_a04_ci_scope.py --before "$BEFORE" --head "$HEAD_SHA" --kind geometry "${args[@]}" | tee -a "$GITHUB_OUTPUT"
+  geometry:
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Actual pinned geometry and map audit
+        run: |
+          set -Eeuo pipefail
+          mkdir -p generated/a04
+          git rev-parse HEAD > generated/a04/source_sha.txt
+          python3 -m pip install numpy scipy pillow pyyaml pytest
+          git init -q /tmp/a04-robotis
+          git -C /tmp/a04-robotis remote add origin https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          git -C /tmp/a04-robotis fetch -q --depth=1 origin "$PIN"
+          git -C /tmp/a04-robotis checkout -q --detach FETCH_HEAD
+          test "$(git -C /tmp/a04-robotis rev-parse HEAD)" = "$PIN"
+          echo "$PIN" > generated/a04/upstream_sha.txt
+          python3 -m pytest -q tests/test_smartdish_a04_clearance.py --junitxml=generated/a04/l0.xml
+          python3 scripts/smartdish_a04_clearance.py --out generated/a04/static --robot-source /tmp/a04-robotis/turtlebot3_gazebo/models/turtlebot3_waffle_pi/model.sdf --bridge-source src/restaurant_bringup/config/bridge.yaml --world-source src/restaurant_world/worlds/restaurant.sdf --map maps/restaurant_map.yaml --poses src/smartdish_robot/config/table_poses.yaml --run-id "a04-${GITHUB_RUN_ID}"
+      - name: Evidence archive even on failure
+        if: always()
+        run: |
+          mkdir -p generated/a04
+          (cd generated/a04 && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS)
+          tar -C generated -czf generated/a04-evidence.tar.gz a04
+          sha256sum generated/a04-evidence.tar.gz > generated/a04-evidence.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a04-geometry-${{ github.run_id }}
+          path: |
+            generated/a04-evidence.tar.gz
+            generated/a04-evidence.tar.gz.sha256

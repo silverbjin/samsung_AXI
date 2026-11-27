@@ -1,0 +1,5 @@
+# A-PROD-DBG-01 GREEN — 실제 단일 restaurant 물리 증거
+검증 source 3df444a5f82c29ee8e0b4a236c87d2e9da07afce / Run 45948745467 / artifact 15175876889, ZIP SHA256 815c08b389533906eb14015b505b20693d3ad75bd51af5b6311a4b533a41cb06. 다운로드 원본 SHA 일치.
+stacked+empty 각각 Gazebo/bridge/spawn exit 0, forced=false, pause true, clock_quiescent true. Actual RGB 640x480: 4개 PNG RGB 및 PNG SHA 모두 대조 일치. LOAD 실제 entity IDs [134,139,144], 8 pose samples, sim 8151000000 ns, post-load capture 8200000000 ns (+49ms), raw RGB/PNG/decode exact hash, service log hash 확인. 동일 ID 제거, tray_count=0, table_count=0. Empty table byte diversity=6 및 6 accepted images, actual no mutation.
+LOAD wall 8.43s, UNLOAD 6.13s: 기존 5s product deadline 미충족. 따라서 stationary physical L2 PASS와 product timing HOLD는 별개. E PR #66 comment 7211084231 협의 요청.
+다음 218ce2bf70cdd21cc4ed47cf4bb70715b6e36684에서 실제 physical routine을 A package로 추출하고 guarded product controller와 공유. 새 source actual L2 검수 별도 필요. D의 실제 in-process accepted/READY hook과 호환 가능한 내부 A boundary 개발; E 승인 전 활성화 금지. 기존 main/E 병합 없음.

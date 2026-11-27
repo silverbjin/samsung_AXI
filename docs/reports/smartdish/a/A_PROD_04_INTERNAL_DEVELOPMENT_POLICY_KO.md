@@ -1,0 +1,2 @@
+# A 개발 완료 후 E 최종 검수 — 2026-11-27 사용자 지시
+A 자체 구현→실제 CI 완료 결과 확인→RED 원인 분석→수정→GREEN→교육 보고서/commit. 중간 E/B 인계 없음. 실제 검수 성공 증거는 immutable SHA/Artifact로 재사용. 문서-only A04 heavy CI skip, scope 실제 GREEN. 최신 A 기능 PIN 7d8bf9ec30f88c79ed1035b485a40aa3e7c3b688, 실제 focused shutdown CI 45972717341 SUCCESS. A_INTERNAL_L2_PASS_COMPOSED, E_FINAL_REVIEW_REQUIRED, OWNER_L3_NOT_RUN. 무부하 3구간/loaded full mission/종료는 독립 session. E에서 actual product full mission+shutdown 동일 session 검수 필수. A 완료 증거는 A_PROD_04_E_HANDOFF_KO.md/DBG10/11/11_GREEN, B 독립 QA 후 E final review. E/main 직접 변경 금지.

@@ -1,0 +1,135 @@
+name: SmartDish A product collection
+on:
+  push:
+    branches: [feat/smartdish-a-product-collection]
+    paths:
+      - 'scripts/smartdish_product_*.py'
+      - 'tests/test_smartdish_product_*.py'
+      - 'src/smartdish_robot/**'
+      - '.github/workflows/smartdish-a-product-ci.yml'
+  pull_request:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_product_*.py'
+      - 'tests/test_smartdish_product_*.py'
+      - 'src/smartdish_robot/**'
+      - '.github/workflows/smartdish-a-product-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  a-product-l0:
+    if: github.event_name != 'pull_request' || github.head_ref == 'feat/smartdish-a-product-collection'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      startup: ${{ steps.scope.outputs.startup }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Detect changes to actual startup boundary
+        id: scope
+        env:
+          PRIOR: ${{ github.event.before || github.event.pull_request.base.sha }}
+        run: |
+          set -Eeuo pipefail
+          startup=true
+          if [[ -n "$PRIOR" ]] && git fetch --depth=1 origin "$PRIOR"; then
+            changed=$(git diff --name-only "$PRIOR" HEAD)
+            if ! grep -Eq '^(scripts/smartdish_product_(scene|robot|startup_probe|transfer_probe)[.]py|src/smartdish_robot/smartdish_robot/product_(physics|gazebo_backend)[.]py|[.]github/workflows/smartdish-a-product-ci[.]yml)$' <<< "$changed"; then
+              startup=false
+            fi
+          fi
+          echo "startup=$startup" >> "$GITHUB_OUTPUT"
+      - name: Test startup and preserved S7 contract
+        run: |
+          mkdir -p generated/a_product_ci
+          git rev-parse HEAD | tee generated/a_product_ci/source_sha.txt
+          python3 -m pip install pytest pyyaml pillow
+          python3 -m py_compile scripts/smartdish_product_*.py src/smartdish_robot/smartdish_robot/product_*.py
+          set -o pipefail
+          python3 -m pytest -q tests/test_smartdish_product_*.py tests/test_s7_scene.py --junitxml=generated/a_product_ci/l0.xml 2>&1 | tee generated/a_product_ci/l0.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a-product-l0-${{ github.run_id }}
+          path: generated/a_product_ci/
+
+  a-product-startup-l2:
+    name: A01/02/03 actual stationary restaurant startup, tray and transfer witness NO GOAL
+    needs: a-product-l0
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && needs.a-product-l0.outputs.startup == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: ros:jazzy-ros-base-noble
+    env:
+      CI: 'true'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
+      QT_QPA_PLATFORM: xcb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install actual Gazebo Harmonic and ROS bridge
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git python3-yaml python3-pil xvfb xauth mesa-utils libgl1-mesa-dri ros-jazzy-ros-gz
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Acquire immutable previously reviewed Waffle Pi
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p generated/a_product_ci
+          git init -q generated/a_product_ci/upstream
+          git -C generated/a_product_ci/upstream remote add origin https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
+          PIN=45633014a14e8f438495b532a723e4ad45cbbd31
+          git -C generated/a_product_ci/upstream fetch -q --depth=1 origin "$PIN"
+          git -C generated/a_product_ci/upstream checkout -q --detach FETCH_HEAD
+          test "$(git -C generated/a_product_ci/upstream rev-parse HEAD)" = "$PIN"
+          echo "$PIN" > generated/a_product_ci/upstream_sha.txt
+      - name: Actual positive startup and empty negative, each one restaurant world
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          set -u
+          export GZ_SIM_RESOURCE_PATH="$PWD/generated/a_product_ci/upstream/turtlebot3_gazebo/models"
+          for scenario in stacked empty; do
+            export GZ_PARTITION="smartdish_a_product_${GITHUB_RUN_ID}_${scenario}"
+            if [[ "$scenario" == stacked ]]; then export ROS_DOMAIN_ID=91; else export ROS_DOMAIN_ID=92; fi
+            xvfb-run -a -s '-screen 0 1280x720x24' timeout --signal=INT --kill-after=30s 400s python3 -u scripts/smartdish_product_startup_probe.py --world "$PWD/src/restaurant_world/worlds/restaurant.sdf" --robot "$GZ_SIM_RESOURCE_PATH/turtlebot3_waffle_pi/model.sdf" --bridge "$PWD/src/restaurant_bringup/config/bridge.yaml" --scenario "$scenario" --out "$PWD/generated/a_product_ci/$scenario" --exercise-transfer
+          done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('generated/a_product_ci')
+          for scenario, count in [('stacked',1),('empty',0)]:
+              d=json.loads((p/scenario/'evidence.json').read_text())
+              assert d['verdict']=='ACTUAL_STARTUP_AND_ROBOT_RGB_NO_GOAL_PASS'
+              assert d['initial_fixture_count']==count
+              assert d['clock_publishers']==d['tray_publishers']==1
+              assert all(len(f['stamps'])>=3 for f in d['frames'].values())
+              t=json.loads((p/scenario/'transfer/transfer_evidence.json').read_text())
+              assert t['verdict']==('ACTUAL_STATIONARY_LOAD_CAPTURE_REMOVE_OBSERVED' if count else 'ACTUAL_EMPTY_TABLE_NO_MUTATION')
+              if count:
+                  assert t['capture']['image_stamp_ns']>t['load']['event_sim_ns']
+                  assert t['unload']['removed_entity_ids']==t['load']['entity_ids']
+                  assert t['unload']['tray_count']==0
+          print('A_PRODUCT_ACTUAL_STARTUP_RGB_NO_GOAL_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a-product-startup-l2-${{ github.run_id }}
+          path: |
+            generated/a_product_ci/upstream_sha.txt
+            generated/a_product_ci/stacked/
+            generated/a_product_ci/empty/
+          if-no-files-found: warn
+          retention-days: 14
