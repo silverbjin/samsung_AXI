@@ -31,7 +31,7 @@ def localization_map(g,out):
     The S7 collision world is unchanged. Cell centers approximate scan surfaces
     within half a cell, not a 100mm buffer or elevated projection.
     """
-    out=Path(out);res=.05;ox,oy=-2.55,-2.45;w,h=206,186
+    out=Path(out);res=.02;ox,oy=-2.56,-2.46;w,h=516,466
     x,y=np.meshgrid(ox+(np.arange(w)+.5)*res+NOMINAL[0],
                     oy+(np.arange(h)+.5)*res+NOMINAL[1])
     f=g["floor"];lo,hi=f["lo"],f["hi"]
@@ -44,8 +44,8 @@ def localization_map(g,out):
         if c["shape"]=="cylinder":
             cx,cy=(lo[0]+hi[0])/2,(lo[1]+hi[1])/2
             radius=(hi[0]-lo[0])/2
-            mask=np.hypot(np.maximum(abs(x-cx)-res/2,0),np.maximum(abs(y-cy)-res/2,0))<=radius
-        else:mask=(x>=lo[0]-res/2)&(x<=hi[0]+res/2)&(y>=lo[1]-res/2)&(y<=hi[1]+res/2)
+            mask=np.hypot(x-cx,y-cy)<=radius
+        else:mask=(x>=lo[0])&(x<=hi[0])&(y>=lo[1])&(y<=hi[1])
         a[mask]=0
     pgm=out/"localization.pgm";path=out/"localization.yaml"
     Image.fromarray(a[::-1]).save(pgm)
@@ -53,7 +53,7 @@ def localization_map(g,out):
                                         negate=0,occupied_thresh=.65,free_thresh=.196),sort_keys=False))
     save(out/"localization_manifest.json",dict(scope="SDF_SCAN_PLANE_AMCL_ONLY",scan_z_m=z,
         world_sha256=g["world_sha256"],pgm_sha256=sha(pgm),yaml_sha256=sha(path),
-        resolution=res,origin=[ox,oy,0],dimensions=[w,h],registration_buffer_m=0,
+        resolution=res,origin=[ox,oy,0],dimensions=[w,h],registration_buffer_m=0,rasterization="CENTER_ONLY_NO_SAFETY_DILATION",
         classes={str(k):int(np.sum(a==k)) for k in (0,205,254)},planning_map_separate=True))
     return path
 
@@ -61,7 +61,7 @@ def moving_params(p):
     # Simulation-specific localization candidate. The actual drift gate stays.
     amcl=p["amcl"]["ros__parameters"]
     amcl.update(alpha1=.015,alpha2=.015,alpha3=.015,alpha4=.015,alpha5=.015,
-                update_min_d=.05,update_min_a=.05,sigma_hit=.07,z_hit=.90,z_rand=.10,
+                update_min_d=.05,update_min_a=.05,sigma_hit=.045,z_hit=.90,z_rand=.10,
                 max_beams=120,laser_min_range=.12,laser_max_range=3.5,
                 min_particles=1000,max_particles=3000,pf_err=.03)
     cp=p["controller_server"]["ros__parameters"]
@@ -266,6 +266,13 @@ class Witness:
              "odom_to_base":tfrow(odom_tf),"map_to_odom":tfrow(map_odom_tf),"map_to_base":tfrow(t),
              "nearest_obstacle":obstacle,"robot_tilt_rad":rt,"odom_linear_mps":linear,"odom_angular_radps":angular,
              "odom_stamp_ns":od.header.stamp.sec*10**9+od.header.stamp.nanosec}
+        # Retain actual scan data periodically for independent endpoint residuals.
+        scan=self.state.get("scan_msg")
+        if scan is not None and (not self.last or robot["sim_ns"]//1000000000!=self.last["sim_ns"]//1000000000):
+            row["scan"]={"stamp_ns":scan.header.stamp.sec*10**9+scan.header.stamp.nanosec,
+                         "frame_id":scan.header.frame_id,"angle_min":scan.angle_min,
+                         "angle_increment":scan.angle_increment,"range_min":scan.range_min,"range_max":scan.range_max,
+                         "ranges":[float(v) if math.isfinite(v) else None for v in scan.ranges]}
         self.trace.write(json.dumps(row,allow_nan=False)+"\n")
         self.trace.flush()
         s["samples"]+=1;s["min_clearance_m"]=clear if s["min_clearance_m"] is None else min(clear,s["min_clearance_m"])
@@ -319,15 +326,33 @@ def run_missions(node,out,phys,g,sources,buffer,state,clock,e,scene,static,targe
     ctl=ProductTransferController(nav,phys,scene,static,out/"product_receipts",e["source_sha"],timeout_s=20.)
     def pulse():
         spin();nav.tick()
+    def sensor_ages():
+        now=time.monotonic()
+        return {k:now-state["times"].get(k,0) for k in ("scan","odom")}
     def guard():
         require(check_graph() and not phys.callback_error,"MOVING_GRAPH_OR_SENSOR_ERROR")
-        require(time.monotonic()-state["times"].get("scan",0)<=.8 and time.monotonic()-state["times"].get("odom",0)<=.3,"MOVING_SENSOR_STALE")
+        ages=sensor_ages()
+        if ages["scan"]>.8 or ages["odom"]>.3:
+            e["moving"]["sensor_failure"]={"ages_s":ages,"phase":witness.phase,"sim_ns":clock[-1]}
+            raise RuntimeError("MOVING_SENSOR_STALE")
+    def reacquire():
+        # Scene/info and transfer CLI calls can block this single-threaded
+        # executor. Fresh messages and a new continuous stop dwell are
+        # mandatory BEFORE sending another goal, not a widened age limit.
+        epoch=time.monotonic()
+        wait(lambda: all(state["times"].get(k,0)>epoch for k in ("scan","odom")) and
+             sensor_ages()["scan"]<=.8 and sensor_ages()["odom"]<=.3 and
+             phys.stop.verified(time.monotonic()) and phys.stop.last_at-epoch>=1.0,
+             10,"POST_SERVICE_FRESH_SENSOR_AND_STOP")
+        e["moving"].setdefault("pre_goal_freshness",[]).append({"epoch":epoch,"ages_s":sensor_ages(),
+             "stop_last_at":phys.stop.last_at,"sim_ns":clock[-1]})
     def leg(mission,label,dest,ids):
         nonlocal start_xy
         request={"schema_version":2,"profile":PROFILE,"request_id":mission,"leg":label,"destination_id":dest}
         require(nav.active is None and not nav.locked,"NAV_LOCKED")
         wait(lambda:witness.raw.get(ROBOT) and time.monotonic()-witness.raw[ROBOT]["steady_s"]<=.5 and
              (not ids or all(witness.raw.get(n) and time.monotonic()-witness.raw[n]["steady_s"]<=.5 for n in DISH_NAMES)),10,"RAW_POSE_READY")
+        reacquire()
         start_xy=current_xy();start_scan=state["scan"];start_odom=state["odom"];result.clear()
         row={"mission":mission,"leg":label,"destination_id":dest,"loaded_entity_ids":ids,"status":"STARTED","start_sim_ns":clock[-1]}
         e["moving"]["legs"].append(row);witness.begin(mission+"_"+label,ids)

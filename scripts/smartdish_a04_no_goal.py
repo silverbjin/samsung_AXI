@@ -96,6 +96,7 @@ def shutdown_managers(node,proc,rclpy,names):
         while not future.done() and time.monotonic()<until and proc.poll() is None:
             rclpy.spin_once(node,timeout_sec=.05)
         result[name]="ACK" if future.done() and future.result() and future.result().success else "NO_ACK"
+        node.destroy_client(client)
     return result
 
 def run(a):

@@ -37,7 +37,7 @@ def test_localization_map_does_not_project_high_only_obstacle(tmp_path):
                     {"model":"low","shape":"box","lo":[-.2,-.2,0],"hi":[.2,.2,.8]}]}
     cfg,a=read_map(localization_map(g,tmp_path))
     def cell(x,y):
-        j=int((x-cfg["origin"][0])/.05);i=int((y-cfg["origin"][1])/.05)
+        j=int((x-cfg["origin"][0])/cfg["resolution"]);i=int((y-cfg["origin"][1])/cfg["resolution"])
         return a[i,j]
     assert cell(0,0)==0 # high-only obstacle absent from scan-plane AMCL map
     assert cell(2.6,2.2)==100

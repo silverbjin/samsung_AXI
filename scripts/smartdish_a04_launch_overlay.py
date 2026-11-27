@@ -52,7 +52,7 @@ def prepare_launch_overlay(out,clearance_map=None):
             "             parameters=[{'yaml_filename':"+repr(str(Path(clearance_map).resolve()))+
             ", 'topic_name':'/a04/clearance_map','frame_id':'map','use_sim_time':True}],output='screen'),\n"
             "        Node(package='nav2_lifecycle_manager',executable='lifecycle_manager',name='a04_clearance_lifecycle',\n"
-            "             parameters=[{'use_sim_time':True,'autostart':True,'node_names':['a04_clearance_map_server']}],output='screen'),\n")
+            "             parameters=[{'use_sim_time':False,'autostart':True,'node_names':['a04_clearance_map_server']}],output='screen'),\n")
         patched["restaurant"]="from launch_ros.actions import Node\n"+patched["restaurant"].replace(anchor,extra)
     manifest={}
     for k in originals:
