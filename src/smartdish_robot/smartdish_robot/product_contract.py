@@ -88,6 +88,7 @@ class FrameSample:
     stamp_ns:int
     received_at:float
     frame_id:str
+    encoding:str
     rgb:bytes
     rgb_sha256:str
 
@@ -112,7 +113,7 @@ class FrameCache:
                 self.invalid=True
                 raise ContractError("FRAME_EPOCH_OR_CONFLICT")
             if stamp_ns==last.stamp_ns: return False
-        self.frames.append(FrameSample(stamp_ns,received_at,frame_id,rgb,h))
+        self.frames.append(FrameSample(stamp_ns,received_at,frame_id,encoding,rgb,h))
         return True
 
     def select(self,min_stamp_ns,now):
@@ -244,7 +245,7 @@ class TransactionJournal:
             self._write(d)
             return None
 
-    def finish(self,request,result):
+    def finish(self,request,result,evidence=None):
         request=parse_transfer(canonical_json(request))
         key=request["transfer_id"]
         with self._lock():
@@ -255,7 +256,7 @@ class TransactionJournal:
                     "TRANSFER_RESULT_ID_MISMATCH")
             require(result.get("status") in ("ACK","FAILED") and "receipt_sha256" not in result,
                     "TRANSFER_RESULT_INVALID")
-            raw=canonical_json(result);h=digest(raw)
+            raw=canonical_json(result if evidence is None else {"result":result,"evidence":evidence});h=digest(raw)
             receipt=self.root/(h+".json")
             if receipt.exists():
                 require(receipt.read_bytes()==raw,"RECEIPT_COLLISION")
@@ -266,3 +267,29 @@ class TransactionJournal:
             d["locked"]=result["status"]!="ACK"
             self._write(d)
             return entry["result"]
+
+    def load_receipt(self,request_id,stack_id,transfer_id,require_actual=True):
+        """Read a committed LOAD receipt; never trust a DDS ACK alone."""
+        with self._lock():
+            d=self._read()
+            e=d["entries"].get(transfer_id)
+            require(not d["locked"] and e is not None and e["state"]=="ACK",
+                    "LOAD_RECEIPT_NOT_READY")
+            p=e["request"];r=e["result"]
+            require(p["operation"]=="LOAD" and p["request_id"]==request_id
+                    and p["stack_id"]==stack_id and r["location"]=="ON_ROBOT",
+                    "LOAD_RECEIPT_ID_MISMATCH")
+            require(not any(x["request"]["operation"]=="UNLOAD" and
+                            x["request"]["request_id"]==request_id for x in d["entries"].values()),
+                    "UNLOAD_ALREADY_STARTED")
+            h=r["receipt_sha256"]
+            require(isinstance(h,str) and len(h)==64 and all(c in "0123456789abcdef" for c in h),
+                    "RECEIPT_HASH_INVALID")
+            raw=(self.root/(h+".json")).read_bytes()
+            require(digest(raw)==h,"RECEIPT_HASH_MISMATCH")
+            receipt=json.loads(raw)
+            if require_actual:
+                require(receipt.get("result")=={k:v for k,v in r.items() if k!="receipt_sha256"}
+                        and receipt.get("evidence",{}).get("kind")=="ACTUAL_NAV2_TERMINAL_AND_GAZEBO_LOAD",
+                        "LOAD_RECEIPT_SCOPE")
+            return r,receipt
