@@ -24,7 +24,11 @@ def goal_id(x):
     return isinstance(x,str) and re.fullmatch(r"[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",x) is not None
 
 class RecoveryFSM:
-    def __init__(self, *, clock=time.monotonic, model_version=None):
+    def __init__(self, *, clock=time.monotonic, model_version=None, nav_timeout_s=120):
+        # Explicit bounded integration policy; legacy/default behavior stays at 120s.
+        if type(nav_timeout_s) is not int or nav_timeout_s not in (120,240):
+            raise ValueError("NAV_TIMEOUT_POLICY")
+        self.nav_timeout_s=nav_timeout_s
         self.clock=clock
         self.model_version=model_version
         self.state="IDLE"
@@ -120,7 +124,7 @@ class RecoveryFSM:
     def begin_leg(self,leg):
         self.leg=leg
         self.goal_uuid=None
-        self.enter(leg,120)
+        self.enter(leg,self.nav_timeout_s)
         self.emit("nav_goal",leg=leg,destination_id=LEGS[leg])
 
     def fail(self,reason):

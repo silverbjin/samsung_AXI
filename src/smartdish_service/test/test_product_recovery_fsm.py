@@ -189,4 +189,25 @@ class RecoveryTest(unittest.TestCase):
             terminal_status="CANCELED",stop_verified=True)))
         self.assertEqual(self.fsm.state,"ABORTED")
 
+
+# E wall budget policy: fixture only, default contract unchanged.
+class EWallBudgetTest(unittest.TestCase):
+    def test_explicit_e_wall_budget(self):
+        now=[0.]
+        fsm=RecoveryFSM(clock=lambda:now[0], model_version="fixture", nav_timeout_s=240)
+        fsm.begin_leg("TO_RETURN")
+        self.assertEqual(fsm.deadline,240.)
+        now[0]=120.
+        self.assertFalse(fsm.expired())
+        now[0]=240.
+        self.assertTrue(fsm.expired())
+        self.assertEqual(fsm.state,"SAFE_HOLD_UNVERIFIED")
+    def test_default_and_invalid_budget(self):
+        fsm=RecoveryFSM(clock=lambda:0.)
+        fsm.begin_leg("TO_TABLE")
+        self.assertEqual(fsm.deadline,120.)
+        for value in (0,241,240.0,True):
+            with self.assertRaises(ValueError):
+                RecoveryFSM(nav_timeout_s=value)
+
 if __name__=="__main__": unittest.main()

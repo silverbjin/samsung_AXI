@@ -8,7 +8,7 @@ import json
 from .product_recovery_fsm import RecoveryFSM, LEGS, PROFILE, identifier
 from .product_admission import approved_model_sha256
 
-def make_recovery_node(*, owner_ai_requested=False):
+def make_recovery_node(*, owner_ai_requested=False, nav_timeout_s=120):
     from rclpy.node import Node
     from rclpy.clock import Clock, ClockType
     from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
@@ -19,7 +19,7 @@ def make_recovery_node(*, owner_ai_requested=False):
         def __init__(self):
             super().__init__("smartdish_mission_manager")
             digest = approved_model_sha256(owner_gazebo_integration=True) if owner_ai_requested is True else None
-            self.logic=RecoveryFSM(model_version="resnet18-"+digest[:12] if digest else None)
+            self.logic=RecoveryFSM(model_version="resnet18-"+digest[:12] if digest else None, nav_timeout_s=nav_timeout_s)
             qos=QoSProfile(depth=10,reliability=ReliabilityPolicy.RELIABLE,
                            durability=DurabilityPolicy.VOLATILE)
             self.pubs={topic:self.create_publisher(String,"/collection/"+topic,qos)

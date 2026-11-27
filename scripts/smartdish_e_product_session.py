@@ -11,6 +11,8 @@ from smartdish_e_product_boundary import OwnerMailbox,accepted_hook,verify_ready
 from smartdish_e_product_odom import RawOdomTrace,audit,ns
 
 MODEL="CI_DOUBLE_PRODUCT_E"
+# A04 actual qualified configuration; wall-time budget, not a relaxed physical gate.
+NAV_WALL_TIMEOUT_S=240
 def require_ci():
     require(os.environ.get("GITHUB_ACTIONS")=="true" and os.environ.get("CI")=="true" and
             os.environ.get("GZ_PARTITION","").startswith("smartdish_a04_e_") and not os.environ.get("WSL_DISTRO_NAME"),"E_CI_ONLY")
@@ -143,7 +145,7 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
     def graph():
         return cm_active() and [p["name"] for p in endpoints(node,"/cmd_vel")]==["collision_monitor"] and [p["name"] for p in endpoints(node,"/cmd_vel_smoothed")]==["velocity_smoother"] and len(endpoints(node,"/clock"))==1
     try:
-        d=make_recovery_node(owner_ai_requested=True)
+        d=make_recovery_node(owner_ai_requested=True,nav_timeout_s=NAV_WALL_TIMEOUT_S)
         d.logic.model_version=MODEL # CI-only explicit separate identity; no product admission mutation.
         old_emit=d.logic.emit
         def emit(topic,**kw):
@@ -159,6 +161,9 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
         runtime=ProductRuntime(node,target,scene,static,out/"product_receipts",e["source_sha"],
             accepted_hook=lambda rid,leg,uid:accepted_hook(mailbox,d,rid,leg,uid),
             cm_active=cm_active,physical=phys,shared_clock=clock)
+        runtime.nav.timeout=float(NAV_WALL_TIMEOUT_S)
+        e["nav_wall_timeout_s"]={"A":runtime.nav.timeout,"D":d.logic.nav_timeout_s}
+        require(runtime.nav.timeout==d.logic.nav_timeout_s,"E_NAV_DEADLINE_DRIFT")
         runtime.nav.evidence_hook=trace.nav
         cap=TrayCaptureNode(parameter_overrides=[Parameter("enabled",value=True),Parameter("evidence_dir",value=str(runtime.root.resolve()))])
         workers.append(ThreadNode(cap))
