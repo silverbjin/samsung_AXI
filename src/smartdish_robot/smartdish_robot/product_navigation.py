@@ -57,6 +57,11 @@ class NavigationBoundary:
         self.arrival_verified=arrival_verified
         self.active=None;self.locked=False;self.last_receipt=None
         self.used=set();self.used_uuids=set()
+        self.evidence_hook=None
+
+    def evidence(self,kind,a,at,**extra):
+        if self.evidence_hook is not None:
+            self.evidence_hook(kind,self._base(a),at,extra)
 
     def start(self,request):
         d=validate_goal(request);key=(d["request_id"],d["leg"])
@@ -110,6 +115,7 @@ class NavigationBoundary:
                 require(a.uuid not in self.used_uuids,"NAV_UUID_REUSED")
                 self.used_uuids.add(a.uuid)
                 a.result_future=handle.get_result_async()
+                self.evidence('accepted',a,self.clock())
                 if a.cancel_requested:
                     self._request_cancel(a)
                 elif self.accepted(a.request["request_id"],a.request["leg"],a.uuid) is not True:
@@ -125,6 +131,7 @@ class NavigationBoundary:
                 require(status in TERMINAL,"NAV_NONTERMINAL_RESULT")
                 a.terminal=TERMINAL[status];a.terminal_at=now
                 a.stop_deadline=now+self.stop_timeout
+                self.evidence('terminal',a,now,terminal_status=a.terminal)
             if a.terminal is not None:
                 # Stop monitor start must be after terminal; pre-goal dwell
                 # never qualifies. If still stationary at terminal, count the
@@ -135,6 +142,7 @@ class NavigationBoundary:
                          last-max(start,a.terminal_at)+1e-9>=self.stop.dwell and
                          self.stop.verified(now))
                 if stopped:
+                    self.evidence('stop_verified',a,now,terminal_status=a.terminal)
                     data=self._base(a)|{"terminal_status":a.terminal,"stop_verified":True}
                     if a.cancel_requested:
                         self.cancel_result(data|{"status":"ACK","reason":""})

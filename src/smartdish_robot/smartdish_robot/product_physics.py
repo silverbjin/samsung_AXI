@@ -22,6 +22,8 @@ class PhysicalOperations:
         self.callback_error=None
         self.last_odom_stamp=None
         self.guard=lambda:None
+        # E opt-in witness only: observe original message at the same clock used by StopMonitor.
+        self.odom_witness=None
 
     def prepare(self,out,robot_path,bridge):
         root=ET.parse(robot_path).getroot()
@@ -48,10 +50,13 @@ class PhysicalOperations:
         def odom(m):
             try:
                 stamp=m.header.stamp.sec*10**9+m.header.stamp.nanosec
+                received=time.monotonic()
+                if self.odom_witness is not None:
+                    self.odom_witness(m,received)
                 if stamp==self.last_odom_stamp:return
                 self.last_odom_stamp=stamp
                 v=m.twist.twist.linear;w=m.twist.twist.angular
-                self.stop.observe(stamp,time.monotonic(),math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z),
+                self.stop.observe(stamp,received,math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z),
                                   math.sqrt(w.x*w.x+w.y*w.y+w.z*w.z))
             except (ContractError,ValueError) as exc:self.callback_error=str(exc)
         def image(m):

@@ -1,0 +1,45 @@
+name: SmartDish E B-QA-06 raw odom evidence
+on:
+  push:
+    branches: [integration/smartdish-product-recovery]
+    paths:
+      - 'scripts/smartdish_e_product_odom.py'
+      - 'scripts/smartdish_e_product_archive_audit.py'
+      - 'tests/test_smartdish_e_product_odom.py'
+      - '.github/workflows/smartdish-e-product-odom.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest numpy==2.2.6 scipy==1.15.3 pandas==2.2.3 Pillow==11.3.0 matplotlib==3.10.3 PyYAML==6.0.2
+      - name: Test raw dwell negative cases
+        run: |
+          mkdir -p /tmp/eqa
+          git rev-parse HEAD > /tmp/eqa/source_sha.txt
+          set -o pipefail
+          python -m pytest -q tests/test_smartdish_e_product_odom.py 2>&1 | tee /tmp/eqa/l0.log
+      - name: Inspect exact archived A source bytes without rerun
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/eqa-input
+          for id in 15184188608 15185112687 15185567891; do
+            curl --fail --silent --show-error --location --retry 1 -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/silverbjin/samsung_AXI/actions/artifacts/$id/zip" -o "/tmp/eqa-input/github-actions-artifact-$id.zip"
+          done
+          python scripts/smartdish_e_product_archive_audit.py --input /tmp/eqa-input --out /tmp/eqa/archive_inventory.json
+      - if: always()
+        run: cd /tmp/eqa && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-product-odom-${{ github.run_id }}
+          path: /tmp/eqa

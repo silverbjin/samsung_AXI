@@ -35,7 +35,7 @@ flowchart TD
 ```
 
 ## 2. 개발 사이클
-공통 계약 v1.1 사용. A physical & C/D fixtures & B QA 병렬 개발. 먼저 실패 재현(RED), 최초 오류/원본 로그 분석, 최소 수정, L0/L1 GREEN, 실제 Gazebo L2 필요한 경계만, review, 교육용 MD와 결과 동시 커밋. 보고서 위치 docs/reports/smartdish/{a,b,c,d,e}/<ID>_EDU_KO.md. 각 report: WHAT/WHY/HOW, architecture, RED run ID/error, root cause vs hypothesis, change/diff, test conditions/results, source SHA, CI run/artifact hash, limitations/next step. 실패 cycle도 기록; 동일 SHA 무근거 재시도 금지; 인프라 오류는 분리. 
+공통 계약 v1.1.1 사용 (wire schema 2 불변). A physical & C/D fixtures & B QA 병렬 개발. 먼저 실패 재현(RED), 최초 오류/원본 로그 분석, 최소 수정, L0/L1 GREEN, 실제 Gazebo L2 필요한 경계만, review, 교육용 MD와 결과 동시 커밋. 보고서 위치 docs/reports/smartdish/{a,b,c,d,e}/<ID>_EDU_KO.md. 각 report: WHAT/WHY/HOW, architecture, RED run ID/error, root cause vs hypothesis, change/diff, test conditions/results, source SHA, CI run/artifact hash, limitations/next step. 실패 cycle도 기록; 동일 SHA 무근거 재시도 금지; 인프라 오류는 분리. 
 CI 실행 중/취소는 PASS 아님. CI에서 가능한 개발/검수 모두 끝나기 전 사용자 WSL2 재검 요청 금지. 사용자 최종 L3만 실제 private model/GUI 수동 승인. 가중치/데이터/Test4 공개 금지. 이미 성공한 AI OFF 및 R1/R2 증거는 재사용. 변화가 생긴 경계에만 회귀.
 
 ## 3. 개발 완료 및 통합 PR
@@ -54,3 +54,5 @@ CI 실행 중/취소는 PASS 아님. CI에서 가능한 개발/검수 모두 끝
 > silverbjin/samsung_AXI의 main에서 docs/plans/product_recovery/README.md, 00_COMMON_CONTRACT_KO.md, 해당 ROLE 명세, 06_INTEGRATION_RUNBOOK_KO.md를 읽어라. 최신 main 및 E가 공지한 immutable common seed SHA를 검증하라. ROLE 범위만 독립 브랜치에서 개발하고 기존 PASS/권리/AI OFF를 보존한다. CI 우선 RED→GREEN, 각 사이클 주니어 교육 MD와 결과 커밋. E integration 대상 Draft PR 및 인계 원장까지 작성하되 main에 병합하지 마라. E는 E-PROD-00으로 seed를 먼저 발행하고 다른 담당 PR을 받아 검증·통합한다.
 ## 6. 인수 판정 원장
 기존 R1/R2, R3a/b/c, independent station R4 PASS 보존. 신규 single-world physical workflow NOT_RUN. Owner product L3 HOLD. Product AI ON admission DENIED (C17). 문서 PR 성공 ≠ 구현 승인. 최종 합병은 owner 검수 결과와 권한 검토 후 별도 결정.
+
+B-QA-06 raw dwell gate: A 기존 full-rate 원본 존재 시 재출고, 없으면 E 동일 실제 단일세션에서 수집. 기존 A 전체 주행과 집중 종료는 별개 scope; 재실행 기본 금지. CI double과 실제 Owner checkpoint를 분리한다.
