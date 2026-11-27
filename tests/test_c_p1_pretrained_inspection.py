@@ -4,7 +4,7 @@ import copy
 import pytest
 
 from ai.train.dataset_v1_gate import IntakeHold, VERSION, SPLIT_SHA
-from ai.train.p1_pretrained_inspection import validate_prior_review
+from ai.train.p1_pretrained_inspection import validate_prior_review, classify_import_failure, package_inventory
 
 
 def p0():
@@ -66,3 +66,25 @@ def test_plan_policy_change_denied(group, key, value):
     exp[group][key] = value
     with pytest.raises(IntakeHold, match="C_V1_P1_PLAN_NOT_FROZEN"):
         validate_prior_review(p0(), exp)
+
+@pytest.mark.parametrize(("module", "reason"), [
+    ("torch", "C_V1_TORCH_MISSING"),
+    ("torchvision", "C_V1_TORCHVISION_MISSING"),
+    ("PIL", "C_V1_PILLOW_MISSING"),
+    ("random_helper", "C_V1_P1_DEPENDENCY_IMPORT_FAILED"),
+])
+def test_exact_missing_module_classification(module, reason):
+    exc = ModuleNotFoundError("test only: no import is attempted", name=module)
+    assert classify_import_failure(exc) == (reason, module)
+
+
+def test_non_module_import_fail_is_not_mislabeled_as_missing_wheel():
+    assert classify_import_failure(ImportError("test simulated incompatible wheel")) == (
+        "C_V1_P1_DEPENDENCY_IMPORT_FAILED", None)
+
+
+def test_metadata_only_package_inventory_has_no_training_side_effect():
+    info = package_inventory()
+    assert set(info) == {"torch", "torchvision", "PIL"}
+    assert all(set(item) == {"import_spec_found", "distribution_version"} for item in info.values())
+    assert all(type(item["import_spec_found"]) is bool for item in info.values())

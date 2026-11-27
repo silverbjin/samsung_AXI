@@ -6,7 +6,8 @@ acceptance. Produces private aggregate evidence for C Owner human review.
 from __future__ import annotations
 
 import argparse
-import hashlib
+import importlib.metadata
+import importlib.util
 import json
 import platform
 from pathlib import Path
@@ -49,6 +50,31 @@ def validate_prior_review(p0: dict, plan: dict) -> None:
             and plan.get("policy", {}).get("A19") == "NOT_AUTHORIZED",
             "C_V1_P1_PLAN_NOT_FROZEN")
 
+
+
+def package_inventory() -> dict:
+    """Metadata only; no package import, downloads, model weights or test data."""
+    result = {}
+    for module, distribution in (("torch", "torch"), ("torchvision", "torchvision"), ("PIL", "Pillow")):
+        available = importlib.util.find_spec(module) is not None
+        try:
+            version = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            version = None
+        result[module] = {"import_spec_found": available, "distribution_version": version}
+    return result
+
+
+def classify_import_failure(exc: ImportError) -> tuple[str, str | None]:
+    """Do not mistake a missing dependency inside torch for a missing torch wheel."""
+    name = exc.name if isinstance(exc, ModuleNotFoundError) else None
+    if name == "torch":
+        return "C_V1_TORCH_MISSING", name
+    if name == "torchvision":
+        return "C_V1_TORCHVISION_MISSING", name
+    if name == "PIL":
+        return "C_V1_PILLOW_MISSING", name
+    return "C_V1_P1_DEPENDENCY_IMPORT_FAILED", name
 
 def inspect(p0_path: Path, plan_path: Path) -> dict:
     require(p0_path.is_file(), "C_V1_P0_REPORT_MISSING")
@@ -106,11 +132,13 @@ def main() -> int:
               "verdict": "HOLD", "training_permitted": False,
               "training_executed": False, "test_opened": False,
               "production_contact": "HOLD", "AI_OFF": "PROTECTED",
-              "A19": "NOT_AUTHORIZED"}
+              "A19": "NOT_AUTHORIZED",
+              "python_version": platform.python_version(),
+              "packages": package_inventory()}
     try:
         result.update(inspect(args.p0_report, args.experiment_lock))
     except ImportError as exc:
-        result["reason"] = "C_V1_TORCH_OR_TORCHVISION_MISSING"
+        result["reason"], result["missing_module"] = classify_import_failure(exc)
         result["error_type"] = type(exc).__name__
         result["verdict"] = "HOLD"
     except (IntakeHold, OSError, ValueError, RuntimeError) as exc:
