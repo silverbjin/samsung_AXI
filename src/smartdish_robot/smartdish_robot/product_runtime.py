@@ -117,8 +117,10 @@ class ProductRuntime:
         obs={"request_id":request["request_id"],"leg":request["leg"],"odom_max_m":m["max_m"],
              "odom_count":self.odom_n-m["odom_n"],"scan_count":self.scan_n-m["scan_n"],
              "amcl_error_m":err}
+        obs["preflight"]=self.preflight()
+        obs["amcl_age_s"]=None if self.amcl_at is None else time.monotonic()-self.amcl_at
         self.event("NAV_ACTUAL_MOTION",obs)
-        return (self.preflight() and obs["odom_max_m"]>.25 and obs["odom_count"]>=3
+        return (obs["preflight"] and obs["odom_max_m"]>.25 and obs["odom_count"]>=3
                 and obs["scan_count"]>=3 and err<=.8)
 
     def nav_result(self,d):

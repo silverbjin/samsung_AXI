@@ -188,6 +188,7 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
             goal_ready_wait_s=GOAL_READY_WAIT_S,goal_gate=goal_gate,goal_authorize=authorize)
         e["goal_ready_wait_s"]=GOAL_READY_WAIT_S
         runtime.nav.timeout=float(NAV_WALL_TIMEOUT_S)
+        runtime.nav.wait_arrival_within_stop_deadline=True
         e["nav_wall_timeout_s"]={"A":runtime.nav.timeout,"D":d.logic.nav_timeout_s}
         require(runtime.nav.timeout==d.logic.nav_timeout_s,"E_NAV_DEADLINE_DRIFT")
         runtime.nav.evidence_hook=trace.nav
@@ -239,7 +240,8 @@ def session(node,out,phys,g,sources,buffer,state,clock,e,scene,static,target,spi
                 scan_samples=runtime.scan_n-motion["scan_n"],
                 amcl_error_m=math.dist(runtime.amcl,(target[row["destination_id"]]["x"],target[row["destination_id"]]["y"])))
             witness.end()
-            require(body["result"]=="SUCCEEDED" and body["terminal_status"]=="SUCCEEDED" and body["stop_verified"],"E_NAV_FAILED")
+            # Publish exact real terminal failure to D as well; never swallow it
+            # in the observation wrapper and leave D waiting for a nonexistent goal.
             original_result(body)
         runtime.nav.start=start;runtime.nav.result=result;runtime.nav.evidence_hook=nav_event
         ui_log=(out/"ui.log").open("w")

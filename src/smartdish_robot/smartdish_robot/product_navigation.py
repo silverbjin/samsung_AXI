@@ -49,12 +49,13 @@ class NavigationBoundary:
     """
     def __init__(self,client,build_goal,stop_monitor,accepted,result,cancel_result,
                  clock=time.monotonic,timeout=120.,stop_timeout=3.,cancel_timeout=10.,
-                 preflight=lambda:False,arrival_verified=lambda _:False):
+                 preflight=lambda:False,arrival_verified=lambda _:False,*,wait_arrival_within_stop_deadline=False):
         self.client=client;self.build_goal=build_goal;self.stop=stop_monitor
         self.accepted=accepted;self.result=result;self.cancel_result=cancel_result
         self.clock=clock;self.timeout=timeout;self.stop_timeout=stop_timeout
         self.cancel_timeout=cancel_timeout;self.preflight=preflight
         self.arrival_verified=arrival_verified
+        self.wait_arrival_within_stop_deadline=wait_arrival_within_stop_deadline
         self.active=None;self.locked=False;self.last_receipt=None
         self.used=set();self.used_uuids=set()
         self.evidence_hook=None
@@ -143,17 +144,23 @@ class NavigationBoundary:
                          last-max(start,a.terminal_at)+1e-9>=self.stop.dwell and
                          self.stop.verified(now))
                 if stopped:
+                    success=False
+                    if not a.cancel_requested and a.terminal=="SUCCEEDED":
+                        # Terminal and continuous stop are necessary but not sufficient.
+                        # In E, wait for ALL unchanged arrival predicates within the
+                        # original 3s terminal budget, never beyond it.
+                        success=(not self.wait_arrival_within_stop_deadline or now<a.stop_deadline) and self.arrival_verified(a.request) is True
+                        if self.wait_arrival_within_stop_deadline and not success and now<a.stop_deadline:return
                     self.evidence('stop_verified',a,now,terminal_status=a.terminal)
                     data=self._base(a)|{"terminal_status":a.terminal,"stop_verified":True}
                     if a.cancel_requested:
                         self.cancel_result(data|{"status":"ACK","reason":""})
                     else:
-                        success=a.terminal=="SUCCEEDED" and self.arrival_verified(a.request) is True
                         if success:self.last_receipt=data|{"destination_id":a.request["destination_id"],"stop_steady_s":now}
                         else:self.locked=True
                         self.active=None
                         self.result(data|{"result":"SUCCEEDED" if success else "FAILED",
-                                          "reason":"" if success else "NAV_FAILED"})
+                                          "reason":"" if success else "NAV_ARRIVAL_UNVERIFIED" if a.terminal=="SUCCEEDED" else "NAV_FAILED"})
                     self.active=None
                 elif now>=a.stop_deadline:
                     self.locked=True
