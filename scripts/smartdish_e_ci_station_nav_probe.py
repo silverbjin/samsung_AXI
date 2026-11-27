@@ -323,6 +323,9 @@ def main():
         record("ci_request",{"request_id":RID,"ai_enabled":True})
         wait(lambda:len(result["legs"])==1,465,"TO_TABLE")
         confirmation=wait(lambda:status("NEEDS_CONFIRMATION","AI_STABLE_STAFF_CONFIRM_REQUIRED"),25,"AI_STABLE_CONFIRM")
+        # DDS callbacks on different topics do not guarantee causal receipt order.
+        # D has entered NEEDS_CONFIRMATION; independently wait for both evidence messages.
+        wait(lambda:len(rows("ai_check_request"))>=1 and len(rows("stability"))>=1,5,"AI_DDS_CORRELATION")
         ai=rows("ai_check_request"); stability=rows("stability")
         assert len(ai)==len(stability)==1 and stability[0]["data"]["capture_id"]==ai[0]["data"]["capture_id"]
         assert stability[0]["data"]["status"]=="STABLE" and stability[0]["data"]["model_version"]==FIXTURE_VERSION
