@@ -78,3 +78,9 @@
 
 - Owner `P3_PRETEST_CHECKPOINT_SHA_PASS_PERFORMANCE_HOLD`, evidence SHA `5874707038d2d74e2f83d0d7370dbed6ed4baf32d12c6d8164aa8357e0f84148`, checkpoint SHA `6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c`. P0/P1/P2 기존 성공 재사용; P3 Test4 미개봉·별도 승인 없음. D/E 연구 모델 제품 사용은 여전히 HOLD.
 - 에이전트가 코드/CI/문서/진단 책임, Owner WSL2는 불가피한 private 최종 인수 **원샷 하나**만 수행하고 성공한 pretest 재검 불요. [운영 정책](../policies/SMARTDISH_AGENT_FIRST_WSL2_FINAL_ONLY_POLICY_KO.md).
+
+## C16 최신 인계 — 1차 Frozen 연구 부정적 결과로 기술 검토 종료 (2026-11-27)
+
+- C15 aggregate audit/C16 기술 리뷰 `C16_FIRST_RESEARCH_PASS_CLOSED_NEGATIVE_VALIDATION_RESULT`. Train mini-batch cumulative4/11, Val1/3 vs STABLE majority2/3. 구체적 근본 원인은 확정 불가. P3 Test4 미개봉·미승인, private checkpoint SHA·기존 PASS 보존. [교육/결정 보고](../reports/tasks/2026-11-27_C16_RESEARCH_FIRST_PASS_DECISION_EDU_KO.md).
+- **D/E에 실제 모델 파일·weights·제품 AI ON 또는 연구 Pilot PASS 제공 금지**. 인터페이스 `/collection/ai_check_request`→`/collection/stability` 및 `UNKNOWN`/직원 확인·AI OFF 3-leg 계약만 개발·통합 가능.
+- 향후 추가 데이터/새 학습/Test는 신규 Change Request + 별도 명시 승인 전 전부 금지. 사용자 WSL2 새 실행 없음.

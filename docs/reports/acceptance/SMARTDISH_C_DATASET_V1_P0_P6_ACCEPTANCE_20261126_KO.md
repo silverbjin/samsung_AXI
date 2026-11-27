@@ -96,3 +96,9 @@ Data Freeze A15 4+A16 8+A18 8 =20 independent layout/6 family; 승인18/5 family
 - 실제 WSL2 private checkpoint SHA `6afdcfe526e6dfd7e19e934e9af405d13d2fc4f4f940291ec0ff97cfadd6ab7c` + P2 summary·P1 plan 메타데이터 PASS. **P3 Test authorized=false, opened=false, evaluated=false**. Val1/3 vs majority2/3; 성능 HOLD, P4 미승인.
 - 운영 정책 [Agent-first / Owner WSL2 최종 1회](../../policies/SMARTDISH_AGENT_FIRST_WSL2_FINAL_ONLY_POLICY_KO.md): 에이전트 코드·CI·문서·분석 책임, 사용자 WSL2는 private/최종 인수만. 향후 환경 점검 필요시 단일 스크립트+자동 아카이브, **기존 PASS 재실행 불가**. C14 [교육 보고](../tasks/2026-11-27_C14_OWNER_MINIMAL_WSL2_EDU_KO.md).
 - AI OFF PROTECTED, A19 NOT_AUTHORIZED, Production Contact HOLD, P3 Test4 미개봉, E AI ON HOLD 지속.
+
+## 2026-11-27 C15 → C16 완료: 1차 Frozen 연구 기술검토 종료, 제품 Pilot HOLD
+
+- P2 원본 집계 SHA `945f8f4aeb3b8a8e9cb1873f4353620dbd660765b3eb9688ab234a61f97a3864`를 재사용한 C15 [실패 원인 분석](../tasks/2026-11-27_C15_P2_FAILURE_FORENSIC_EDU_KO.md): Val 1/3=33.3% < STABLE majority2/3=66.7%; frozen 1,026 trainable head params/총 9 optimizer steps, 이전 t0 RGB의 미래 physics label 예측 여부 미입증. **근본 단일 원인 단정 불가**.
+- C16 [기술적 연구 종료/의사결정](../tasks/2026-11-27_C16_RESEARCH_FIRST_PASS_DECISION_EDU_KO.md): `C16_FIRST_RESEARCH_PASS_CLOSED_NEGATIVE_VALIDATION_RESULT`. 첫 Frozen 연구 pass의 **부정적 결과 보존**. `C_RESEARCH_PILOT_ACCEPTED=false`, `P3_TEST_NOT_APPROVED_NOT_OPENED`, `P4_MODEL_HOLD`, `E_AI_ON_HOLD`.
+- 다른 실험·데이터 생산·A19·재학습은 신규 PM Change Request + 별도 승인 전 금지. 현재 사용자 WSL2 **추가 작업 없음**. P0/P1/P2/P3-pretest 기술 PASS 보존, Test4 봉인·AI OFF·Contact HOLD 지속.
