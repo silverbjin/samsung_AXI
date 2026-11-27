@@ -21,6 +21,7 @@ from smartdish_e_ci_live_tray_probe import CHILD as LIVE_CHILD, read_rows, stop
 from smartdish_e_ci_staff_dds_probe import CHILD as STAFF_CHILD, FIXTURE_SHA, FIXTURE_VERSION
 from smartdish_tray_world import write_trial
 from s3_map_contract import validate_s2_map03_candidate
+from smartdish_e_nav_velocity_overlay import prepare_overlay
 
 LEGS=["TO_TABLE","TO_RETURN","TO_HOME"]
 DEST=["T03","DISH_RETURN","HOME"]
@@ -195,7 +196,11 @@ def main():
         nav_action=ActionClient(node,NavigateToPose,"/navigate_to_pose")
         cm=node.create_client(GetState,"/collision_monitor/get_state")
         bt=node.create_client(GetState,"/bt_navigator/get_state")
-        launch("nav2",["ros2","launch","restaurant_bringup","navigation.launch.py","gui:=false",
+        from ament_index_python.packages import get_package_share_directory
+        nav_share=Path(get_package_share_directory("nav2_bringup"))
+        restaurant_launch=Path(get_package_share_directory("restaurant_bringup"))/"launch"/"navigation.launch.py"
+        generated_launch=prepare_overlay(nav_share,restaurant_launch,out)
+        launch("nav2",["ros2","launch",str(generated_launch),"gui:=false",
             "s6_stagger_nav_start:=true","robot_sdf:="+str(args.robot_sdf.resolve()),
             "map:="+str(map_file),"params_file:="+str(args.params.resolve())])
         wait(lambda:state["clock"] and state["scan"]>=3 and state["odom"] is not None and state["map"] is not None,220,"CLOCK_SCAN_ODOM_MAP")
@@ -243,7 +248,12 @@ def main():
             if not result["velocity_graph_transitions"] or result["velocity_graph_transitions"][-1]["graph"]!=g:
                 result["velocity_graph_transitions"].append({"t":time.monotonic(),"graph":g})
                 print("E_R4_VELOCITY_GRAPH="+json.dumps(g),flush=True)
-            return [e["node"] for e in g["/cmd_vel_publishers"]]==["collision_monitor"]
+            return ([e["node"] for e in g["/cmd_vel_publishers"]]==["collision_monitor"]
+                    and [e["node"] for e in g["/cmd_vel_subscribers"]]==["ros_gz_bridge"]
+                    and "docking_server" in [e["node"] for e in g["/cmd_vel_nav_publishers"]]
+                    and [e["node"] for e in g["/cmd_vel_nav_subscribers"]]==["velocity_smoother"]
+                    and [e["node"] for e in g["/cmd_vel_smoothed_publishers"]]==["velocity_smoother"]
+                    and [e["node"] for e in g["/cmd_vel_smoothed_subscribers"]]==["collision_monitor"])
         from ament_index_python.packages import get_package_share_directory
         installed_launch=Path(get_package_share_directory("nav2_bringup"))/"launch"/"navigation_launch.py"
         (out/"installed_nav2_navigation_launch.py").write_bytes(installed_launch.read_bytes())
@@ -342,7 +352,7 @@ def main():
                                       "TO_RETURN","WAIT_UNLOADING","TO_HOME","COMPLETED"))
         assert cm_active(),"E_R4_CM_NOT_ACTIVE_END"
         result["cm_active_end"]=True
-        assert any(ep.node_name=="collision_monitor" for ep in node.get_publishers_info_by_topic("/cmd_vel"))
+        assert cm_sole(),"E_R4_VELOCITY_CHAIN_DRIFT_END"
         result["cm_cmd_vel_publishers"]=[ep.node_name for ep in node.get_publishers_info_by_topic("/cmd_vel")]
         assert result["cm_cmd_vel_publishers"]==["collision_monitor"],result["cm_cmd_vel_publishers"]
         result["verdict"]="E_R4_REAL_NAV2_STATION_CI_TEST_DOUBLE_PASS"
