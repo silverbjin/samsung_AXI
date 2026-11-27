@@ -22,5 +22,6 @@ setup(
     entry_points={"console_scripts": [
         "smartdish_manager = smartdish_service.manager_node:main",
         "smartdish_ui = smartdish_service.ui_app:main",
+        "smartdish_product_recovery_ui = smartdish_service.product_recovery_ui:main",
     ]},
 )
